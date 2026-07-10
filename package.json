@@ -1,0 +1,10 @@
+{
+  "name": "classes-connectees",
+  "version": "0.1.0",
+  "description": "Prototype - prof IA (SVT college, programme marocain)",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "license": "UNLICENSED"
+}

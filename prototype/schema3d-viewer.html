@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bibliotheque 3D - Classes Connectees</title>
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<style>
+  :root{--bg:#0b1220;--panel:#101a2b;--card:#16233a;--line:#26364d;--text:#e2e8f0;--muted:#94a3b8;--accent:#38bdf8;--ok:#22c55e}
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif}
+  header{display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--panel);border-bottom:1px solid var(--line)}
+  h1{font-size:18px;margin:0;flex:1}
+  a.back{color:var(--text);background:#334155;text-decoration:none;padding:8px 12px;border-radius:8px;font-size:14px;font-weight:700}
+  main{height:calc(100% - 58px);display:grid;grid-template-columns:320px minmax(360px,1fr) 390px;gap:14px;padding:14px}
+  @media(max-width:1050px){main{height:auto;grid-template-columns:1fr}.preview{min-height:420px}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;min-width:0;overflow:hidden}
+  .panel h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .list{padding:8px;display:flex;flex-direction:column;gap:6px;max-height:calc(100vh - 120px);overflow:auto}
+  .item{background:var(--card);border:1px solid transparent;border-radius:8px;padding:10px;text-align:left;color:var(--text);cursor:pointer}
+  .item:hover,.item.active{border-color:var(--accent)}
+  .item b{display:block;font-size:14px;margin-bottom:3px;color:#f8fafc}
+  .item span{display:block;font-size:12px;line-height:1.35;color:var(--muted)}
+  .empty{padding:14px;color:#fca5a5;font-size:13px;line-height:1.5}
+  .preview{position:relative;display:flex;flex-direction:column;min-height:0}
+  #canvasHost{flex:1;min-height:360px;background:radial-gradient(circle at 35% 20%,rgba(56,189,248,.14),rgba(2,6,23,.28) 45%,rgba(2,6,23,.62))}
+  #canvasHost canvas{display:block;width:100%;height:100%}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px;border-top:1px solid var(--line)}
+  button{border:0;border-radius:8px;background:#334155;color:var(--text);padding:9px 12px;font-weight:700;cursor:pointer}
+  button:hover{background:#475569}
+  button.primary{background:var(--accent);color:#082f49}
+  button.ok{background:var(--ok);color:#052e16}
+  textarea{width:100%;height:calc(100vh - 235px);min-height:360px;resize:vertical;border:0;border-top:1px solid var(--line);outline:0;background:#08111f;color:#dbeafe;padding:12px;font:12.5px/1.5 Consolas,Monaco,monospace}
+  .status{font-size:12px;color:var(--muted);padding:0 12px 12px}
+  .status.ok{color:#86efac}.status.err{color:#fca5a5}
+  .help{padding:12px 14px;color:var(--muted);font-size:12px;line-height:1.45;border-top:1px solid var(--line)}
+  code{color:#bae6fd}
+</style>
+</head>
+<body>
+<header>
+  <h1>Bibliotheque des fichiers 3D</h1>
+  <a class="back" href="prof.html">Espace prof</a>
+  <a class="back" href="index.html">Cours</a>
+</header>
+<main>
+  <section class="panel">
+    <h2>Fichiers disponibles</h2>
+    <div id="catalog" class="list"></div>
+  </section>
+
+  <section class="panel preview">
+    <h2>Apercu manipulable</h2>
+    <div id="canvasHost"></div>
+    <div class="toolbar">
+      <button id="refreshBtn" class="primary">Actualiser</button>
+      <button id="renderBtn">Afficher JSON</button>
+      <span id="status" class="status"></span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Scene JSON pour DeepSeek</h2>
+    <textarea id="jsonEditor" spellcheck="false"></textarea>
+    <div class="toolbar">
+      <button id="copyJson" class="ok">Copier JSON</button>
+      <button id="copyPrompt">Copier consigne IA</button>
+    </div>
+    <div class="help">
+      Dossier pour tes prochains modeles : <code>prototype/models3d</code>.<br>
+      Dossier externe lu si present : <code>C:\Users\HP\Desktop\3D svg</code>.<br>
+      Formats acceptes : <code>.glb</code>, <code>.gltf</code>, <code>.fbx</code>, <code>.obj</code>, <code>.svg</code>.
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import { fetchModelCatalog, mountSchema3D } from './schema3d-library.js';
+
+const catalogEl = document.getElementById('catalog');
+const editor = document.getElementById('jsonEditor');
+const host = document.getElementById('canvasHost');
+const status = document.getElementById('status');
+let catalog = { models: [] };
+let currentMount = null;
+let currentModel = null;
+
+function setStatus(message, kind){
+  status.textContent = message || '';
+  status.className = 'status ' + (kind || '');
+}
+
+function sceneFor(model){
+  return {
+    title: model.name,
+    model: model.id,
+    scale: 1,
+    rotation: [0, 0, 0],
+    position: [0, 0, 0],
+    camera: { position: [0, 1.5, 7], target: [0, 0, 0] },
+    autoRotate: true
+  };
+}
+
+async function renderScene(scene){
+  try{
+    if(currentMount) currentMount.dispose();
+    currentMount = await mountSchema3D(host, scene, { useGlobalDispose:false });
+    editor.value = JSON.stringify(scene, null, 2);
+    setStatus('Modele affiche.', 'ok');
+  }catch(err){
+    setStatus('Erreur: ' + (err && err.message ? err.message : err), 'err');
+  }
+}
+
+async function selectModel(model){
+  currentModel = model;
+  document.querySelectorAll('.item').forEach(el => el.classList.toggle('active', el.dataset.id === model.id));
+  await renderScene(sceneFor(model));
+}
+
+function renderCatalog(){
+  catalogEl.innerHTML = '';
+  const models = catalog.models || [];
+  if(!models.length){
+    catalogEl.innerHTML = '<div class="empty">Aucun fichier modele trouve.<br>Depose tes fichiers dans <b>prototype/models3d</b>, ou dans <b>C:\\Users\\HP\\Desktop\\3D svg</b>.</div>';
+    editor.value = JSON.stringify({ title:'Mon modele', model:'models3d/nom-du-fichier.glb', scale:1, autoRotate:true }, null, 2);
+    return;
+  }
+  models.forEach(model => {
+    const btn = document.createElement('button');
+    btn.className = 'item';
+    btn.dataset.id = model.id;
+    btn.innerHTML = `<b>${model.name}</b><span>${model.source} · .${model.ext} · ${model.file}</span>`;
+    btn.onclick = () => selectModel(model);
+    catalogEl.appendChild(btn);
+  });
+  selectModel(models[0]);
+}
+
+async function refresh(){
+  try{
+    catalog = await fetchModelCatalog();
+    renderCatalog();
+    setStatus((catalog.models || []).length + ' modele(s) trouve(s).', 'ok');
+  }catch(err){
+    setStatus('Erreur: ' + err.message, 'err');
+  }
+}
+
+document.getElementById('refreshBtn').onclick = refresh;
+document.getElementById('renderBtn').onclick = () => {
+  try{ renderScene(JSON.parse(editor.value)); }
+  catch(err){ setStatus('JSON invalide: ' + err.message, 'err'); }
+};
+document.getElementById('copyJson').onclick = async () => {
+  await navigator.clipboard.writeText(editor.value);
+  setStatus('JSON copie.', 'ok');
+};
+document.getElementById('copyPrompt').onclick = async () => {
+  const prompt = 'Utilise le champ schema3d avec ce format: {"title":"titre","model":"ID_DU_MODELE","scale":1,"rotation":[0,0,0],"position":[0,0,0],"autoRotate":true}. Choisis uniquement un ID present dans /api/models3d.';
+  await navigator.clipboard.writeText(prompt);
+  setStatus('Consigne IA copiee.', 'ok');
+};
+
+refresh();
+</script>
+</body>
+</html>

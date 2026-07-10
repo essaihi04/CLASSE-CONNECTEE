@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Avatar VRM</title>
+<style>
+  html,body{margin:0;height:100%;background:transparent;overflow:hidden;
+    font-family:'Segoe UI',sans-serif}
+  #c{width:100%;height:100%;display:block}
+  #msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    text-align:center;color:#cbd5e1;font-size:13px;padding:14px;line-height:1.5}
+  #msg.hidden{display:none}
+</style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="msg">Chargement de l'avatar 3D…</div>
+
+  <script type="importmap">
+  { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+      "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3/lib/three-vrm.module.min.js"
+  }}
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+
+    const params = new URLSearchParams(location.search);
+    const VRM_URL = params.get('src') || 'models/prof/prof.vrm';
+    const msg = document.getElementById('msg');
+
+    // ---- Scène Three.js (transparente) ----
+    const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), alpha:true, antialias:true });
+    renderer.setClearColor(0x000000, 0);                 // fond transparent
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 20);
+
+    const light = new THREE.DirectionalLight(0xffffff, Math.PI);
+    light.position.set(1, 2, 2); scene.add(light);
+    scene.add(new THREE.AmbientLight(0xffffff, Math.PI*0.5));
+
+    function resize(){
+      const w = window.innerWidth, h = window.innerHeight;
+      renderer.setSize(w, h, false);
+      camera.aspect = w/h; camera.updateProjectionMatrix();
+      if(vrm) applyFraming();                 // garde le bon cadrage (corps ou visage) après resize
+    }
+    let vrm=null, speaking=false, sceneMood='greet';
+    let visemeT=0, blinkT=0, blinkNext=2+Math.random()*3, t0=performance.now();
+    let walking=false, walkT0=0;                          // marche vers le tableau
+
+    window.addEventListener('resize', resize); resize();   // après déclaration de vrm (évite la TDZ)
+
+    const loader = new GLTFLoader();
+    loader.register((parser)=> new VRMLoaderPlugin(parser));
+    loader.load(VRM_URL, (gltf)=>{
+      vrm = gltf.userData.vrm;
+      VRMUtils.removeUnnecessaryVertices(gltf.scene);
+      VRMUtils.combineSkeletons(gltf.scene);
+      VRMUtils.rotateVRM0(vrm);                          // VRM0 -> face caméra
+      scene.add(vrm.scene);
+      // l'avatar regarde la cible de regard (élève ou tableau, voir setLook)
+      if(vrm.lookAt) vrm.lookAt.target = lookTarget;
+      window.vrm = vrm;            // debug : inspection depuis la page parente
+      if(params.get('coat')!=='0') whitenTops();   // BLOUSE BLANCHE du prof (mettre ?coat=0 pour la retirer)
+      applyFraming();              // cadrage selon le mode courant (corps ENTIER par défaut → pieds visibles)
+      msg.classList.add('hidden');
+      setScene('greet');
+    },
+    (p)=>{ if(p.total) msg.textContent = 'Chargement… '+Math.round(p.loaded/p.total*100)+'%'; },
+    (err)=>{ msg.classList.remove('hidden'); msg.innerHTML='⚠️ Avatar VRM introuvable.<br>Dépose <b>prof.vrm</b> dans <b>prototype/models/prof/</b>.'; console.error(err); });
+
+    // ---- BLOUSE BLANCHE : recolore la VESTE (matériau "Tops") en blanc dans sa texture.
+    // Seuls les pixels sombres et NEUTRES (gris/noir de la veste) deviennent blancs :
+    // la chemise (claire) et la cravate (bleue, saturée) sont préservées.
+    const _whiteCache = new WeakMap();
+    function whitenTexture(tex){
+      if(!tex || !tex.image) return tex;
+      if(_whiteCache.has(tex)) return _whiteCache.get(tex);
+      const img=tex.image, c=document.createElement('canvas');
+      c.width=img.width; c.height=img.height;
+      const g=c.getContext('2d'); g.drawImage(img,0,0);
+      const d=g.getImageData(0,0,c.width,c.height), p=d.data;
+      for(let i=0;i<p.length;i+=4){
+        const r=p[i], gg=p[i+1], b=p[i+2];
+        const mx=Math.max(r,gg,b), mn=Math.min(r,gg,b);
+        if(mx-mn<34 && mx<110){                       // sombre ET neutre = tissu de la veste
+          const v=222+Math.round(mx/110*26);          // blanc cassé ; les plis restent légèrement gris
+          p[i]=v; p[i+1]=v; p[i+2]=v;
+        }
+      }
+      g.putImageData(d,0,0);
+      const nt=new THREE.CanvasTexture(c);
+      nt.flipY=tex.flipY; nt.wrapS=tex.wrapS; nt.wrapT=tex.wrapT; nt.colorSpace=tex.colorSpace;
+      nt.needsUpdate=true; _whiteCache.set(tex,nt); return nt;
+    }
+    function whitenTops(){
+      vrm.scene.traverse(o=>{
+        if(!o.isMesh) return;
+        (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{
+          if(!m || !/Tops/.test(m.name)) return;
+          ['map','shadeMultiplyTexture'].forEach(k=>{ if(m[k]) m[k]=whitenTexture(m[k]); });
+          m.needsUpdate=true;
+        });
+      });
+    }
+
+    let camMode='body';                 // 'body' = corps ENTIER (pieds compris) ; 'bust' = tête+buste ; 'head' = visage
+    function headY(){ const head=vrm?.humanoid?.getNormalizedBoneNode('head');
+      if(head){ const v=new THREE.Vector3(); head.getWorldPosition(v); return v.y; } return 1.35; }
+    // CORPS ENTIER : du dessus de la tête jusqu'aux PIEDS (toujours visibles),
+    // distance calculée pour que tout tienne dans le cadre quel que soit le format de la boîte
+    function frameFull(){
+      const top = headY()+0.24, bottom = -0.06;          // marge au-dessus de la tête / sous les pieds
+      const mid = (top+bottom)/2, half=(top-bottom)/2;
+      const vHalf = Math.tan(camera.fov*Math.PI/360);
+      // le corps REMPLIT la hauteur de la boîte (agrandir verticalement agrandit vraiment l'avatar) ;
+      // la limite en largeur ne joue que si la boîte est très étroite (épaules coupées sinon)
+      let dist = half*1.04/vHalf;
+      dist = Math.max(dist, 0.42/(vHalf*camera.aspect));
+      camera.position.set(0, mid, dist);
+      camera.lookAt(0, mid, 0);
+    }
+    // cadrer le haut du corps (tête + buste)
+    function frameUpper(){
+      const y = headY();
+      camera.position.set(0, y+0.10, 6.0);
+      camera.lookAt(0, y+0.10, 0);
+    }
+    // GROS PLAN sur le visage (avatar = tête qui parle en haut de l'écran)
+    function frameHead(){
+      const y = headY();
+      camera.position.set(0, y+0.02, 2.35);   // caméra proche : on ne voit que le visage
+      camera.lookAt(0, y+0.02, 0);
+    }
+    function applyFraming(){ if(camMode==='head') frameHead(); else if(camMode==='bust') frameUpper(); else frameFull(); }
+
+    // ---- helpers expressions ----
+    function expr(name, v){ try{ vrm.expressionManager?.setValue(name, v); }catch(e){} }
+    function clearVisemes(){ ['aa','ih','ou','ee','oh'].forEach(x=>expr(x,0)); }
+
+    const VISEMES=['aa','ih','ou','ee','oh'];
+    let curViseme='aa';
+
+    // ---- API pilotée par l'app parente (postMessage) ----
+    window.addEventListener('message', (e)=>{
+      const d=e.data||{};
+      if(d.type==='speak'){ speaking = !!d.on; if(!speaking && vrm){ clearVisemes(); } }
+      if(d.type==='scene'){ setScene(d.name); }          // compat (ancien système)
+      if(d.type==='gesture'){ doGesture(d.name); }       // nouveau : geste du corps
+      if(d.type==='emotion'){ setEmotion(d.name); }      // nouveau : expression du visage
+      if(d.type==='framing'){ camMode = (d.mode==='head'||d.mode==='bust') ? d.mode : 'body'; applyFraming(); }  // corps entier / buste / visage
+      if(d.type==='look'){ setLook(d.at); }              // regard : 'board' (vers le tableau) / 'front' (vers l'élève)
+      if(d.type==='walk'){                               // marche (jambes animées)
+        walking = !!d.on;
+        if(walking){ walkT0 = performance.now(); curPose = POSES.rest; }  // bras le long du corps
+        else resetWalk();
+      }
+    });
+
+    function bone(n){ return vrm.humanoid?.getNormalizedBoneNode(n); }
+
+    // remet jambes / bras / bassin au repos quand la marche s'arrête
+    function resetWalk(){
+      if(!vrm) return;
+      ['leftUpperLeg','rightUpperLeg','leftLowerLeg','rightLowerLeg'].forEach(n=>{ const b=bone(n); if(b) b.rotation.x=0; });
+      const la=bone('leftUpperArm'), ra=bone('rightUpperArm'); if(la) la.rotation.x=0; if(ra) ra.rotation.x=0;
+      if(vrm.scene) vrm.scene.position.y=0;
+    }
+
+    // Poses TENUES (la pose 0 de three-vrm est une T-pose -> on baisse les bras).
+    // Aucune oscillation : le mouvement vient du CHANGEMENT de pose selon le cas.
+    // (le tableau/texte est à DROITE de l'avatar -> il pointe avec son bras gauche)
+    // hand: 'rest' | 'point' (index tendu) | 'clasp' (mains jointes) | 'open'
+    const POSES = {
+      rest:    { rightUpperArm:[0,0,-1.25], rightLowerArm:[0,0,-0.15], leftUpperArm:[0,0,1.25],  leftLowerArm:[0,0,0.15],  leftHand:[0,0,0], spineY:0,   hand:'rest' },
+      // ACCUEIL : mains rassemblées devant (avant-bras repliés vers le centre)
+      greet:   { rightUpperArm:[-0.35,0,-1.0], rightLowerArm:[-0.95,0.85,-0.2], leftUpperArm:[-0.35,0,1.0], leftLowerArm:[-0.95,-0.85,0.2], spineY:0, hand:'clasp' },
+      // EXPLICATION : coude plié, avant-bras LEVÉ, main ouverte en haut (réf. image)
+      // main au niveau de l'épaule/poitrine, orientée vers le tableau (présentation, pas "élève")
+      explain: { rightUpperArm:[0,0,-1.25], rightLowerArm:[0,0,-0.15], leftUpperArm:[-0.25,0,0.15], leftLowerArm:[0,0,-0.55], leftHand:[0,-0.45,-0.25], spineY:-0.2, hand:'open' },
+      think:   { rightUpperArm:[0,0,-1.0],  rightLowerArm:[-2.1,0,-0.25], leftUpperArm:[0,0,1.25], leftLowerArm:[0,0,0.15], spineY:0.05, hand:'rest' },
+      motivate:{ rightUpperArm:[0,0,-0.85], rightLowerArm:[-1.5,0,-0.35], leftUpperArm:[0,0,0.85], leftLowerArm:[-1.5,0,0.35], spineY:0, hand:'open' },
+      // SALUER : coude plié, avant-bras LEVÉ, main ouverte près de la tête (oscillation dans la boucle)
+      wave:    { rightUpperArm:[0,0,-0.7],  rightLowerArm:[-1.95,0,-0.3], leftUpperArm:[0,0,1.25], leftLowerArm:[0,0,0.15], spineY:0, hand:'open' },
+      // POINTER le tableau (à droite de l'avatar -> son bras GAUCHE), index tendu
+      point:   { rightUpperArm:[0,0,-1.25], rightLowerArm:[0,0,-0.15], leftUpperArm:[-0.55,0,0.35], leftLowerArm:[-0.2,0,-0.75], leftHand:[0,-0.3,-0.2], spineY:-0.28, hand:'point' },
+      // ÉNUMÉRER : avant-bras gauche levé, main ouverte (léger balancement dans la boucle)
+      count:   { rightUpperArm:[0,0,-1.25], rightLowerArm:[0,0,-0.15], leftUpperArm:[-0.3,0,0.2],  leftLowerArm:[-0.35,0,-0.9], leftHand:[0,-0.4,-0.2], spineY:-0.12, hand:'open' },
+      // APPROUVER : pose d'explication (le hochement de tête est animé dans la boucle)
+      nod:     { rightUpperArm:[0,0,-1.25], rightLowerArm:[0,0,-0.15], leftUpperArm:[-0.25,0,0.15], leftLowerArm:[0,0,-0.55], leftHand:[0,-0.45,-0.25], spineY:-0.1, hand:'open' },
+      // ÉCRIRE au tableau : bras gauche levé haut, main fermée (tient la craie), corps tourné vers le tableau
+      write:   { rightUpperArm:[0,0,-1.25], rightLowerArm:[0,0,-0.15], leftUpperArm:[-1.15,0,0.3], leftLowerArm:[-0.45,0,-0.35], leftHand:[0,-0.35,-0.2], spineY:-0.42, hand:'clasp' },
+      // APPLAUDIR : deux mains devant la poitrine (le battement est animé dans la boucle)
+      clap:    { rightUpperArm:[-0.45,0,-0.95], rightLowerArm:[-1.15,0.55,-0.2], leftUpperArm:[-0.45,0,0.95], leftLowerArm:[-1.15,-0.55,0.2], spineY:0, hand:'open' },
+      // ACCUEILLIR : bras ouverts, paumes vers l'élève (bienvenue / présentation)
+      welcome: { rightUpperArm:[-0.15,0,-0.85], rightLowerArm:[-0.45,0,-0.35], leftUpperArm:[-0.15,0,0.85], leftLowerArm:[-0.45,0,0.35], spineY:0, hand:'open' }
+    };
+    let curPose = POSES.rest;
+
+    // ---- REGARD : l'avatar regarde l'élève (caméra) ou le TABLEAU (à sa gauche = droite de l'écran) ----
+    const lookTarget = new THREE.Object3D(); scene.add(lookTarget);
+    let lookMode='front', headYaw=0;        // headYaw = rotation de tête visée (easée dans la boucle)
+    function setLook(where){
+      lookMode = (where==='board') ? 'board' : 'front';
+      headYaw  = (lookMode==='board') ? 0.55 : 0;   // tourne la tête vers le tableau
+    }
+    // regard automatique selon le geste : pointer/écrire = tableau, sinon face à l'élève
+    const GESTURE_LOOK = { point:'board', write:'board' };
+
+    // ---- gestes du corps (nouveau système piloté par l'IA) ----
+    // gestes "tenus" vs "ponctuels" (qui se jouent puis reviennent à 'explain')
+    let emotion='neutral', activeGesture='explain', gestureT=0;
+    const TRANSIENT = { wave:1.8, nod:1.3, count:2.4, clap:1.8, write:3.2 };   // durée en secondes
+
+    function doGesture(name){
+      if(!vrm) return;
+      if(!POSES[name]) name='explain';
+      activeGesture = name; gestureT = 0;
+      curPose = POSES[name] || POSES.explain;
+      setLook(GESTURE_LOOK[name] || 'front');
+    }
+
+    function setEmotion(name){
+      emotion = name || 'neutral';
+      if(!vrm) return;
+      ['happy','relaxed','angry','sad','surprised'].forEach(m=>expr(m,0));
+      if(name==='happy')      expr('happy', .8);
+      else if(name==='curious')   expr('relaxed', .5);
+      else if(name==='surprised') expr('surprised', .7);
+      // 'neutral' : visage au repos
+    }
+
+    function setScene(name){
+      sceneMood = name;
+      if(!vrm) return;
+      // expression du visage selon la situation
+      ['happy','relaxed','angry','sad','surprised'].forEach(m=>expr(m,0));
+      if(name==='greet'   ) expr('happy', .6);
+      if(name==='think'   ) expr('relaxed', .5);
+      if(name==='motivate') expr('happy', 1);
+      curPose = POSES[name] || POSES.rest;
+    }
+
+    // ---- doigts ----
+    function fingerCurl(side, finger, c){
+      const segs=['Proximal','Intermediate','Distal'], amt=[c, c*1.2, c*0.7], sgn=(side==='left'?-1:1);
+      segs.forEach((s,i)=>{ const b=bone(side+finger+s); if(b) b.rotation.z = sgn*amt[i]; });
+    }
+    function setHand(side, mode){
+      const all=['Index','Middle','Ring','Little'];
+      if(mode==='point'){ fingerCurl(side,'Index',0); ['Middle','Ring','Little'].forEach(f=>fingerCurl(side,f,1.3)); }
+      else if(mode==='clasp'){ all.forEach(f=>fingerCurl(side,f,0.55)); }
+      else { all.forEach(f=>fingerCurl(side,f,0)); }   // rest / open : doigts détendus
+    }
+
+    function applyGestures(){
+      if(!vrm?.humanoid) return;
+      const ease=(n)=>{ const b=bone(n), r=curPose[n]||POSES.rest[n]; if(!b)return;
+        b.rotation.x+=(r[0]-b.rotation.x)*0.08; b.rotation.y+=(r[1]-b.rotation.y)*0.08; b.rotation.z+=(r[2]-b.rotation.z)*0.08; };
+      ['rightUpperArm','rightLowerArm','leftUpperArm','leftLowerArm','leftHand'].forEach(ease);
+      // mains : la gauche pointe en explication ; les deux se joignent à l'accueil
+      const h=curPose.hand||'rest';
+      setHand('left',  h);
+      setHand('right', h==='clasp' ? 'clasp' : (h==='open' ? 'open' : 'rest'));
+    }
+
+    // ---- boucle d'animation ----
+    const clock = new THREE.Clock();
+    function loop(){
+      requestAnimationFrame(loop);
+      const dt = clock.getDelta();
+      const now = performance.now();
+      if(vrm){
+        const t=(now-t0)/1000;
+        // respiration très légère (presque immobile)
+        const spine=bone('spine'); if(spine){ spine.rotation.x = Math.sin(t*0.8)*0.012;
+          spine.rotation.y += ((curPose.spineY||0)-spine.rotation.y)*0.06; }
+
+        // clignement des yeux
+        blinkT += dt;
+        if(blinkT>blinkNext){ const k=(blinkT-blinkNext); expr('blink', k<0.12? (k/0.12) : k<0.24? (1-(k-0.12)/0.12):0);
+          if(k>0.24){ blinkT=0; blinkNext=2+Math.random()*4; expr('blink',0); } }
+
+        // LIP-SYNC : la bouche bouge tant que "speaking" est vrai
+        if(speaking){
+          visemeT += dt;
+          if(visemeT>0.09){ visemeT=0; clearVisemes(); curViseme=VISEMES[(Math.random()*VISEMES.length)|0];
+            expr(curViseme, 0.4+Math.random()*0.6); }
+        }
+
+        applyGestures();
+
+        // ---- REGARD : yeux + rotation douce de la tête/du cou vers la cible ----
+        // (le tableau est à la GAUCHE de l'avatar = droite de l'écran → cible en x positif)
+        if(lookMode==='board') lookTarget.position.set(1.7, headY()-0.05, 1.1);
+        else                   lookTarget.position.copy(camera.position);
+        const hd=bone('head'), nk=bone('neck');
+        // micro-vie : quand il PARLE, la tête bouge légèrement (plus vivant, comme un vrai prof)
+        const wob = speaking ? Math.sin(t*1.7)*0.035 : 0;
+        const wobZ = speaking ? Math.sin(t*1.1)*0.02  : 0;
+        if(hd){ hd.rotation.y += ((headYaw*0.7+wob)-hd.rotation.y)*0.07;
+                hd.rotation.z += (wobZ-hd.rotation.z)*0.05; }
+        if(nk){ nk.rotation.y += ((headYaw*0.35)-nk.rotation.y)*0.07; }
+
+        // ---- MARCHE : cycle jambes + bras opposés + balancement du bassin ----
+        // (marche "sur place" ; c'est la boîte de l'avatar, côté page, qui glisse
+        //  vers le tableau → l'ensemble donne l'impression qu'il marche jusqu'au schéma)
+        if(walking){
+          const w=(now-walkT0)/1000, sp=7;
+          const s=Math.sin(w*sp), s2=Math.sin(w*sp+Math.PI);
+          const setX=(n,x)=>{ const b=bone(n); if(b) b.rotation.x=x; };
+          setX('leftUpperLeg',  s*0.5);  setX('rightUpperLeg', s2*0.5);          // cuisses avant/arrière
+          setX('leftLowerLeg',  Math.max(0,-s)*0.7);  setX('rightLowerLeg', Math.max(0,-s2)*0.7); // genou plié au retour
+          const la=bone('leftUpperArm'), ra=bone('rightUpperArm');               // bras opposés aux jambes
+          if(la) la.rotation.x = s2*0.45; if(ra) ra.rotation.x = s*0.45;
+          if(vrm.scene) vrm.scene.position.y = Math.abs(Math.sin(w*sp))*0.035;    // léger rebond
+        }
+
+        // ---- gestes ponctuels animés (overlay par-dessus la pose tenue) ----
+        if(TRANSIENT[activeGesture]){
+          gestureT += dt;
+          if(activeGesture==='nod'){
+            // ASSIGNATION (pas +=) sinon la rotation s'accumule et la tête reste penchée
+            const hd=bone('head'); if(hd) hd.rotation.x = Math.sin(gestureT*7)*0.12 + 0.03;
+          } else if(activeGesture==='count'){
+            const a=bone('leftLowerArm'); if(a) a.rotation.z += Math.sin(gestureT*5)*0.18;
+          } else if(activeGesture==='clap'){
+            // battement : ASSIGNATION autour de la pose (pas += : l'ajout s'accumule via le lissage)
+            const s=Math.abs(Math.sin(gestureT*10))*0.30;
+            const a=bone('leftLowerArm'), b=bone('rightLowerArm');
+            if(a) a.rotation.y = -0.55 + s;   // les mains se rapprochent…
+            if(b) b.rotation.y =  0.55 - s;   // …et s'écartent en rythme
+          } else if(activeGesture==='write'){
+            // la main "écrit" : poignet qui trace + bras qui suit la ligne (ASSIGNATION)
+            const a=bone('leftLowerArm'), h=bone('leftHand');
+            if(h) h.rotation.z = -0.20 + Math.sin(gestureT*9)*0.16;
+            if(a) a.rotation.x = -0.45 + Math.sin(gestureT*4.5)*0.10;
+          }
+          // fin du geste -> on remet la tête droite et on revient à l'explication neutre
+          if(gestureT > TRANSIENT[activeGesture]){
+            const hd2=bone('head'); if(hd2) hd2.rotation.x = 0;
+            activeGesture='explain'; curPose=POSES.explain; setLook('front');
+          }
+        }
+
+        vrm.update(dt);
+      }
+      renderer.render(scene, camera);
+    }
+    loop();
+
+    // signale au parent que l'avatar est prêt
+    window.parent && window.parent.postMessage({type:'avatarReady'}, '*');
+  </script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "digestion": {
+    "0": [
+      {
+        "type": "video",
+        "url": "/uploads/1783441480911-j2aerq.mp4",
+        "caption": "",
+        "name": "WhatsApp Video 2026-07-01 at 17.49.07.mp4"
+      }
+    ],
+    "*": [
+      {
+        "type": "video",
+        "url": "/uploads/1783441248570-r5jhcs.mp4",
+        "caption": "les aliments",
+        "name": "WhatsApp Video 2026-07-01 at 17.49.07.mp4"
+      }
+    ]
+  },
+  "les-aliments": {
+    "0": [],
+    "3": [],
+    "4": [],
+    "5": []
+  }
+}

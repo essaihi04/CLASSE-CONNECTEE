@@ -1,0 +1,22 @@
+# ===== Secrets / identifiants (NE JAMAIS PUBLIER) =====
+*.key
+google_oauth_client.json
+.env
+.env.*
+
+# ===== Dépendances =====
+node_modules/
+
+# ===== Contenu téléversé à l'exécution (lourd) =====
+prototype/uploads/
+
+# ===== Fichiers générés / logs / sauvegardes =====
+server.log
+*.log
+tts_out.bin
+lesson_overrides.backup-*.json
+m\[2\])
+
+# ===== Divers OS / éditeur =====
+.DS_Store
+Thumbs.db

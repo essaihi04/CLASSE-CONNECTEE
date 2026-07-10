@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Espace supports — Classes Connectées</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+  :root{ --bg:#0b1220; --panel:#0f1b2e; --card:#16233a; --line:#243449;
+         --accent:#38bdf8; --text:#e2e8f0; --muted:#94a3b8; --ok:#22c55e; --warn:#f59e0b; --danger:#ef4444; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text)}
+  a{color:var(--accent)}
+  header{display:flex;align-items:center;gap:12px;padding:14px 20px;background:var(--panel);
+         border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  header h1{font-size:18px;margin:0;flex:1}
+  header .back{background:#334155;color:#e2e8f0;text-decoration:none;padding:8px 13px;border-radius:10px;font-size:14px;font-weight:600}
+  header .back:hover{background:#475569}
+  .wrap{max-width:1100px;margin:0 auto;padding:20px;display:grid;grid-template-columns:320px 1fr;gap:20px}
+  @media(max-width:820px){ .wrap{grid-template-columns:1fr} }
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .panel h2{font-size:14px;margin:0 0 12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  label.field{display:block;margin:0 0 12px;font-size:13px;color:var(--muted)}
+  label.field span{display:block;margin-bottom:5px}
+  select,input,textarea{width:100%;background:var(--card);color:var(--text);border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit}
+  textarea{min-height:90px;resize:vertical;line-height:1.45}
+  select:focus,input:focus,textarea:focus{outline:none;border-color:var(--accent)}
+  .steps{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+  .step-btn{display:flex;align-items:center;gap:8px;text-align:left;background:var(--card);border:1px solid var(--line);
+    color:var(--text);border-radius:10px;padding:9px 11px;cursor:pointer;font-size:13px;transition:.12s;width:100%}
+  .step-btn:hover{border-color:var(--accent)}
+  .step-btn.active{border-color:var(--accent);background:#12233b;box-shadow:0 0 0 1px var(--accent) inset}
+  .step-btn .ph{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#0b1220;background:var(--accent);
+    border-radius:6px;padding:1px 6px;font-weight:700}
+  .step-btn .n{color:var(--muted);font-variant-numeric:tabular-nums;min-width:20px}
+  .step-btn .count{margin-left:auto;background:#334155;border-radius:20px;padding:1px 8px;font-size:11px;color:#cbd5e1}
+  .step-btn .count.zero{opacity:.35}
+  .editor .head{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+  .editor .head h2{margin:0}
+  .editor .head .sub{color:var(--muted);font-size:13px}
+  .types{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}
+  .type-tab{background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:20px;
+    padding:7px 14px;cursor:pointer;font-size:13px;font-weight:600}
+  .type-tab.active{background:var(--accent);color:#082f49;border-color:var(--accent)}
+  .add-btn{background:var(--accent);color:#082f49;border:none;border-radius:10px;padding:11px 16px;
+    font-weight:700;cursor:pointer;font-size:14px}
+  .add-btn:disabled{opacity:.5;cursor:default}
+  .ghost{background:#334155;color:#e2e8f0;border:none;border-radius:10px;padding:11px 16px;font-weight:600;cursor:pointer;font-size:14px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.4}
+  .supports{margin-top:22px;display:flex;flex-direction:column;gap:12px}
+  .support{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;gap:12px}
+  .support .ico{font-size:22px;line-height:1}
+  .support .body{flex:1;min-width:0}
+  .support .body .kind{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px}
+  .support .body .txt{white-space:pre-wrap;line-height:1.5;font-size:14px;word-break:break-word}
+  .support .body a{word-break:break-all}
+  .support img,.support video{max-width:160px;max-height:120px;border-radius:8px;border:1px solid var(--line)}
+  .support .acts{display:flex;flex-direction:column;gap:6px}
+  .support .acts button{background:#33415588;border:none;color:#e2e8f0;border-radius:8px;padding:6px 9px;cursor:pointer;font-size:12px}
+  .support .acts button:hover{background:#475569}
+  .empty{color:var(--muted);font-size:14px;padding:24px;text-align:center;border:1px dashed var(--line);border-radius:12px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#16233a;border:1px solid var(--line);
+    padding:12px 18px;border-radius:12px;font-size:14px;box-shadow:0 8px 30px #0008;opacity:0;transition:.2s;pointer-events:none}
+  .toast.show{opacity:1}
+  .toast.err{border-color:var(--danger)}
+  .ainote{background:#0d2033;border:1px solid #1e3a5f;border-radius:10px;padding:10px 12px;font-size:12.5px;color:#bae6fd;margin-top:14px;line-height:1.5}
+  /* Éléments INTÉGRÉS de la leçon (schéma / simulation / image créés par l'assistant) */
+  .builtin{margin:16px 0 4px;border:1px solid #3b2f1e;background:#1c1608;border-radius:12px;padding:14px}
+  .builtin h3{margin:0 0 4px;font-size:13px;color:#fcd34d;text-transform:uppercase;letter-spacing:.04em}
+  .builtin .sub{font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.4}
+  .bi-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px;display:flex;gap:12px;align-items:flex-start;margin-top:9px}
+  .bi-card.hidden{opacity:.55}
+  .bi-card .bi-ico{font-size:20px;line-height:1}
+  .bi-card .bi-body{flex:1;min-width:0}
+  .bi-card .bi-name{font-weight:700;font-size:13.5px;margin-bottom:2px}
+  .bi-card .bi-state{font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted)}
+  .bi-card .bi-state.off{color:var(--warn)}
+  .bi-card .bi-state.rep{color:var(--accent)}
+  .bi-card .bi-prev{margin-top:8px}
+  .bi-card .bi-prev svg{max-width:150px;max-height:100px;background:#0b1220;border:1px solid var(--line);border-radius:6px;padding:4px}
+  .bi-card .bi-prev img,.bi-card .bi-prev video{max-width:150px;max-height:100px;border-radius:6px;border:1px solid var(--line)}
+  .bi-card .bi-prev .ph{font-size:12px;color:var(--muted);font-style:italic}
+  .bi-card .bi-txtprev{font-size:13px;color:#cbd5e1;line-height:1.5;max-width:340px}
+  .bi-card .bi-modes{margin-top:5px;font-size:11px;color:var(--accent)}
+  .bi-card .bi-acts{display:flex;flex-direction:column;gap:6px}
+  .bi-card .bi-acts button{background:#33415588;border:none;color:#e2e8f0;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;white-space:nowrap}
+  .bi-card .bi-acts button:hover{background:#475569}
+  .builtin-tools{margin-top:14px;border-top:1px solid #3b2f1e;padding-top:14px;display:flex;flex-direction:column;gap:12px}
+  .avatar-tools{display:grid;grid-template-columns:155px minmax(0,1fr);gap:10px;align-items:start}
+  .avatar-tools .label{font-size:12.5px;color:#cbd5e1;font-weight:700;padding-top:9px}
+  .avatar-tools .selects{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:8px}
+  .avatar-tools select{width:100%}
+  .layout-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .layout-tools .state{font-size:12px;color:var(--accent);font-weight:700}
+  .support-layout-zone{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+  .layout-support-preview{height:100%;display:flex;flex-direction:column;gap:6px;background:rgba(56,189,248,.16);
+    border:1px solid rgba(56,189,248,.75);border-radius:6px;padding:7px;color:#e2e8f0;overflow:hidden}
+  .layout-support-preview .tag{display:inline-flex;align-self:flex-start;background:#38bdf8;color:#082f49;
+    border-radius:999px;padding:2px 8px;font-size:11px;font-weight:800}
+  .layout-support-preview .body{min-height:0;flex:1;overflow:hidden;font-size:12.5px;line-height:1.35;white-space:pre-wrap;word-break:break-word}
+  .layout-support-preview img,.layout-support-preview video{width:100%;height:100%;min-height:0;object-fit:contain;border-radius:4px;background:#020617}
+  @media(max-width:820px){
+    .avatar-tools{grid-template-columns:1fr}
+    .avatar-tools .label{padding-top:0}
+    .avatar-tools .selects{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🗂️ Espace supports pédagogiques</h1>
+  <a class="back" href="schema3d-viewer.html">Bibliothèque 3D</a>
+  <a class="back" href="index.html">← Retour au cours</a>
+</header>
+
+<div class="wrap">
+  <!-- ───────── Colonne gauche : matière → cours → étape ───────── -->
+  <aside class="panel">
+    <h2>1. Choisir le contexte</h2>
+    <label class="field"><span>Matière</span>
+      <select id="subject"><option value="svt">SVT — 3ᵉ année collège (3APIC)</option></select>
+    </label>
+    <label class="field"><span>Cours / chapitre</span>
+      <select id="chapter"></select>
+    </label>
+    <div style="font-size:13px;color:var(--muted);margin:4px 0 6px">2. Choisir l'étape à renforcer</div>
+    <div class="steps" id="steps"></div>
+    <button class="ghost" id="addStepBtn" style="width:100%;margin-top:10px">➕ Ajouter une partie</button>
+    <div class="ainote">💡 Tout support ajouté ici est <b>connu de l'IA</b> : elle peut l'utiliser pour réexpliquer,
+      créer une évaluation ou un exercice quand l'élève est sur cette leçon.</div>
+  </aside>
+
+  <!-- ───────── Colonne droite : éditeur de supports ───────── -->
+  <section class="panel editor">
+    <div class="head">
+      <h2 id="ctxTitle">Sélectionne une étape</h2>
+      <span class="sub" id="ctxSub"></span>
+    </div>
+
+    <div id="builtin" class="builtin" style="display:none"></div>
+
+    <div id="addZone" style="display:none">
+      <div class="types">
+        <button class="type-tab active" data-type="text">📝 Texte / consigne</button>
+        <button class="type-tab" data-type="link">🔗 Lien</button>
+        <button class="type-tab" data-type="media">🖼️ Image / vidéo</button>
+      </div>
+
+      <!-- Texte -->
+      <div class="pane" data-pane="text">
+        <input id="txtCaption" placeholder="Titre (facultatif) — ex : « Consigne d'évaluation »" style="margin-bottom:10px">
+        <textarea id="txtBody" placeholder="Contenu pédagogique que l'IA pourra utiliser : rappel de cours, consigne d'exercice, barème, points clés à réexpliquer…"></textarea>
+        <div class="hint">Ex : « Pour évaluer cette étape, pose 3 questions sur le trajet des aliments et corrige avec bienveillance. »</div>
+      </div>
+
+      <!-- Lien -->
+      <div class="pane" data-pane="link" style="display:none">
+        <input id="lnkUrl" placeholder="https://… (vidéo, article, ressource)" style="margin-bottom:10px">
+        <input id="lnkCaption" placeholder="Description du lien (facultatif)">
+      </div>
+
+      <!-- Média -->
+      <div class="pane" data-pane="media" style="display:none">
+        <input type="file" id="mediaFile" accept="image/*,video/*" style="margin-bottom:10px">
+        <input id="mediaCaption" placeholder="Légende (facultatif)">
+        <div class="hint">Images et vidéos (max 80 Mo). Elles s'affichent aussi aux élèves sur cette étape.</div>
+      </div>
+
+      <div class="row">
+        <button class="add-btn" id="addBtn">➕ Ajouter le support</button>
+        <span id="busy" style="color:var(--muted);font-size:13px"></span>
+      </div>
+      <div id="layoutZone" class="layout-tools support-layout-zone" style="display:none"></div>
+    </div>
+
+    <div class="supports" id="supports"></div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="lecons.js"></script>
+<script>
+const LECONS = window.LECONS || [];
+const PHASES = {
+  situation:'Situation', rappel:'Rappel', probleme:'Problème', hypothese:'Hypothèse',
+  concept:'Concept', structuration:'Structuration', bilan:'Bilan', reveal:'Quiz'
+};
+
+let content = {};                 // { chapId: { step: [support...] } }
+let overrides = {};               // { chapId: { step: { hideSchema?, hideSim?, hideMedia?, mediaSrc?, mediaType? } } }
+let customSteps = {};             // { chapId: [etape personnalisee, ...] }
+let curType = 'text';
+let sel = { chapter:null, step:null };   // step : index numérique OU '*' (toute la leçon)
+
+  const $ = id => document.getElementById(id);
+const chapterSel = $('chapter'), stepsEl = $('steps'), supportsEl = $('supports');
+
+function toast(msg, err){
+  const t=$('toast'); t.textContent=msg; t.className='toast show'+(err?' err':'');
+  clearTimeout(toast._t); toast._t=setTimeout(()=>t.className='toast',2600);
+}
+
+function chapById(id){ return LECONS.find(c=>c.id===id); }
+function mergeCustomSteps(map){
+  customSteps = map || {};
+  LECONS.forEach(ch=>{
+    ch.etapes = (ch.etapes || []).filter(e=>!e.custom);
+    (customSteps[ch.id] || []).forEach(e=>ch.etapes.push(e));
+  });
+}
+function stepList(chapId, step){
+  const s=String(step);
+  return (content[chapId] && content[chapId][s]) || [];
+}
+function layoutSupportEntries(chapId, step){
+  const items=[];
+  stepList(chapId, step).forEach((media, idx)=>items.push({ key:'support-'+idx, media, idx, stepKey:String(step), whole:false }));
+  stepList(chapId, '*').forEach((media, idx)=>items.push({ key:'support-all-'+idx, media, idx, stepKey:'*', whole:true }));
+  return items;
+}
+function countFor(chapId, step){ return stepList(chapId, step).length; }
+
+async function refreshContent(){
+  const r=await fetch('/api/content?ts='+Date.now());
+  if(!r.ok) throw new Error('chargement des supports impossible');
+  content=await r.json() || {};
+}
+
+function builtinActivitySupport(kind, cfg){
+  cfg=cfg||{};
+  if(cfg.ressource){
+    return { type:'text', caption:'Ressource intégrée — '+kind, body:String(cfg.ressource).trim() };
+  }
+  const parts=[];
+  if(cfg.essentiel) parts.push(cfg.essentiel);
+  else if(cfg.objectif) parts.push('But : '+cfg.objectif);
+  if(cfg.action) parts.push('Action : '+cfg.action+'.');
+  const ok=(cfg.choices||[]).find(c=>c&&c.ok);
+  if(ok && ok.t) parts.push('Observation : '+ok.t);
+  if(cfg.conclusion) parts.push('Conclusion : '+cfg.conclusion);
+  return {
+    type:'text',
+    caption:'Ressource intégrée — '+kind,
+    body:parts.join('\n\n') || 'Activité intégrée à utiliser comme support pédagogique.'
+  };
+}
+
+function builtinActivityPreview(kind, cfg){
+  cfg=cfg||{};
+  const bits=[];
+  if(cfg.essentiel) bits.push(cfg.essentiel);
+  else if(cfg.objectif) bits.push(cfg.objectif);
+  if(cfg.question) bits.push('Question : '+cfg.question);
+  if(!bits.length && cfg.conclusion) bits.push(cfg.conclusion);
+  const txt=bits.join(' · ').slice(0,240);
+  return `<div class="bi-prev"><div class="bi-txtprev"><b>${esc(kind)}</b>${txt?' — '+esc(txt):''}</div></div>`;
+}
+
+function supportLayoutPreview(m, idx, whole){
+  m=m||{};
+  const title=esc((whole?'Support toute la leçon ':'Support ')+(idx+1));
+  const caption=m.caption?`<b>${esc(m.caption)}</b>`:'';
+  if(m.type==='image' && m.url) return `<div class="layout-support-preview"><span class="tag">${title}</span>${caption}<div class="body"><img src="${esc(m.url)}" alt=""></div></div>`;
+  if(m.type==='video' && m.url) return `<div class="layout-support-preview"><span class="tag">${title}</span>${caption}<div class="body"><video src="${esc(m.url)}" muted playsinline></video></div></div>`;
+  if(m.type==='link') return `<div class="layout-support-preview"><span class="tag">${title}</span><div class="body" style="color:#a5f3fc">${caption?caption+'<br>':''}${esc(m.url||'Lien')}</div></div>`;
+  return `<div class="layout-support-preview"><span class="tag">${title}</span><div class="body">${caption?caption+'<br>':''}${esc(m.body||m.caption||'Support texte')}</div></div>`;
+}
+
+// Aperçu STATIQUE de l'activité interactive pour la « Mise en page du tableau » (bloc positionnable).
+// tableau à compléter → vraie grille (cases à compléter montrées avec leur réponse) ; tri → paires ; expérience → étiquette.
+function simLayoutPreview(board, ov){
+  ov=ov||{};
+  const ft=(!ov.hideSim)?(ov.fillTable||board.fillTable):null;
+  if(ft && Array.isArray(ft.rows) && ft.rows.length){
+    let h='<table style="border-collapse:collapse;width:100%;font-size:11px;color:#e2e8f0">';
+    if(Array.isArray(ft.headers) && ft.headers.length)
+      h+='<tr>'+ft.headers.map(x=>'<th style="border:1px solid #64748b;padding:3px 5px;background:rgba(56,189,248,.18);color:#a5f3fc">'+esc(x)+'</th>').join('')+'</tr>';
+    ft.rows.forEach(r=>{ h+='<tr>'+((r.cells||[]).map(c=>{
+      const v=(c===null||c===undefined) ? '<span style="color:#fde68a">'+esc(r.answer||'▾')+'</span>' : esc(String(c));
+      return '<td style="border:1px solid #64748b;padding:3px 5px">'+v+'</td>'; }).join(''))+'</tr>'; });
+    return { label:'📋 Tableau à compléter', html:h+'</table>' };
+  }
+  const mt=(!ov.hideSim)?(ov.match||board.match):null;
+  if(mt && Array.isArray(mt.pairs) && mt.pairs.length)
+    return { label:'🔗 Activité de tri', html:'<div style="font-size:11px;line-height:1.5">'+mt.pairs.map(p=>'🔗 '+esc(p.l||p.left||'')+' → '+esc(p.r||p.right||'')).join('<br>')+'</div>' };
+  if(!ov.hideSim && (board.experiment||board.experiment3d||board.labExperiment))
+    return { label:'🧪 Expérience simulée', html:'<div style="font-size:12px;color:#a5f3fc;padding:6px">🧪 Expérience simulée<br><span style="color:#94a3b8;font-size:11px">(zone interactive)</span></div>' };
+  return null;
+}
+
+async function addBuiltinActivityToSupports(kind, cfg){
+  const media=builtinActivitySupport(kind, cfg);
+  const exists=stepList(sel.chapter, sel.step).some(m=>
+    m && m.type==='text' && m.caption===media.caption && m.body===media.body);
+  if(exists){ toast('Cette ressource est déjà dans les supports.'); return; }
+  await saveSupport(media);
+  toast('Ressource ajoutée aux supports ✓ — l\'IA pourra l\'utiliser.');
+}
+
+// ── Remplissage matière → cours ──
+function fillChapters(){
+  chapterSel.innerHTML='';
+  LECONS.forEach(c=>{
+    const o=document.createElement('option'); o.value=c.id; o.textContent=c.titre; chapterSel.appendChild(o);
+  });
+}
+
+// ── Liste des étapes d'un chapitre (+ « toute la leçon ») ──
+function renderSteps(){
+  const chap=chapById(sel.chapter); stepsEl.innerHTML='';
+  if(!chap) return;
+  const mk=(step, phase, title)=>{
+    const b=document.createElement('button'); b.className='step-btn'+((String(sel.step)===String(step))?' active':'');
+    const n = step==='*' ? '★' : (Number(step)+1);
+    const ph = phase ? `<span class="ph">${PHASES[phase]||phase}</span>` : '';
+    const c = countFor(sel.chapter, step);
+    b.innerHTML=`<span class="n">${n}</span>${ph}<span style="flex:1">${title}</span>`
+              + `<span class="count ${c?'':'zero'}">${c}</span>`;
+    b.onclick=()=>selectStep(step);
+    stepsEl.appendChild(b);
+  };
+  mk('*', null, '<b>Toute la leçon</b> (contexte général)');
+  (chap.etapes||[]).forEach((e,idx)=>{
+    const title=(e.board&&e.board.title)? e.board.title : ('Étape '+(idx+1));
+    mk(idx, e.phase, title);
+  });
+}
+
+function selectStep(step){
+  sel.step=step; renderSteps(); renderEditor();
+}
+
+async function addCustomCoursePart(){
+  const chap=chapById(sel.chapter);
+  if(!chap){ toast('Choisis d\'abord un chapitre.', true); return; }
+  const title=prompt('Titre de la nouvelle partie :', 'Nouvelle partie du cours');
+  if(title===null) return;
+  if(!title.trim()){ toast('Titre vide.', true); return; }
+  const phaseRaw=prompt('Type de partie : situation, hypothese, concept, structuration ou bilan', 'concept');
+  if(phaseRaw===null) return;
+  const phase=String(phaseRaw||'concept').trim().toLowerCase();
+  try{
+    const r=await fetch('/api/custom-steps',{ method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ chapterId:sel.chapter, step:{ title:title.trim(), phase } }) });
+    const j=await r.json(); if(!r.ok) throw new Error(j.error||'echec');
+    customSteps[sel.chapter]=j.steps||[];
+    mergeCustomSteps(customSteps);
+    const refreshed=chapById(sel.chapter);
+    sel.step=(refreshed.etapes||[]).length-1;
+    renderSteps(); renderEditor();
+    toast('Partie ajoutee ✓');
+  }catch(e){ toast('Erreur : '+e.message, true); }
+}
+
+// ── Éditeur (droite) ──
+function renderEditor(){
+  const chap=chapById(sel.chapter);
+  if(!chap || sel.step===null){
+    $('ctxTitle').textContent='Sélectionne une étape'; $('ctxSub').textContent='';
+    $('addZone').style.display='none'; supportsEl.innerHTML=''; renderLayoutTools(); return;
+  }
+  $('addZone').style.display='';
+  if(sel.step==='*'){
+    $('ctxTitle').textContent='★ Toute la leçon';
+    $('ctxSub').textContent=chap.titre;
+  } else {
+    const e=chap.etapes[sel.step];
+    $('ctxTitle').textContent=(e.board&&e.board.title)||('Étape '+(sel.step+1));
+    $('ctxSub').textContent=`${chap.titre} · ${PHASES[e.phase]||('étape '+(sel.step+1))}`;
+  }
+  renderBuiltin();
+  renderSupports();
+  renderLayoutTools();
+}
+
+// ── Éléments INTÉGRÉS de la leçon (schéma / simulation / image créés par l'assistant) ──
+// Le prof ne peut pas les réécrire, mais il peut les MASQUER (« supprimer » de l'affichage)
+// ou REMPLACER un média par son propre fichier — via les overlays serveur (/api/overrides).
+function stepOverride(chapId, step){ return (overrides[chapId] && overrides[chapId][String(step)]) || {}; }
+
+async function setOverride(chapId, step, patch){
+  const r=await fetch('/api/overrides',{ method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ chapterId:chapId, step:String(step), patch }) });
+  const j=await r.json(); if(!r.ok) throw new Error(j.error||'échec');
+  overrides[chapId]=overrides[chapId]||{};
+  if(j.override && Object.keys(j.override).length) overrides[chapId][String(step)]=j.override;
+  else if(overrides[chapId]) delete overrides[chapId][String(step)];
+  renderBuiltin(); renderLayoutTools();
+}
+
+function renderLayoutTools(){
+  const zone=$('layoutZone'); if(!zone) return;
+  zone.innerHTML=''; zone.style.display='none';
+  const chap=chapById(sel.chapter);
+  if(!chap || sel.step===null || sel.step==='*' || !chap.etapes || !chap.etapes[sel.step]) return;
+  const layBtn=document.createElement('button'); layBtn.className='add-btn'; layBtn.textContent='🎬 Mise en page du tableau';
+  layBtn.onclick=()=>openLayoutEditor(sel.step);
+  zone.appendChild(layBtn);
+  const ovL=stepOverride(sel.chapter, sel.step).layout;
+  if(ovL){
+    const tag=document.createElement('span'); tag.className='state'; tag.textContent='✓ Disposition personnalisée';
+    const rst=document.createElement('button'); rst.className='ghost'; rst.textContent='↩ Disposition auto'; rst.style.padding='7px 12px';
+    rst.onclick=async()=>{ if(!confirm('Revenir à la disposition automatique ?')) return; try{ await setOverride(sel.chapter, sel.step, { layout:null }); toast('Disposition réinitialisée ✓'); }catch(e){ toast('Erreur : '+e.message,true); } };
+    zone.appendChild(tag); zone.appendChild(rst);
+  }
+  zone.style.display='';
+}
+
+function renderBuiltin(){
+  const box=$('builtin');
+  const chap=chapById(sel.chapter);
+  // Seulement sur une VRAIE étape (pas « toute la leçon », qui n'a pas de board intégré).
+  if(!chap || sel.step===null || sel.step==='*' || !chap.etapes || !chap.etapes[sel.step]){
+    box.style.display='none'; box.innerHTML=''; return;
+  }
+  const etape=chap.etapes[sel.step];
+  const board=etape.board||{};
+  const ov=stepOverride(sel.chapter, sel.step);
+  const cards=[];
+
+  // Texte de l'étape généré par l'IA : titre + texte écrit au tableau (+ lu ou non) + parole seule.
+  {
+    const curTitle = ('title' in ov) ? ov.title : (board.title||'');
+    const curLines = ('lines' in ov) ? ov.lines : (board.lines||[]);
+    const linesText = (curLines||[]).map(l=>l.t||'').join('\n');
+    // sayBoard = le texte du tableau est-il aussi LU ? sayExtra = texte DIT mais NON écrit.
+    // Si l'étape n'a jamais été éditée, le `say` d'origine est de la parole seule (non écrite).
+    const sayBoard = !!ov.sayBoard;
+    const sayExtra = ('sayExtra' in ov) ? (ov.sayExtra||'') : (('say' in ov) ? '' : (etape.say||''));
+    const edited = ('title' in ov) || ('lines' in ov) || ('say' in ov);
+    const snippet = linesText.replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim().slice(0,120);
+    const modes=[]; if(linesText.trim()) modes.push(sayBoard?'écrit + dit':'écrit'); if((sayExtra||'').trim()) modes.push('dit seul');
+    const textActs = [{ label:'✏️ Modifier', run:()=>openTextEditor(sel.step, curTitle, linesText, sayExtra, sayBoard) },
+                      { label:'🗑️ Vider', run:async()=>{ if(!confirm('Vider le texte de cette étape (titre, tableau et parole) ? Réversible.')) return;
+                          await setOverride(sel.chapter, sel.step, { title:'', lines:[], say:'', sayBoard:null, sayExtra:null }); toast('Texte vidé ✓'); } }];
+    if(edited) textActs.push({ label:'↩ Rétablir', run:()=>setOverride(sel.chapter, sel.step, { title:null, lines:null, say:null, sayBoard:null, sayExtra:null }) });
+    cards.push({
+      ico:'📝', name:'Texte de l\'étape (généré par l\'IA)',
+      state: edited ? {t:'Modifié',c:'rep'} : {t:'Original',c:''},
+      hidden:false,
+      preview:`<div class="bi-prev"><div class="bi-txtprev"><b>${esc(curTitle||'(sans titre)')}</b>${snippet?' — '+esc(snippet):''}`
+             + (modes.length?`<div class="bi-modes">🔎 ${modes.join(' · ')}</div>`:'')+`</div></div>`,
+      acts: textActs
+    });
+  }
+
+  // Situation-problème (carte 🧩 affichée en haut de l'étape) — texte généré dans la leçon.
+  if(('probleme' in ov) || board.probleme){
+    const curProb = ('probleme' in ov) ? ov.probleme : (board.probleme||'');
+    const probEdited = ('probleme' in ov);
+    const probActs = [{ label:'✏️ Modifier', run:()=>openBuiltinEditor({
+        title:'Modifier la situation-problème',
+        hint:'La question qui crée le besoin d\'apprendre, affichée en haut de l\'étape. Laisse vide pour la retirer.',
+        value: curProb||'',
+        onSave: async(v)=>{ await setOverride(sel.chapter, sel.step, { probleme: v.trim() }); toast('Situation-problème modifiée ✓'); } }) },
+      { label:'🗑️ Vider', run:async()=>{ if(!confirm('Retirer la situation-problème de cette étape ? Réversible.')) return;
+          await setOverride(sel.chapter, sel.step, { probleme:'' }); toast('Situation-problème retirée ✓'); } }];
+    if(probEdited) probActs.push({ label:'↩ Rétablir', run:()=>setOverride(sel.chapter, sel.step, { probleme:null }) });
+    cards.push({
+      ico:'🧩', name:'Situation-problème',
+      state: (probEdited && !curProb) ? {t:'Retirée',c:'off'} : (probEdited?{t:'Modifiée',c:'rep'}:{t:'Affichée',c:''}),
+      hidden: probEdited && !curProb,
+      preview: curProb ? `<div class="bi-prev"><div class="bi-txtprev">${esc(curProb.slice(0,160))}</div></div>`
+                       : `<div class="bi-prev"><span class="ph">Retirée</span></div>`,
+      acts: probActs
+    });
+  }
+
+  // Schéma / simulation SVG dessiné au tableau
+  if(board.schema || board.schema3d){
+    const curSchema = ov.schema || board.schema;                    // version éditée si présente
+    const schemaActs = [{ label: ov.hideSchema?'👁 Afficher':'🚫 Masquer',
+               run:()=>setOverride(sel.chapter, sel.step, { hideSchema: ov.hideSchema?null:true }) }];
+    if(board.schema){                                               // (le 3D pur n'est pas éditable en code)
+      schemaActs.push({ label:'✏️ Modifier', run:()=>openBuiltinEditor({
+        title:'Modifier le schéma (code SVG)',
+        hint:'Édite le code <svg>…</svg>. Laisse vide pour revenir au schéma d\'origine.',
+        value: curSchema||'', mono:true,
+        onSave: async(v)=>{ v=v.trim();
+          if(v && !/^<svg[\s>]/i.test(v)) throw new Error('Le code doit commencer par <svg>.');
+          await setOverride(sel.chapter, sel.step, { schema: v||null }); toast('Schéma modifié ✓'); } }) });
+      if(ov.schema) schemaActs.push({ label:'↩ Rétablir', run:()=>setOverride(sel.chapter, sel.step, { schema:null }) });
+    }
+    cards.push({
+      ico:'📊', name:'Schéma dessiné au tableau',
+      state: ov.hideSchema ? {t:'Masqué',c:'off'} : (ov.schema?{t:'Modifié',c:'rep'}:{t:'Affiché',c:''}),
+      hidden: !!ov.hideSchema,
+      preview: curSchema ? `<div class="bi-prev">${curSchema}</div>`
+                         : `<div class="bi-prev"><span class="ph">Modèle 3D interactif</span></div>`,
+      acts: schemaActs
+    });
+  }
+  // Activité interactive (tri / tableau à compléter / expérience 2D ou 3D) = « simulation »
+  if(board.experiment3d || board.experiment || board.match || board.fillTable){
+    const simKey = board.experiment3d?'experiment3d' : (board.experiment?'experiment' : (board.match?'match':'fillTable'));
+    const kind = board.experiment3d?'Expérience 3D de laboratoire'
+      : (board.experiment?'Expérience simulée' : (board.match?'Activité de tri' : 'Tableau à compléter'));
+    const curSim = ov[simKey] || board[simKey];
+    const simActs = [{ label: ov.hideSim?'👁 Afficher':'🚫 Masquer',
+               run:()=>setOverride(sel.chapter, sel.step, { hideSim: ov.hideSim?null:true }) },
+              { label:'✏️ Modifier', run:()=>openBuiltinEditor({
+        title:'Modifier la simulation — '+kind,
+        hint:'Édite les données (JSON) de l\'activité. Laisse vide pour revenir à l\'original.',
+        value: JSON.stringify(curSim, null, 2), mono:true,
+        onSave: async(v)=>{ v=v.trim(); let obj=null;
+          if(v){ try{ obj=JSON.parse(v); }catch(e){ throw new Error('JSON invalide : '+e.message); } }
+          await setOverride(sel.chapter, sel.step, { [simKey]: obj }); toast('Simulation modifiée ✓'); } }) }];
+    if(simKey==='experiment3d' || simKey==='experiment'){
+      simActs.push({ label:'➕ Ajouter aux supports', noAutoToast:true,
+        run:()=>addBuiltinActivityToSupports(kind, curSim) });
+    }
+    if(ov[simKey]) simActs.push({ label:'↩ Rétablir', run:()=>setOverride(sel.chapter, sel.step, { [simKey]:null }) });
+    cards.push({
+      ico:'🧪', name:kind+' (simulation)',
+      state: ov.hideSim ? {t:'Masquée',c:'off'} : (ov[simKey]?{t:'Modifiée',c:'rep'}:{t:'Active',c:''}),
+      hidden: !!ov.hideSim,
+      preview:builtinActivityPreview(kind, curSim),
+      acts: simActs
+    });
+  }
+  // Expérience 3D COMPOSÉE par le prof avec l'IA (objets de la bibliothèque /api/models3d).
+  // Stockée en override `labExperiment`, rendue côté élève par mountLabExperiment3D.
+  {
+    const lab = ov.labExperiment;
+    const labActs=[{ label: lab?'✏️ Modifier (IA + 3D)':'✨ Créer avec l\'IA', noAutoToast:true,
+      run:()=>openExperienceBuilder(sel.step) }];
+    if(lab) labActs.push({ label:'🗑️ Supprimer', run:async()=>{
+      if(!confirm('Supprimer cette expérience 3D de l\'étape ?')) return;
+      await setOverride(sel.chapter, sel.step, { labExperiment:null }); toast('Expérience supprimée ✓'); } });
+    cards.push({
+      ico:'🔬', name:'Expérience 3D composée (bibliothèque + IA)',
+      state: lab ? {t:(lab.objects||[]).length+' objet(s) sur la paillasse',c:'rep'} : {t:'Aucune',c:''},
+      hidden:false,
+      preview: lab
+        ? `<div class="bi-prev"><div class="bi-txtprev"><b>${esc((lab.objects||[]).map(o=>o.label||o.id).join(' · '))}</b>${lab.question?' — '+esc(String(lab.question).slice(0,90)):''}</div></div>`
+        : `<div class="bi-prev"><span class="ph">Choisis des modèles 3D de la bibliothèque et demande à l'IA de composer une expérience pour cette étape.</span></div>`,
+      acts: labActs
+    });
+  }
+  // Image / vidéo intégrée (placeholder « à générer » ou média remplacé par le prof)
+  if(board.media){
+    const isVid = (ov.mediaType||board.media.type)==='video';
+    const slides = Array.isArray(ov.mediaSlides) ? ov.mediaSlides.filter(s=>s&&(s.src||s.svg)) : [];
+    const isCar = slides.length>0;
+    const src = ov.hideMedia ? null : (ov.mediaSrc || board.media.src);
+    const thumb = s => s.svg
+      ? `<span style="display:inline-block;width:70px;height:60px;margin-right:4px;background:#0b1220;border-radius:4px;overflow:hidden;vertical-align:middle">${s.svg}</span>`
+      : `<img src="${esc(s.src)}" alt="" style="max-width:70px;max-height:60px;margin-right:4px;vertical-align:middle">`;
+    let prev;
+    if(ov.hideMedia)   prev=`<div class="bi-prev"><span class="ph">Média masqué</span></div>`;
+    else if(isCar)     prev=`<div class="bi-prev">${slides.slice(0,4).map(thumb).join('')}</div>`;
+    else if(src)       prev=`<div class="bi-prev">${ isVid?`<video src="${src}" muted></video>`:`<img src="${src}" alt="">` }</div>`;
+    else               prev=`<div class="bi-prev"><span class="ph">${board.media.emoji?esc(board.media.emoji)+' — ':''}${esc(board.media.desc||'Média à générer')}</span></div>`;
+    const state = ov.hideMedia ? {t:'Masqué',c:'off'}
+      : isCar ? {t:'Carrousel — '+slides.length+' diapo(s)',c:'rep'}
+      : (ov.mediaSrc ? {t:'Remplacé par votre fichier',c:'rep'} : {t:'Placeholder',c:''});
+    const acts = [{ label: ov.hideMedia?'👁 Afficher':'🚫 Masquer',
+                    run:()=>setOverride(sel.chapter, sel.step, { hideMedia: ov.hideMedia?null:true }) }];
+    if(!isVid) acts.push({ label: isCar?'🎞 Modifier le carrousel':'🎞 Carrousel (images + schémas)', noAutoToast:true,
+                    run:()=>openCarouselManager(sel.step) });
+    acts.push({ label:'🖼 Remplacer', run:()=>replaceBuiltinMedia(sel.step) });
+    if(ov.mediaSrc) acts.push({ label:'↩ Rétablir', run:()=>setOverride(sel.chapter, sel.step, { mediaSrc:null, mediaType:null }) });
+    if(isCar) acts.push({ label:'🗑 Vider le carrousel', run:()=>setOverride(sel.chapter, sel.step, { mediaSlides:null }) });
+    cards.push({ ico:isCar?'🎞️':(isVid?'🎬':'🖼️'), name:isCar?'Carrousel (images + schémas)':((isVid?'Vidéo':'Image')+' intégrée'), state, hidden:!!ov.hideMedia, preview:prev, acts });
+  }
+
+  if(!cards.length){ box.style.display='none'; box.innerHTML=''; return; }
+  box.style.display='';
+  box.innerHTML=`<h3>🛠️ Éléments intégrés de l'étape</h3>`
+    + `<div class="sub">Texte, schémas, simulations et images créés automatiquement dans cette leçon. Vous pouvez <b>modifier</b> le texte (titre / tableau / parole), le code du schéma ou les données de la simulation, <b>masquer</b> un élément, le <b>vider</b> ou <b>remplacer</b> une image par votre fichier. Effet immédiat côté élève, réversible.</div>`;
+  cards.forEach(c=>{
+    const el=document.createElement('div'); el.className='bi-card'+(c.hidden?' hidden':'');
+    el.innerHTML=`<div class="bi-ico">${c.ico}</div><div class="bi-body">`
+      + `<div class="bi-name">${c.name}</div><div class="bi-state ${c.state.c}">${c.state.t}</div>`
+      + c.preview + `</div>`;
+    const acts=document.createElement('div'); acts.className='bi-acts';
+    c.acts.forEach(a=>{ const b=document.createElement('button'); b.textContent=a.label;
+      b.onclick=async()=>{ try{ await a.run(); if(!a.noAutoToast) toast('Réglage enregistré ✓'); }catch(e){ toast('Erreur : '+e.message,true); } };
+      acts.appendChild(b); });
+    el.appendChild(acts); box.appendChild(el);
+  });
+  // 🎭 GESTE / ÉMOTION / REGARD de l'avatar pour CETTE étape :
+  // « Auto » = choisi par l'IA et le contenu de l'étape ; sinon FORCÉ par le prof (effet immédiat côté élève).
+  const tools=document.createElement('div'); tools.className='builtin-tools';
+  const avOv = stepOverride(sel.chapter, sel.step).av || {};
+  const gRow=document.createElement('div'); gRow.className='avatar-tools';
+  const mkSel=(opts,val)=>{ const s=document.createElement('select');
+    s.style.cssText='background:#0b1220;color:#e2e8f0;border:1px solid #243449;border-radius:8px;padding:9px 10px;font-size:12.5px;cursor:pointer';
+    opts.forEach(([v,l])=>{ const o=document.createElement('option'); o.value=v; o.textContent=l; s.appendChild(o); });
+    s.value=val||'auto'; return s; };
+  const gSel=mkSel([['auto','🤖 Geste auto (IA / contenu)'],['wave','👋 Saluer'],['welcome','🙌 Accueillir'],
+    ['explain','🫱 Expliquer'],['point','☝️ Pointer le tableau'],['write','✍️ Écrire au tableau'],
+    ['count','✋ Énumérer'],['think','🤔 Réfléchir'],['nod','✅ Approuver'],['clap','👏 Applaudir'],
+    ['motivate','💪 Encourager']], avOv.gesture);
+  const eSel=mkSel([['auto','🙂 Émotion auto'],['neutral','😐 Neutre'],['happy','😊 Joyeux'],
+    ['curious','🤨 Curieux'],['surprised','😮 Surpris']], avOv.emotion);
+  const lSel=mkSel([['auto','👀 Regard auto'],['front','👀 Regarde l\'élève'],['board','👀 Regarde le tableau']], avOv.look);
+  const saveAv=async()=>{ const v={gesture:gSel.value,emotion:eSel.value,look:lSel.value};
+    const allAuto=(v.gesture==='auto'&&v.emotion==='auto'&&v.look==='auto');
+    try{ await setOverride(sel.chapter, sel.step, { av: allAuto?null:v }); toast('Avatar de l\'étape enregistré ✓'); }
+    catch(e){ toast('Erreur : '+e.message,true); } };
+  gSel.onchange=eSel.onchange=lSel.onchange=saveAv;
+  const gLabel=document.createElement('div'); gLabel.className='label'; gLabel.textContent='🎭 Avatar de cette étape :';
+  const selects=document.createElement('div'); selects.className='selects';
+  selects.appendChild(gSel); selects.appendChild(eSel); selects.appendChild(lSel);
+  gRow.appendChild(gLabel); gRow.appendChild(selects);
+  tools.appendChild(gRow);
+  box.appendChild(tools);
+}
+
+// Éditeur modal simple (textarea) pour MODIFIER un schéma (SVG) ou une simulation (JSON).
+function openBuiltinEditor(opts){
+  const back=document.createElement('div');
+  back.style.cssText='position:fixed;inset:0;background:rgba(2,6,23,.78);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  const box=document.createElement('div');
+  box.style.cssText='background:#0f1b2e;border:1px solid #243449;border-radius:14px;padding:18px;max-width:660px;width:100%;max-height:88vh;display:flex;flex-direction:column;gap:10px';
+  const h=document.createElement('div'); h.style.cssText='font-weight:700;font-size:15px'; h.textContent=opts.title; box.appendChild(h);
+  if(opts.hint){ const s=document.createElement('div'); s.style.cssText='font-size:12px;color:#94a3b8'; s.textContent=opts.hint; box.appendChild(s); }
+  const ta=document.createElement('textarea'); ta.value=opts.value||'';
+  ta.style.cssText='width:100%;min-height:280px;background:#0b1220;color:#e2e8f0;border:1px solid #243449;border-radius:10px;padding:10px;font-size:13px;line-height:1.5;resize:vertical'
+    + (opts.mono?';font-family:ui-monospace,Consolas,monospace':'');
+  box.appendChild(ta);
+  const row=document.createElement('div'); row.style.cssText='display:flex;gap:10px;justify-content:flex-end';
+  const cancel=document.createElement('button'); cancel.className='ghost'; cancel.textContent='Annuler'; cancel.onclick=()=>back.remove();
+  const save=document.createElement('button'); save.className='add-btn'; save.textContent='💾 Enregistrer';
+  save.onclick=async()=>{ save.disabled=true; try{ await opts.onSave(ta.value); back.remove(); }
+    catch(e){ toast('Erreur : '+e.message, true); save.disabled=false; } };
+  row.appendChild(cancel); row.appendChild(save); box.appendChild(row);
+  back.appendChild(box); back.onclick=(e)=>{ if(e.target===back) back.remove(); };
+  document.body.appendChild(back); ta.focus();
+}
+
+// Décrit à l'IA les ÉLÉMENTS PRÉSENTS sur l'étape (image + métadonnées, vidéo, schéma,
+// simulation, supports du prof) pour qu'elle génère un texte adapté (ex : expliquer l'image).
+function buildGenContext(board, step){
+  const ov=stepOverride(sel.chapter, step); const parts=[];
+  // Média intégré (image / vidéo) + ses métadonnées (description, légende, emoji)
+  const carSlides = Array.isArray(ov.mediaSlides) ? ov.mediaSlides.filter(s=>s&&(s.src||s.svg)) : [];
+  if(board.media && !ov.hideMedia && carSlides.length){
+    // CARROUSEL : plusieurs diapos (images ou schémas SVG) qui défilent. On liste chaque diapo et ses
+    // détails pour que la parole générée les présente une à une (l'avatar les fait défiler en parlant).
+    const lignes = carSlides.map((s,i)=>`   ${i+1}. ${s.svg?'[schéma] ':''}${s.desc||'(sans légende)'}${s.say?` — le prof veut dire : « ${s.say} »`:''}`).join('\n');
+    parts.push(`• CARROUSEL de ${carSlides.length} DIAPOS (images / schémas) affiché sur l'étape. Présente-les une par une, dans l'ordre, en décrivant chaque diapo :\n${lignes}\n   Enchaîne naturellement d'une diapo à la suivante.`);
+  } else if(board.media && !ov.hideMedia){
+    const type=(ov.mediaType||board.media.type)==='video'?'VIDÉO':'IMAGE';
+    const real=!!(ov.mediaSrc || board.media.src);
+    const meta=[board.media.desc, board.media.caption, board.media.emoji].filter(Boolean).join(' — ');
+    parts.push(`• ${type} affichée sur l'étape${real?' (fichier réel)':' (visuel à générer)'}${meta?` — métadonnées : ${meta}`:''}. ${type==='IMAGE'?'Décris et explique cette image aux élèves.':'Introduis la vidéo et dis quoi y observer.'}`);
+  }
+  // Schéma dessiné au tableau : on extrait les légendes <text> comme métadonnées
+  const schema = (!ov.hideSchema) ? (ov.schema||board.schema) : null;
+  if(schema){
+    const labels=(schema.match(/<text[^>]*>([^<]*)<\/text>/g)||[]).map(t=>t.replace(/<[^>]*>/g,'').trim()).filter(Boolean);
+    parts.push(`• SCHÉMA dessiné au tableau${labels.length?` (légendes : ${labels.join(', ')})`:''}. Relie ton explication à ce schéma.`);
+  }
+  // Simulation / activité interactive
+  if(!ov.hideSim){
+    if(board.experiment3d||ov.experiment3d){ const ex=ov.experiment3d||board.experiment3d;
+      parts.push(`• EXPÉRIENCE 3D de laboratoire${ex&&ex.objectif?` — objectif : ${ex.objectif}`:''}${ex&&ex.question?` — question : ${ex.question}`:''}. Donne la consigne pour la réaliser, l'observation à chercher et la conclusion.`); }
+    else if(board.experiment||ov.experiment){ const ex=ov.experiment||board.experiment;
+      parts.push(`• EXPÉRIENCE simulée${ex&&ex.question?` — question : ${ex.question}`:''}. Donne la consigne pour la réaliser et ce qu'on cherche.`); }
+    else if(board.match||ov.match){ const mt=ov.match||board.match;
+      parts.push(`• ACTIVITÉ DE TRI (associer des paires)${mt&&mt.consigne?` — consigne : ${mt.consigne}`:''}. Explique ce qu'il faut associer.`); }
+    else if(board.fillTable||ov.fillTable) parts.push('• TABLEAU À COMPLÉTER par l\'élève. Introduis ce qu\'il faut y remplir.');
+  }
+  // Supports ajoutés par le PROF pour cette étape (+ « toute la leçon »)
+  const sup=[ ...((content[sel.chapter]&&content[sel.chapter][String(step)])||[]),
+              ...((content[sel.chapter]&&content[sel.chapter]['*'])||[]) ];
+  sup.forEach(m=>{
+    if(m.type==='text') parts.push(`• Note du professeur : ${String(m.body||'').slice(0,200)}`);
+    else if(m.type==='link') parts.push(`• Lien fourni par le professeur${m.caption?` (${m.caption})`:''} : ${m.url}`);
+    else if(m.type==='image') parts.push(`• Image ajoutée par le professeur${m.caption?` — légende : ${m.caption}`:''}. Tu peux t'y référer.`);
+    else if(m.type==='video') parts.push(`• Vidéo ajoutée par le professeur${m.caption?` — légende : ${m.caption}`:''}. Tu peux t'y référer.`);
+  });
+  return parts.join('\n');
+}
+
+// Éditeur du TEXTE d'une étape. Trois cas gérés :
+//  • ÉCRIT SEUL   : texte au tableau, case « lire à voix haute » décochée ;
+//  • ÉCRIT + DIT  : texte au tableau, case cochée → il est aussi lu par l'avatar ;
+//  • DIT SEUL     : champ « parole seule », dit mais jamais écrit au tableau.
+// On stocke le `say` final (ce qui est réellement prononcé) + les repères sayBoard/sayExtra
+// pour rouvrir l'éditeur à l'identique. Voir effSay() côté élève dans index.html.
+function openTextEditor(step, title, linesText, sayExtra, sayBoard){
+  const back=document.createElement('div');
+  back.style.cssText='position:fixed;inset:0;background:rgba(2,6,23,.78);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  const box=document.createElement('div');
+  box.style.cssText='background:#0f1b2e;border:1px solid #243449;border-radius:14px;padding:18px;max-width:680px;width:100%;max-height:90vh;overflow:auto;display:flex;flex-direction:column;gap:8px';
+  const fld=(lab,hint)=>{ const w=document.createElement('div'); w.style.cssText='display:flex;flex-direction:column;gap:4px;margin-top:6px';
+    const l=document.createElement('div'); l.style.cssText='font-size:12px;color:#94a3b8;font-weight:600'; l.textContent=lab; w.appendChild(l);
+    if(hint){ const h=document.createElement('div'); h.style.cssText='font-size:11px;color:#64748b'; h.textContent=hint; w.appendChild(h); } return w; };
+  const h=document.createElement('div'); h.style.cssText='font-weight:700;font-size:15px'; h.textContent='✏️ Modifier le texte de l\'étape'; box.appendChild(h);
+
+  // ── Génération IA : rédige le texte de CETTE étape, liée à la leçon en cours ──
+  const genBar=document.createElement('div'); genBar.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:2px;padding:10px;background:#0d2033;border:1px solid #1e3a5f;border-radius:10px';
+  const genIns=document.createElement('input'); genIns.placeholder='Consigne (facultatif) : « plus simple », « ajoute un exemple »…';
+  genIns.style.cssText='flex:1;min-width:170px;background:#0b1220;color:#e2e8f0;border:1px solid #243449;border-radius:9px;padding:8px 10px;font-size:12.5px';
+  const genBtn=document.createElement('button'); genBtn.className='add-btn'; genBtn.textContent='✨ Générer avec l\'IA'; genBtn.style.whiteSpace='nowrap';
+  const genMsg=document.createElement('span'); genMsg.style.cssText='font-size:12px;color:#94a3b8;flex-basis:100%';
+  genBtn.onclick=async()=>{
+    const chap=chapById(sel.chapter); const et=(chap&&chap.etapes&&chap.etapes[step])||{};
+    const old=genBtn.textContent; genBtn.disabled=true; genBtn.textContent='⏳ Génération…'; genMsg.textContent='';
+    try{
+      const r=await fetch('/api/generate-text',{ method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ chapterId:sel.chapter, step, chapterTitle:chap?chap.titre:'',
+          phase:et.phase||'', currentTitle:inT.value, currentBoard:taB.value,
+          context: buildGenContext(et.board||{}, step), instruction:genIns.value }) });
+      const j=await r.json(); if(!r.ok) throw new Error(j.error||'échec');
+      if(j.title) inT.value=j.title;
+      if(j.board!==undefined) taB.value=j.board;          // texte écrit au tableau
+      if(j.say!==undefined) taS.value=j.say;              // parole (dite, non écrite)
+      genMsg.textContent='✓ Texte généré à partir de la leçon — relis puis « Enregistrer ».';
+    }catch(e){ genMsg.textContent='Erreur : '+e.message; }
+    finally{ genBtn.disabled=false; genBtn.textContent=old; }
+  };
+  genBar.appendChild(genIns); genBar.appendChild(genBtn); genBar.appendChild(genMsg); box.appendChild(genBar);
+
+  const wT=fld('Titre de l\'étape'); const inT=document.createElement('input'); inT.value=title||'';
+  inT.style.cssText='width:100%;background:#0b1220;color:#e2e8f0;border:1px solid #243449;border-radius:9px;padding:9px 11px;font-size:14px'; wT.appendChild(inT); box.appendChild(wT);
+
+  const wB=fld('✍️ Texte écrit au tableau','Une ligne = une ligne au tableau. Balises simples autorisées (ex : <b>mot</b>). Laisse vide pour n\'écrire aucun texte.');
+  const taB=document.createElement('textarea'); taB.value=linesText||'';
+  taB.style.cssText='width:100%;min-height:130px;background:#0b1220;color:#e2e8f0;border:1px solid #243449;border-radius:9px;padding:10px;font-size:13.5px;line-height:1.5;resize:vertical'; wB.appendChild(taB); box.appendChild(wB);
+
+  // Case : le texte du tableau est-il AUSSI lu à voix haute ? (écrit+dit vs écrit seul)
+  const chkW=document.createElement('label'); chkW.style.cssText='display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:#e2e8f0;cursor:pointer';
+  const chk=document.createElement('input'); chk.type='checkbox'; chk.checked=!!sayBoard; chk.style.cssText='width:16px;height:16px';
+  chkW.appendChild(chk); chkW.appendChild(document.createTextNode('🔊 Lire aussi ce texte du tableau à voix haute (sinon il est seulement écrit)')); box.appendChild(chkW);
+
+  const wS=fld('🗣️ Texte dit seulement (non écrit)','Commentaire prononcé par l\'avatar mais jamais écrit au tableau. Laisse vide s\'il n\'y en a pas.');
+  const taS=document.createElement('textarea'); taS.value=sayExtra||'';
+  taS.style.cssText='width:100%;min-height:90px;background:#0b1220;color:#e2e8f0;border:1px solid #243449;border-radius:9px;padding:10px;font-size:13.5px;line-height:1.5;resize:vertical'; wS.appendChild(taS); box.appendChild(wS);
+
+  const row=document.createElement('div'); row.style.cssText='display:flex;gap:10px;justify-content:flex-end;margin-top:12px';
+  const cancel=document.createElement('button'); cancel.className='ghost'; cancel.textContent='Annuler'; cancel.onclick=()=>back.remove();
+  const save=document.createElement('button'); save.className='add-btn'; save.textContent='💾 Enregistrer';
+  save.onclick=async()=>{ save.disabled=true;
+    try{
+      const boardVal=taB.value, extraVal=taS.value;
+      const lines = boardVal==='' ? [] : boardVal.split('\n').map(t=>({ t }));   // 1 ligne texte = 1 ligne au tableau
+      // texte réellement PRONONCÉ = (texte du tableau si « lire à voix haute ») + (parole seule)
+      const boardSpoken = boardVal.split('\n').map(s=>s.replace(/<[^>]+>/g,'').trim()).filter(Boolean).join('. ');
+      const parts=[]; if(chk.checked && boardSpoken) parts.push(boardSpoken); if(extraVal.trim()) parts.push(extraVal.trim());
+      const patch={ title: inT.value, lines,
+        say: parts.join('  '),
+        sayBoard: chk.checked ? true : null,           // null → l'override oublie la case (décochée)
+        sayExtra: extraVal.trim() ? extraVal : null }; // null → l'override oublie la parole seule (vide)
+      await setOverride(sel.chapter, step, patch); back.remove(); toast('Texte modifié ✓');
+    }catch(e){ toast('Erreur : '+e.message, true); save.disabled=false; } };
+  row.appendChild(cancel); row.appendChild(save); box.appendChild(row);
+  back.appendChild(box); back.onclick=(e)=>{ if(e.target===back) back.remove(); };
+  document.body.appendChild(back); inT.focus();
+}
+
+// ── ÉDITEUR DE MISE EN PAGE du tableau : glisser-déposer les blocs (titre, texte,
+//    situation-problème, image, schéma) + l'avatar, régler leur taille et leur niveau (z).
+//    Aperçu WYSIWYG (proportions ~16:9 du tableau). Coordonnées stockées en % → override .layout.
+async function openLayoutEditor(step){
+  try{ await refreshContent(); renderSupports(); renderSteps(); }catch(_){}
+  const chap=chapById(sel.chapter); const et=(chap&&chap.etapes&&chap.etapes[step])||{}; const board=et.board||{};
+  const ov=stepOverride(sel.chapter, step);
+  // Éléments réellement présents sur l'étape (en tenant compte des overrides)
+  const present=[];
+  // HTML de mise en forme (gras/italique/indice…) rendu tel quel → l'édition round-trip proprement
+  const curTitle=('title' in ov)?ov.title:board.title; if(curTitle) present.push({key:'title', label:'Titre', html:curTitle});
+  const curLines=(('lines' in ov)?ov.lines:board.lines)||[]; if(curLines.length) present.push({key:'body', label:'Texte', html:curLines.map(l=>l.t||'').join('<br>')});
+  const curProb=('probleme' in ov)?ov.probleme:board.probleme; if(curProb) present.push({key:'probleme', label:'Situation-problème', html:curProb});
+  if(board.media && !ov.hideMedia){
+    const carS=Array.isArray(ov.mediaSlides)?ov.mediaSlides.filter(s=>s&&(s.src||s.svg)):[];
+    const first=carS[0];
+    const html = carS.length
+      ? (first.svg ? first.svg : '<img src="'+first.src+'" style="width:100%;height:100%;max-height:none;object-fit:contain;border-radius:4px">')
+      : ((ov.mediaSrc||board.media.src) ? '<img src="'+(ov.mediaSrc||board.media.src)+'" style="width:100%;height:100%;max-height:none;object-fit:contain;border-radius:4px">' : '🖼️ '+esc(board.media.desc||'image à générer'));
+    present.push({key:'media', label:carS.length?('Carrousel ('+carS.length+' diapos)'):'Image / Vidéo', html: html}); }
+  const schema=(!ov.hideSchema)?(ov.schema||board.schema):null;
+  if(schema) present.push({key:'schema', label:'Schéma', html:schema});
+  // Activité interactive (tableau à compléter / tri / expérience) : positionnable comme les autres blocs
+  const sim=simLayoutPreview(board, ov);
+  if(sim) present.push({key:'sim', label:sim.label, html:sim.html});
+  layoutSupportEntries(sel.chapter, step).forEach((it, n)=>{
+    present.push({ key:it.key, label:(it.whole?'Support toute la leçon ':'Support ')+(n+1), html:supportLayoutPreview(it.media, it.idx, it.whole), support:true });
+  });
+  // l'avatar est affiché avec le VRAI moteur 3D (avatar3d.html) : allure et proportions réelles
+  present.push({key:'avatar', label:'👩‍🏫 Avatar', html:'', avatar:true});
+
+  // positions par défaut (en % du tableau) si aucune disposition enregistrée
+  const DEF={ title:{x:5,y:4,w:66,z:3,fs:32}, probleme:{x:5,y:17,w:66,z:3,fs:23}, body:{x:5,y:34,w:56,z:2,fs:25},
+              media:{x:64,y:30,w:32,h:32,z:2}, schema:{x:56,y:8,w:42,z:4}, sim:{x:40,y:32,w:56,h:54,z:4}, avatar:{x:3,y:52,w:22,z:6,mode:'full'} };
+  const state={};
+  let supportPos=0;
+  present.forEach((p, idx)=>{ const saved=(ov.layout && (p.avatar?ov.layout.avatar:(ov.layout.el&&ov.layout.el[p.key]))) || {};
+    const def=p.support ? {x:66,y:8+(supportPos++%4)*19,w:30,h:17,z:8} : (DEF[p.key]||{x:10,y:10,w:40,z:2});
+    state[p.key]=Object.assign({}, def, saved); });
+
+  // RATIO DE RÉFÉRENCE = ratio du PLEIN ÉCRAN (même calcul que la page élève, à partir de
+  // l'écran physique). L'aperçu a donc EXACTEMENT le cadre où l'élève verra la disposition,
+  // en mode normal comme en plein écran → positions, tailles ET niveaux synchronisés.
+  const AR=(function(){ const w=(window.screen&&screen.width)||window.innerWidth,
+      h=(window.screen&&screen.height)||window.innerHeight;
+    let ar=(w&&h)?w/h:16/9; if(!isFinite(ar)||ar<=0) ar=16/9;
+    return Math.max(1.2, Math.min(2.4, ar)); })();
+
+  const back=document.createElement('div');
+  back.style.cssText='position:fixed;inset:0;background:rgba(2,6,23,.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:10px';
+  const boxw=document.createElement('div');
+  boxw.style.cssText='background:#0f1b2e;border:1px solid #243449;border-radius:14px;padding:14px;max-width:none;width:99vw;height:97vh;overflow:auto;display:flex;flex-direction:column;gap:8px';
+  const h=document.createElement('div'); h.style.cssText='font-weight:700;font-size:15px;flex:0 0 auto'; h.textContent='🎬 Mise en page du tableau — aperçu plein écran'; boxw.appendChild(h);
+  const hint=document.createElement('div'); hint.style.cssText='font-size:12px;color:#94a3b8;flex:0 0 auto';
+  hint.innerHTML='Ce cadre a la <b>taille et les proportions du PLEIN ÉCRAN</b> : ce que tu places ici tombera EXACTEMENT au même endroit chez l\'élève (mode normal et plein écran). Glisse un bloc pour le placer, tire le coin ◢ pour la taille, « niveau » pour le mettre devant/derrière. <b>Double-clique un texte</b> (titre, texte, situation-problème) pour le réécrire, et change sa <b>couleur</b> avec le sélecteur.';
+  boxw.appendChild(hint);
+
+  // ZONE scène : occupe tout l'espace restant ; la scène est le PLUS GRAND rectangle
+  // au ratio du plein écran qui y tient (comme l'élève le verra en présentation)
+  const stageWrap=document.createElement('div');
+  stageWrap.style.cssText='flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center';
+  const stage=document.createElement('div');
+  stage.style.cssText='position:relative;aspect-ratio:'+AR+';max-width:100%;max-height:100%;'
+    +'width:calc('+AR+' * min(100%, 100cqh));' // fallback ; recalé par sizeStage()
+    +'background:linear-gradient(160deg,#0f2a24,#0b1a16);border:2px solid #14532d;border-radius:10px;overflow:hidden;box-shadow:inset 0 0 60px #0007';
+  stageWrap.appendChild(stage); boxw.appendChild(stageWrap);
+  // dimensionne la scène au max de la zone tout en gardant le ratio (le plus grand possible)
+  function sizeStage(){ const r=stageWrap.getBoundingClientRect(); if(!r.width||!r.height) return;
+    let w=r.width, hh=w/AR; if(hh>r.height){ hh=r.height; w=hh*AR; }
+    stage.style.width=Math.floor(w)+'px'; stage.style.height=Math.floor(hh)+'px'; stage.style.maxWidth='none'; stage.style.maxHeight='none';
+    // la scène a changé de taille → recale la taille de police proportionnelle des textes
+    if(typeof present!=='undefined') present.forEach(p=>{ if(canResizeText(p.key) && blocks[p.key]) applyBlockStyle(p.key); }); }
+
+  let selKey=null, txtMinus=null, txtPlus=null, colorInp=null, editBtn=null, editHint=null, fmtBar=null, editingKey=null;
+  const blocks={};
+  const pendingText={};   // textes réécrits ici (title/lines/probleme) → enregistrés avec la disposition
+  const DEFCOL={ title:'#ffffff', body:'#e2e8f0', probleme:'#fde68a' };
+  function toHex(c){ if(!c) return null; if(/^#[0-9a-fA-F]{6}$/.test(c)) return c.toLowerCase();
+    const m=/^#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])$/.exec(c); return m?('#'+m[1]+m[1]+m[2]+m[2]+m[3]+m[3]).toLowerCase():null; }
+  // innerHTML d'un bloc éditable → lignes HTML (une par ligne visuelle), en gardant le gras/italique/indice…
+  function htmlToLines(el){
+    let html=String(el.innerHTML)
+      .replace(/<div><br\s*\/?><\/div>/gi,'\n')
+      .replace(/<div[^>]*>/gi,'\n').replace(/<\/div>/gi,'')
+      .replace(/<p[^>]*>/gi,'\n').replace(/<\/p>/gi,'')
+      .replace(/<br\s*\/?>/gi,'\n')
+      .replace(/&nbsp;/gi,' ');
+    let arr=html.split('\n').map(s=>s.trim());
+    while(arr.length && arr[0]==='') arr.shift();
+    while(arr.length && arr[arr.length-1]==='') arr.pop();
+    return arr;
+  }
+  function restack(){ present.forEach(p=>{ if(blocks[p.key]) blocks[p.key].style.zIndex=state[p.key].z||1; }); }
+  function canResizeText(key){ return key==='title' || key==='body' || key==='probleme'; }
+  function applyBlockStyle(key){
+    const blk=blocks[key], s=state[key]; if(!blk||!s||blk._isAvatar) return;
+    if(s.h){ blk.style.height=s.h+'%'; blk.style.overflow='hidden'; }
+    if(canResizeText(key)){
+      // taille PROPORTIONNELLE à la scène (réf. 1000 px) → identique à ce que verra l'élève,
+      // en mode normal comme en plein écran (le px stocké est ancré à un cadre de 1000 px de large)
+      const stW=(stage.getBoundingClientRect().width)||1000;
+      blk.style.fontSize=((s.fs||18)*stW/1000)+'px';
+      blk.style.lineHeight=(key==='title'?'1.2':'1.35');
+      blk.style.color=s.color||DEFCOL[key]||'#e2e8f0';
+    }
+    if(key==='media' || key.indexOf('support-')===0){
+      blk.querySelectorAll('img,video').forEach(el=>{ el.style.width='100%'; el.style.height='100%'; el.style.maxHeight='none'; el.style.objectFit='contain'; });
+    }
+  }
+  function updateTextControls(){
+    if(!txtMinus||!txtPlus) return;
+    const ok=canResizeText(selKey);
+    txtMinus.disabled=txtPlus.disabled=!ok;
+    txtMinus.style.opacity=txtPlus.style.opacity=ok?'1':'.45';
+    if(colorInp){ colorInp.disabled=!ok; colorInp.style.opacity=ok?'1':'.45';
+      if(ok) colorInp.value=toHex(state[selKey]&&state[selKey].color)||DEFCOL[selKey]||'#ffffff'; }
+    if(editBtn){ editBtn.disabled=!ok; editBtn.style.opacity=ok?'1':'.45'; }
+  }
+  // ── Édition inline du texte (titre / texte / situation-problème) ──
+  function startEdit(key){
+    if(!canResizeText(key)) return; const blk=blocks[key], inner=blk&&blk._inner; if(!inner) return;
+    editingKey=key; selectBlk(key);
+    inner.setAttribute('contenteditable','true'); inner.style.cursor='text';
+    blk.style.cursor='text'; blk.style.outline='2px solid #22c55e';
+    if(editHint) editHint.style.display='';
+    if(fmtBar) fmtBar.style.display='flex';
+    try{ document.execCommand('styleWithCSS',false,false); }catch(_){}   // → balises <b>/<i>… (pas de style inline)
+    inner.focus();
+    const rng=document.createRange(); rng.selectNodeContents(inner); rng.collapse(false);
+    const sc=window.getSelection(); sc.removeAllRanges(); sc.addRange(rng);
+  }
+  function stopEdit(){
+    if(!editingKey) return; const key=editingKey; const blk=blocks[key], inner=blk&&blk._inner; editingKey=null;
+    if(editHint) editHint.style.display='none';
+    if(fmtBar) fmtBar.style.display='none';
+    if(inner){ inner.setAttribute('contenteditable','false'); inner.style.cursor='';
+      if(blk) blk.style.cursor='move';
+      const lines=htmlToLines(inner);
+      if(key==='title') pendingText.title=lines.join(' ').trim();
+      else if(key==='probleme') pendingText.probleme=lines.join(' ').replace(/^🧩\s*/,'').trim();
+      else if(key==='body') pendingText.lines=(lines.length?lines:['']).map(t=>({ t }));
+    }
+    selectBlk(key);
+  }
+  function selectBlk(key){ if(editingKey && editingKey!==key) stopEdit(); selKey=key; present.forEach(p=>{ if(blocks[p.key]) blocks[p.key].style.outline=(p.key===key?'2px solid #38bdf8':'1px dashed #ffffff40'); });
+    selName.textContent = (present.find(p=>p.key===key)||{}).label || '—'; updateTextControls(); }
+
+  present.forEach(p=>{
+    const s=state[p.key];
+    const blk=document.createElement('div'); blocks[p.key]=blk;
+    blk._isAvatar=!!p.avatar;
+    blk.style.cssText='position:absolute;left:'+s.x+'%;top:'+s.y+'%;width:'+s.w+'%;z-index:'+(s.z||1)
+      +';box-sizing:border-box;padding:'+(p.avatar?'0':'5px 7px')+';border-radius:5px;cursor:move;overflow:hidden;'
+      +'outline:1px dashed #ffffff40;background:'+(p.avatar?'rgba(56,189,248,.08)':'rgba(15,27,46,.55)')+';color:#e2e8f0;font-size:11px;line-height:1.35';
+    if(p.avatar){
+      // VRAI avatar 3D dans l'aperçu (même cadrage que côté élève → position/taille exactes)
+      if(!s.h) s.h=Math.round(s.w*(630/470)*AR*10)/10;   // hauteur par défaut : proportions réelles
+      blk.style.height=s.h+'%';
+      const fr=document.createElement('iframe'); fr.src='avatar3d.html'; fr.setAttribute('allowtransparency','true');
+      fr.style.cssText='width:100%;height:100%;border:0;pointer-events:none;background:transparent;display:block';
+      blk.appendChild(fr); blk._avFrame=fr;
+    } else {
+      const inner=document.createElement('div'); inner.innerHTML=p.html;
+      inner.querySelectorAll('svg').forEach(sv=>{ sv.removeAttribute('width'); sv.removeAttribute('height'); sv.style.width='100%'; sv.style.height='auto'; sv.style.maxHeight='120px'; });
+      blk.appendChild(inner);
+      if(canResizeText(p.key)){   // titre / texte / situation-problème : éditables sur place
+        blk._inner=inner;
+        inner.addEventListener('dblclick', ()=>{ selectBlk(p.key); startEdit(p.key); });
+        inner.addEventListener('blur', ()=>{ if(editingKey===p.key) stopEdit(); });
+      }
+      applyBlockStyle(p.key);
+    }
+    // poignée de redimensionnement
+    const grip=document.createElement('div'); grip.textContent='◢';
+    grip.style.cssText='position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;font-size:11px;color:#38bdf8;text-align:right;line-height:16px';
+    blk.appendChild(grip);
+    // DRAG (déplacer) — on NE preventDefault PAS d'emblée : sinon les clics/double-clics
+    // dérivés sont supprimés et l'édition du texte ne démarre jamais. Le glissement ne
+    // commence qu'après un vrai déplacement (seuil), ce qui laisse passer clic et double-clic.
+    blk.addEventListener('pointerdown', ev=>{ if(ev.target===grip) return; if(editingKey===p.key) return; selectBlk(p.key);
+      const r=stage.getBoundingClientRect(); const sx=ev.clientX, sy=ev.clientY, ox=s.x, oy=s.y; let dragging=false;
+      const mv=e=>{ if(!dragging){ if(Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)<4) return; dragging=true; try{ blk.setPointerCapture(ev.pointerId); }catch(_){}}
+        let nx=ox+(e.clientX-sx)/r.width*100, ny=oy+(e.clientY-sy)/r.height*100;
+        s.x=Math.max(0,Math.min(96,Math.round(nx*10)/10)); s.y=Math.max(0,Math.min(96,Math.round(ny*10)/10));
+        blk.style.left=s.x+'%'; blk.style.top=s.y+'%'; };
+      const up=e=>{ try{ blk.releasePointerCapture(ev.pointerId); }catch(_){} blk.removeEventListener('pointermove',mv); blk.removeEventListener('pointerup',up); };
+      blk.addEventListener('pointermove',mv); blk.addEventListener('pointerup',up); });
+    // RESIZE (largeur → taille ; pour l'avatar, pilote son échelle)
+    grip.addEventListener('pointerdown', ev=>{ ev.preventDefault(); ev.stopPropagation(); selectBlk(p.key);
+      const r=stage.getBoundingClientRect(); const sx=ev.clientX, sy=ev.clientY, ow=s.w, maxD=p.avatar?220:100;
+      const oh=s.h || (blk.offsetHeight/r.height*100);          // hauteur de départ (en % de la scène)
+      grip.setPointerCapture(ev.pointerId);
+      const mv=e=>{ let nw=ow+(e.clientX-sx)/r.width*100, nh=oh+(e.clientY-sy)/r.height*100;
+        s.w=Math.max(6,Math.min(maxD,Math.round(nw*10)/10)); s.h=Math.max(6,Math.min(maxD,Math.round(nh*10)/10));
+        blk.style.width=s.w+'%'; blk.style.height=s.h+'%'; blk.style.overflow='hidden'; };
+      const up=e=>{ grip.releasePointerCapture(ev.pointerId); grip.removeEventListener('pointermove',mv); grip.removeEventListener('pointerup',up); };
+      grip.addEventListener('pointermove',mv); grip.addEventListener('pointerup',up); });
+    stage.appendChild(blk);
+  });
+  restack();
+
+  // barre d'outils : élément sélectionné + niveau (z) + taille avatar
+  const tools=document.createElement('div'); tools.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:#cbd5e1';
+  const selName=document.createElement('b'); selName.textContent='—'; selName.style.minWidth='90px';
+  const mk=(txt,fn)=>{ const b=document.createElement('button'); b.className='ghost'; b.style.padding='7px 11px'; b.textContent=txt; b.onclick=fn; return b; };
+  const zUp=mk('⬆ Avancer', ()=>{ if(!selKey)return; state[selKey].z=(state[selKey].z||1)+1; restack(); });
+  const zDn=mk('⬇ Reculer', ()=>{ if(!selKey)return; state[selKey].z=Math.max(0,(state[selKey].z||1)-1); restack(); });
+  txtMinus=mk('T-', ()=>{ if(!canResizeText(selKey)) return; state[selKey].fs=Math.max(12,(state[selKey].fs||22)-2); applyBlockStyle(selKey); });
+  txtPlus=mk('T+', ()=>{ if(!canResizeText(selKey)) return; state[selKey].fs=Math.min(80,(state[selKey].fs||22)+2); applyBlockStyle(selKey); });
+  colorInp=document.createElement('input'); colorInp.type='color'; colorInp.title='Couleur du texte';
+  colorInp.style.cssText='width:34px;height:30px;border:1px solid #243449;border-radius:7px;background:#0b1220;cursor:pointer;padding:2px;vertical-align:middle';
+  colorInp.oninput=()=>{ if(!canResizeText(selKey)) return; state[selKey].color=colorInp.value; applyBlockStyle(selKey); };
+  editBtn=mk('✏️ Éditer le texte', ()=>{ if(canResizeText(selKey)) startEdit(selKey); });
+  tools.appendChild(document.createTextNode('Sélection : ')); tools.appendChild(selName); tools.appendChild(zUp); tools.appendChild(zDn);
+  tools.appendChild(document.createTextNode('Texte : ')); tools.appendChild(txtMinus); tools.appendChild(txtPlus);
+  tools.appendChild(document.createTextNode('Couleur : ')); tools.appendChild(colorInp); tools.appendChild(editBtn);
+  boxw.appendChild(tools);
+  editHint=document.createElement('div'); editHint.style.cssText='display:none;font-size:12px;color:#86efac';
+  editHint.textContent='✍️ Tape directement dans le bloc pour réécrire le texte. Sélectionne des mots puis choisis une mise en forme ci-dessous. Clique ailleurs pour terminer.';
+  boxw.appendChild(editHint);
+  // barre de MISE EN FORME (visible seulement pendant l'édition d'un texte)
+  fmtBar=document.createElement('div'); fmtBar.style.cssText='display:none;gap:6px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:#cbd5e1';
+  const fmt=(label,cmd,tip)=>{ const b=document.createElement('button'); b.type='button'; b.className='ghost';
+    b.style.cssText='padding:6px 11px;min-width:34px'; b.innerHTML=label; if(tip) b.title=tip;
+    // mousedown + preventDefault : garde le focus/sélection dans le bloc éditable
+    b.addEventListener('mousedown',e=>{ e.preventDefault(); if(!editingKey) return; try{ document.execCommand(cmd,false,null); }catch(_){}}); return b; };
+  fmtBar.appendChild(document.createTextNode('Mise en forme : '));
+  fmtBar.appendChild(fmt('<b>G</b>','bold','Gras'));
+  fmtBar.appendChild(fmt('<i>I</i>','italic','Italique'));
+  fmtBar.appendChild(fmt('<u>S</u>','underline','Souligné'));
+  fmtBar.appendChild(fmt('<s>B</s>','strikeThrough','Barré'));
+  fmtBar.appendChild(fmt('X<sup>2</sup>','superscript','Exposant (ex : m²)'));
+  fmtBar.appendChild(fmt('X<sub>2</sub>','subscript','Indice (ex : CO₂, H₂O)'));
+  fmtBar.appendChild(fmt('⨯ Effacer','removeFormat','Effacer la mise en forme'));
+  boxw.appendChild(fmtBar);
+
+  // Contrôles AVATAR : forme (corps entier / tête réduite) + agrandir / réduire
+  const avRow=document.createElement('div'); avRow.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:#cbd5e1;padding-top:2px';
+  const modeBtn=document.createElement('button'); modeBtn.className='ghost'; modeBtn.style.padding='7px 11px';
+  function updateAvatarUI(){ const head=(state.avatar.mode==='head');
+    modeBtn.textContent = head ? 'Forme : Tête réduite ⬤' : 'Forme : Corps entier 🧍';
+    if(blocks.avatar){
+      blocks.avatar.style.borderRadius = head ? '50%' : '5px';
+      // en mode tête : bloc CARRÉ (cercle) ; en corps entier : hauteur choisie/proportionnelle
+      blocks.avatar.style.height = head ? (Math.round(state.avatar.w*AR*10)/10)+'%'
+                                        : (state.avatar.h||Math.round(state.avatar.w*(630/470)*AR*10)/10)+'%';
+      // le VRAI avatar de l'aperçu change aussi de cadrage (visage / corps entier)
+      const fr=blocks.avatar._avFrame;
+      if(fr && fr.contentWindow) fr.contentWindow.postMessage({type:'framing', mode: head?'head':'body'},'*');
+    } }
+  // quand le moteur 3D de l'aperçu est prêt, on lui applique le cadrage courant
+  const onAvReady=e=>{ if(e.data && e.data.type==='avatarReady') updateAvatarUI(); };
+  window.addEventListener('message', onAvReady);
+  modeBtn.onclick=()=>{ state.avatar.mode = (state.avatar.mode==='head'?'full':'head'); updateAvatarUI(); selectBlk('avatar'); };
+  const setW=nw=>{ const old=state.avatar.w||22; const clamped=Math.max(6,Math.min(220,nw)); const k=clamped/old;
+    state.avatar.w=clamped; if(state.avatar.h) state.avatar.h=Math.max(6,Math.min(220,Math.round(state.avatar.h*k*10)/10));
+    if(blocks.avatar){ blocks.avatar.style.width=state.avatar.w+'%'; if(state.avatar.h) blocks.avatar.style.height=state.avatar.h+'%'; }
+    selectBlk('avatar'); };
+  const biggr=mk('＋ Agrandir', ()=>setW((state.avatar.w||22)+6));
+  const smallr=mk('－ Réduire',  ()=>setW((state.avatar.w||22)-6));
+  avRow.appendChild(document.createTextNode('👩‍🏫 Avatar : ')); avRow.appendChild(modeBtn); avRow.appendChild(biggr); avRow.appendChild(smallr);
+  boxw.appendChild(avRow); updateAvatarUI();
+
+  // actions
+  const row=document.createElement('div'); row.style.cssText='display:flex;gap:10px;justify-content:flex-end;margin-top:6px;flex-wrap:wrap';
+  const reset=mk('↩ Auto', async()=>{ if(!confirm('Revenir à la disposition automatique ?'))return; try{ await setOverride(sel.chapter, step, { layout:null }); back.remove(); toast('Disposition réinitialisée ✓'); }catch(e){ toast('Erreur : '+e.message,true); } });
+  const cancel=document.createElement('button'); cancel.className='ghost'; cancel.textContent='Annuler'; cancel.onclick=()=>back.remove();
+  const save=document.createElement('button'); save.className='add-btn'; save.textContent='💾 Enregistrer la disposition';
+  save.onclick=async()=>{ if(editingKey) stopEdit(); save.disabled=true;
+    try{ const layout={ el:{}, avatar:Object.assign({}, state.avatar) };
+      present.forEach(p=>{ if(!p.avatar) layout.el[p.key]=Object.assign({}, state[p.key]); });
+      const patch={ layout };   // + textes réécrits sur place (titre / texte / situation-problème)
+      if('title' in pendingText) patch.title=pendingText.title;
+      if('lines' in pendingText) patch.lines=pendingText.lines;
+      if('probleme' in pendingText) patch.probleme=pendingText.probleme;
+      await setOverride(sel.chapter, step, patch); back.remove(); toast('Disposition enregistrée ✓');
+    }catch(e){ toast('Erreur : '+e.message,true); save.disabled=false; } };
+  row.appendChild(reset); row.appendChild(cancel); row.appendChild(save); boxw.appendChild(row);
+
+  back.appendChild(boxw); back.onclick=e=>{ if(e.target===back) back.remove(); };
+  document.body.appendChild(back);
+  if(present.length) selectBlk(present[0].key);
+  // dimensionne la scène au maximum de l'espace (après affichage) + suit le redimensionnement
+  sizeStage(); requestAnimationFrame(sizeStage);
+  const onWinResize=()=>sizeStage(); window.addEventListener('resize', onWinResize);
+  // dès que la scène atteint (ou change) sa taille réelle → recale la taille de police proportionnelle
+  let ro=null;
+  if(window.ResizeObserver){ ro=new ResizeObserver(()=>{ present.forEach(p=>{ if(canResizeText(p.key)&&blocks[p.key]) applyBlockStyle(p.key); }); }); ro.observe(stage); }
+  const origRemove=back.remove.bind(back);
+  back.remove=()=>{ if(ro) ro.disconnect(); window.removeEventListener('resize', onWinResize); window.removeEventListener('message', onAvReady); origRemove(); };
+}
+
+// ── ASSISTANT « EXPÉRIENCE 3D » : le prof coche des modèles de la bibliothèque, décrit
+//    l'expérience, l'IA compose la config labExperiment, puis il ajuste chaque objet
+//    DIRECTEMENT dans l'aperçu 3D (glisser = déplacer, molette = taille) avant d'enregistrer.
+async function openExperienceBuilder(step){
+  const chap=chapById(sel.chapter); const et=(chap&&chap.etapes&&chap.etapes[step])||{};
+  const ov=stepOverride(sel.chapter, step);
+  let cfg = ov.labExperiment ? JSON.parse(JSON.stringify(ov.labExperiment)) : null;
+  let editor=null;
+
+  const back=document.createElement('div');
+  back.style.cssText='position:fixed;inset:0;background:rgba(2,6,23,.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:14px';
+  const box=document.createElement('div');
+  box.style.cssText='background:#0f1b2e;border:1px solid #243449;border-radius:14px;padding:16px;max-width:980px;width:100%;max-height:94vh;overflow:auto;display:flex;flex-direction:column;gap:10px';
+  const h=document.createElement('div'); h.style.cssText='font-weight:700;font-size:15px';
+  h.textContent='🔬 Expérience 3D — '+((et.board&&et.board.title)||('Étape '+(Number(step)+1))); box.appendChild(h);
+
+  // ── 1. Modèles de la bibliothèque (cases à cocher) ──
+  const modBox=document.createElement('div');
+  modBox.style.cssText='background:#0d2033;border:1px solid #1e3a5f;border-radius:10px;padding:10px 12px';
+  modBox.innerHTML='<div style="font-size:12px;color:#94a3b8;font-weight:600;margin-bottom:6px">1. Modèles 3D à utiliser (bibliothèque)</div>';
+  const modList=document.createElement('div'); modList.style.cssText='display:flex;gap:8px;flex-wrap:wrap;font-size:12.5px';
+  modBox.appendChild(modList); box.appendChild(modBox);
+  let catalog=[];
+  try{
+    const j=await fetch('/api/models3d',{cache:'no-store'}).then(r=>r.json());
+    catalog=(j.models||[]);
+  }catch(e){}
+  if(!catalog.length){
+    modList.innerHTML='<span style="color:#fca5a5">Aucun modèle dans la bibliothèque. Dépose des fichiers (.glb/.fbx/.obj…) dans prototype/models3d puis redémarre le serveur.</span>';
+  } else {
+    const preChecked=new Set(cfg?(cfg.objects||[]).map(o=>o.model):[]);
+    catalog.forEach(m=>{
+      const lab=document.createElement('label');
+      lab.style.cssText='display:flex;align-items:center;gap:6px;background:#0b1220;border:1px solid #243449;border-radius:8px;padding:6px 9px;cursor:pointer';
+      const cb=document.createElement('input'); cb.type='checkbox'; cb.value=m.id; cb.checked=preChecked.has(m.id);
+      lab.appendChild(cb); lab.appendChild(document.createTextNode(m.name||m.id));
+      modList.appendChild(lab);
+    });
+  }
+
+  // ── 2. Consigne + bouton IA ──
+  const genBar=document.createElement('div');
+  genBar.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px;background:#0d2033;border:1px solid #1e3a5f;border-radius:10px';
+  const genIns=document.createElement('input');
+  genIns.placeholder='2. Décris l\'expérience — ex : « mise en évidence de l\'amidon dans le pain avec l\'eau iodée »';
+  genIns.style.cssText='flex:1;min-width:220px;background:#0b1220;color:#e2e8f0;border:1px solid #243449;border-radius:9px;padding:8px 10px;font-size:12.5px';
+  const genBtn=document.createElement('button'); genBtn.className='add-btn'; genBtn.style.whiteSpace='nowrap';
+  genBtn.textContent=cfg?'✨ Régénérer avec l\'IA':'✨ Générer avec l\'IA';
+  const genMsg=document.createElement('span'); genMsg.style.cssText='font-size:12px;color:#94a3b8;flex-basis:100%';
+  genBar.appendChild(genIns); genBar.appendChild(genBtn); genBar.appendChild(genMsg); box.appendChild(genBar);
+
+  // ── 3. Aperçu 3D éditable ──
+  const cv=document.createElement('div');
+  cv.style.cssText='width:100%;height:340px;border-radius:12px;overflow:hidden;background:linear-gradient(160deg,#101c30,#0a1526);border:1px solid #243449;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;touch-action:none';
+  cv.textContent='L\'aperçu 3D apparaîtra ici après la génération.';
+  box.appendChild(cv);
+  const edHint=document.createElement('div'); edHint.style.cssText='font-size:12px;color:#86efac;display:none';
+  edHint.textContent='🖱️ Clique un objet pour le sélectionner, glisse-le pour le déplacer sur la paillasse, molette pour l\'agrandir / réduire. Clique le vide pour tourner la caméra.';
+  box.appendChild(edHint);
+  const selInfo=document.createElement('div'); selInfo.style.cssText='font-size:12px;color:#94a3b8;min-height:16px';
+  box.appendChild(selInfo);
+
+  // ── 4. Textes pédagogiques (remplis par l'IA, ajustables) ──
+  const form=document.createElement('div'); form.style.cssText='display:none;flex-direction:column;gap:8px';
+  const mkIn=(ph)=>{ const i=document.createElement('input'); i.placeholder=ph;
+    i.style.cssText='width:100%;background:#0b1220;color:#e2e8f0;border:1px solid #243449;border-radius:9px;padding:8px 10px;font-size:13px'; return i; };
+  const inAction=mkIn('Texte du bouton d\'action (ex : Verser l\'eau iodée)');
+  const inQuestion=mkIn('Question posée après l\'action');
+  const choicesBox=document.createElement('div'); choicesBox.style.cssText='display:flex;flex-direction:column;gap:6px';
+  const taConcl=document.createElement('textarea'); taConcl.placeholder='Conclusion scientifique';
+  taConcl.style.cssText='width:100%;min-height:56px;background:#0b1220;color:#e2e8f0;border:1px solid #243449;border-radius:9px;padding:8px 10px;font-size:13px;resize:vertical';
+  form.appendChild(inAction); form.appendChild(inQuestion); form.appendChild(choicesBox); form.appendChild(taConcl);
+  box.appendChild(form);
+
+  function renderChoices(){
+    choicesBox.innerHTML='';
+    (cfg.choices||[]).forEach((c,i)=>{
+      const row=document.createElement('div'); row.style.cssText='display:flex;gap:8px;align-items:center';
+      const rad=document.createElement('input'); rad.type='radio'; rad.name='xpok'; rad.checked=!!c.ok; rad.title='Bonne réponse';
+      rad.onchange=()=>{ cfg.choices.forEach((cc,j)=>cc.ok=(j===i)); };
+      const inp=document.createElement('input'); inp.value=c.t;
+      inp.style.cssText='flex:1;background:#0b1220;color:#e2e8f0;border:1px solid #243449;border-radius:8px;padding:7px 9px;font-size:12.5px';
+      inp.oninput=()=>{ c.t=inp.value; };
+      row.appendChild(rad); row.appendChild(inp); choicesBox.appendChild(row);
+    });
+  }
+
+  async function mountEditor(){
+    if(editor){ editor.dispose(); editor=null; }
+    cv.textContent='Chargement des modèles 3D…';
+    try{
+      const mod=await import('./experience3d-editor.js');
+      cv.textContent='';
+      editor=await mod.mountExperienceEditor(cv, cfg, {
+        onSelect:def=>{ selInfo.textContent = def
+          ? ('Sélection : '+(def.label||def.id)+' — position ['+def.pos[0]+', '+def.pos[1]+'], taille '+def.size
+             +' (glisse pour déplacer, molette pour la taille)')
+          : ''; },
+        onChange:c=>{ const d=(c.objects||[]).find(o=>selInfo.textContent.startsWith('Sélection : '+(o.label||o.id)));
+          if(d) selInfo.textContent='Sélection : '+(d.label||d.id)+' — position ['+d.pos[0]+', '+d.pos[1]+'], taille '+d.size; }
+      });
+      edHint.style.display='';
+    }catch(e){ cv.textContent='Aperçu 3D indisponible : '+(e&&e.message||e); }
+  }
+  function fillForm(){
+    form.style.display='flex';
+    inAction.value=(cfg.action&&cfg.action.label)||'';
+    inQuestion.value=cfg.question||'';
+    taConcl.value=cfg.conclusion||'';
+    renderChoices();
+  }
+
+  genBtn.onclick=async()=>{
+    const chosen=[...modList.querySelectorAll('input:checked')].map(cb=>{
+      const m=catalog.find(x=>x.id===cb.value); return { id:cb.value, name:(m&&m.name)||'' }; });
+    if(!chosen.length){ genMsg.textContent='Coche au moins un modèle 3D.'; return; }
+    const old=genBtn.textContent; genBtn.disabled=true; genBtn.textContent='⏳ Génération…'; genMsg.textContent='';
+    try{
+      const r=await fetch('/api/generate-experience',{ method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ chapterTitle:chap?chap.titre:'', stepTitle:(et.board&&et.board.title)||'',
+          phase:et.phase||'', instruction:genIns.value, models:chosen, current:cfg||undefined }) });
+      const j=await r.json(); if(!r.ok) throw new Error(j.error||'échec');
+      cfg=j; fillForm(); await mountEditor();
+      genMsg.textContent='✓ Expérience composée — ajuste les objets en 3D puis « Enregistrer ».';
+    }catch(e){ genMsg.textContent='Erreur : '+e.message; }
+    finally{ genBtn.disabled=false; genBtn.textContent='✨ Régénérer avec l\'IA'; }
+  };
+
+  // ── actions ──
+  const row=document.createElement('div'); row.style.cssText='display:flex;gap:10px;justify-content:flex-end;margin-top:4px';
+  const cancel=document.createElement('button'); cancel.className='ghost'; cancel.textContent='Annuler';
+  const save=document.createElement('button'); save.className='add-btn'; save.textContent='💾 Enregistrer l\'expérience';
+  save.onclick=async()=>{
+    if(!cfg){ toast('Génère d\'abord une expérience.',true); return; }
+    save.disabled=true;
+    try{
+      cfg.action=cfg.action||{}; cfg.action.label=inAction.value.trim()||cfg.action.label||'Lancer l\'expérience';
+      cfg.question=inQuestion.value.trim(); cfg.conclusion=taConcl.value.trim();
+      cfg.choices=(cfg.choices||[]).filter(c=>c.t&&c.t.trim());
+      await setOverride(sel.chapter, step, { labExperiment: cfg });
+      close(); toast('Expérience 3D enregistrée ✓ — visible côté élève sur cette étape.');
+    }catch(e){ toast('Erreur : '+e.message,true); save.disabled=false; }
+  };
+  row.appendChild(cancel); row.appendChild(save); box.appendChild(row);
+
+  function close(){ if(editor){ editor.dispose(); editor=null; } back.remove(); }
+  cancel.onclick=close;
+  back.onclick=e=>{ if(e.target===back) close(); };
+  back.appendChild(box); document.body.appendChild(back);
+
+  // expérience existante → aperçu direct
+  if(cfg){ fillForm(); mountEditor(); }
+}
+
+// Téléverse un fichier et l'utilise à la place du média intégré de l'étape.
+function replaceBuiltinMedia(step){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*,video/*';
+  inp.onchange=async ()=>{
+    const f=inp.files[0]; if(!f) return;
+    try{
+      const up=await fetch('/api/upload?name='+encodeURIComponent(f.name),
+        { method:'POST', headers:{'Content-Type':f.type||'application/octet-stream'}, body:f });
+      const uj=await up.json(); if(!up.ok||!uj.url) throw new Error(uj.error||'échec du téléversement');
+      await setOverride(sel.chapter, step, { mediaSrc:uj.url, mediaType:/^video\//.test(f.type)?'video':'image', hideMedia:null });
+      toast('Image remplacée ✓');
+    }catch(e){ toast('Erreur : '+e.message, true); }
+  };
+  inp.click();
+}
+
+// ── CARROUSEL : le prof met PLUSIEURS diapos sur une étape (images téléversées OU schémas en code
+//    SVG). Chaque diapo a une légende (détails, que l'IA connaît pour générer la parole) et, s'il le
+//    souhaite, ce que l'avatar DIT en la montrant. Quand une diapo a une phrase « dit par l'avatar »,
+//    c'est la voix de l'avatar qui fait défiler le carrousel ; sinon les diapos défilent seules.
+//    Stocké en override `mediaSlides` = [{ src|svg, desc, say }]. ──
+async function uploadFile(f){
+  const up=await fetch('/api/upload?name='+encodeURIComponent(f.name),
+    { method:'POST', headers:{'Content-Type':f.type||'application/octet-stream'}, body:f });
+  const uj=await up.json(); if(!up.ok||!uj.url) throw new Error(uj.error||'échec du téléversement');
+  return uj.url;
+}
+function openCarouselManager(step){
+  const ov=stepOverride(sel.chapter, step);
+  const chap=chapById(sel.chapter); const et=(chap&&chap.etapes&&chap.etapes[step])||{}; const board=et.board||{};
+  // On part des images déjà définies (carrousel), sinon on amorce avec l'image simple existante.
+  let slides = Array.isArray(ov.mediaSlides) && ov.mediaSlides.length
+    ? ov.mediaSlides.map(s=>Object.assign({src:'',desc:'',say:''}, s))
+    : [];
+  if(!slides.length){
+    const src0 = ov.mediaSrc || board.media && board.media.src;
+    if(src0) slides.push({ src:src0, desc:(board.media&&board.media.desc)||'', say:'' });
+  }
+
+  const back=document.createElement('div');
+  back.style.cssText='position:fixed;inset:0;background:rgba(2,6,23,.78);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  const box=document.createElement('div');
+  box.style.cssText='background:#0f1b2e;border:1px solid #243449;border-radius:14px;padding:18px;max-width:720px;width:100%;max-height:90vh;display:flex;flex-direction:column;gap:10px';
+  box.innerHTML='<div style="font-weight:700;font-size:15px">🎞️ Carrousel de l\'étape (images + schémas SVG)</div>'
+    + '<div style="font-size:12px;color:#94a3b8;line-height:1.5">Ajoute plusieurs diapos : des <b>images</b> téléversées ou des <b>schémas en code SVG</b>. La <b>légende / détails</b> décrit la diapo (l\'assistant s\'en sert pour parler juste). '
+    + 'Si tu remplis <b>« ce que dit l\'avatar »</b>, l\'avatar prononce ce texte en montrant la diapo et passe à la suivante quand il en parle. '
+    + 'Sinon, les diapos défilent automatiquement.</div>';
+  const listEl=document.createElement('div'); listEl.style.cssText='display:flex;flex-direction:column;gap:10px;overflow:auto;padding:2px';
+  box.appendChild(listEl);
+
+  function draw(){
+    listEl.innerHTML='';
+    if(!slides.length){ listEl.innerHTML='<div style="color:#64748b;font-size:13px;padding:10px;text-align:center">Aucune diapo. Ajoute une image ou un schéma SVG ci-dessous.</div>'; }
+    slides.forEach((s,idx)=>{
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;gap:10px;background:#0b1220;border:1px solid #243449;border-radius:10px;padding:10px';
+      const thumb=document.createElement('div'); thumb.style.cssText='flex:0 0 96px;display:flex;flex-direction:column;gap:6px;align-items:center';
+      const thumbInner = s.svg
+        ? '<div style="width:96px;height:72px;border-radius:6px;border:1px solid #334155;background:#0b1220;overflow:hidden;display:flex;align-items:center;justify-content:center">'+s.svg+'</div>'
+        : '<img src="'+esc(s.src)+'" alt="" style="width:96px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #334155;background:#000">';
+      thumb.innerHTML=thumbInner+'<div style="font-size:11px;color:#64748b">'+(s.svg?'Schéma ':'Image ')+(idx+1)+'</div>';
+      if(s.svg){ const ed=document.createElement('button'); ed.type='button'; ed.className='ghost'; ed.textContent='✏️ Code SVG';
+        ed.style.cssText='padding:3px 6px;font-size:11px'; ed.onclick=()=>editSvgSlide(s); thumb.appendChild(ed); }
+      const fields=document.createElement('div'); fields.style.cssText='flex:1;display:flex;flex-direction:column;gap:6px;min-width:0';
+      const dsc=document.createElement('input'); dsc.value=s.desc||''; dsc.placeholder='Légende / détails de la diapo (ex : « Doc.2 : la digestion dans l\'estomac »)';
+      dsc.style.cssText='background:#0f1b2e;color:#e2e8f0;border:1px solid #243449;border-radius:8px;padding:8px;font-size:13px';
+      dsc.oninput=()=>{ s.desc=dsc.value; };
+      const say=document.createElement('textarea'); say.value=s.say||''; say.placeholder='Ce que dit l\'avatar en montrant cette diapo (facultatif)';
+      say.style.cssText='background:#0f1b2e;color:#e2e8f0;border:1px solid #243449;border-radius:8px;padding:8px;font-size:13px;min-height:52px;resize:vertical';
+      say.oninput=()=>{ s.say=say.value; };
+      fields.appendChild(dsc); fields.appendChild(say);
+      const ctr=document.createElement('div'); ctr.style.cssText='flex:0 0 auto;display:flex;flex-direction:column;gap:4px';
+      const mk=(t,fn)=>{ const b=document.createElement('button'); b.type='button'; b.textContent=t; b.className='ghost';
+        b.style.cssText='padding:4px 8px;font-size:13px'; b.onclick=fn; return b; };
+      ctr.appendChild(mk('↑',()=>{ if(idx>0){ [slides[idx-1],slides[idx]]=[slides[idx],slides[idx-1]]; draw(); } }));
+      ctr.appendChild(mk('↓',()=>{ if(idx<slides.length-1){ [slides[idx+1],slides[idx]]=[slides[idx],slides[idx+1]]; draw(); } }));
+      ctr.appendChild(mk('🗑',()=>{ slides.splice(idx,1); draw(); }));
+      row.appendChild(thumb); row.appendChild(fields); row.appendChild(ctr);
+      listEl.appendChild(row);
+    });
+  }
+  // Éditeur du code SVG d'une diapo. `existing` = diapo à modifier, ou null pour en créer une nouvelle.
+  function editSvgSlide(existing){
+    openBuiltinEditor({
+      title: existing?'Modifier le schéma (code SVG)':'Ajouter un schéma (code SVG)',
+      hint:'Colle un code SVG complet (<svg …>…</svg>). Il s\'affichera comme une diapo du carrousel.',
+      value: existing?existing.svg||'':'', mono:true,
+      onSave: async(v)=>{ v=(v||'').trim();
+        if(!/<svg[\s>]/i.test(v)) throw new Error('Le code doit contenir une balise <svg>.');
+        if(existing){ existing.svg=v; }
+        else{ slides.push({ svg:v, desc:'', say:'' }); }
+        draw(); }
+    });
+  }
+  draw();
+
+  const addRow=document.createElement('div'); addRow.style.cssText='display:flex;gap:10px;align-items:center;flex-wrap:wrap';
+  const add=document.createElement('button'); add.type='button'; add.className='add-btn'; add.textContent='🖼 Ajouter des images';
+  add.onclick=()=>{
+    const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true;
+    inp.onchange=async()=>{
+      const files=[...inp.files]; if(!files.length) return;
+      add.disabled=true; add.textContent='⏳ Téléversement…';
+      try{ for(const f of files){ const url=await uploadFile(f); slides.push({ src:url, desc:'', say:'' }); } draw(); }
+      catch(e){ toast('Erreur : '+e.message, true); }
+      add.disabled=false; add.textContent='🖼 Ajouter des images';
+    };
+    inp.click();
+  };
+  const addSvg=document.createElement('button'); addSvg.type='button'; addSvg.className='add-btn'; addSvg.textContent='📐 Ajouter un schéma (SVG)';
+  addSvg.onclick=()=>editSvgSlide(null);
+  addRow.appendChild(add); addRow.appendChild(addSvg); box.appendChild(addRow);
+
+  const rowB=document.createElement('div'); rowB.style.cssText='display:flex;gap:10px;justify-content:flex-end;margin-top:4px';
+  const cancel=document.createElement('button'); cancel.className='ghost'; cancel.textContent='Annuler'; cancel.onclick=()=>back.remove();
+  const save=document.createElement('button'); save.className='add-btn'; save.textContent='💾 Enregistrer le carrousel';
+  save.onclick=async()=>{
+    save.disabled=true;
+    try{
+      const clean=slides.filter(s=>s&&(s.src||s.svg)).map(s=>{
+        const o={ desc:(s.desc||'').trim(), say:(s.say||'').trim() };
+        if(s.svg) o.svg=s.svg; else o.src=s.src; return o; });
+      // 0 ou 1 diapo → pas un carrousel : on retire l'override (le média simple reprend).
+      await setOverride(sel.chapter, step, { mediaSlides: clean.length>=2 ? clean : null });
+      toast(clean.length>=2 ? 'Carrousel enregistré ✓ ('+clean.length+' diapos)' : 'Carrousel retiré');
+      back.remove();
+    }catch(e){ toast('Erreur : '+e.message, true); save.disabled=false; }
+  };
+  rowB.appendChild(cancel); rowB.appendChild(save); box.appendChild(rowB);
+  back.appendChild(box); back.onclick=(e)=>{ if(e.target===back) back.remove(); };
+  document.body.appendChild(back);
+}
+
+function renderSupports(){
+  const list=stepList(sel.chapter, sel.step);
+  supportsEl.innerHTML='';
+  if(!list.length){ supportsEl.innerHTML='<div class="empty">Aucun support pour l\'instant. Ajoute un texte, un lien ou un média ci-dessus.</div>'; return; }
+  list.forEach((m,idx)=>{
+    const card=document.createElement('div'); card.className='support';
+    const ico={text:'📝',link:'🔗',image:'🖼️',video:'🎬'}[m.type]||'📎';
+    let media='';
+    if(m.type==='image') media=`<img src="${m.url}" alt="">`;
+    else if(m.type==='video') media=`<video src="${m.url}" controls playsinline></video>`;
+    let bodyHtml='';
+    if(m.type==='text'){
+      bodyHtml=(m.caption?`<div class="kind">${esc(m.caption)}</div>`:`<div class="kind">Note</div>`)
+             + `<div class="txt">${esc(m.body||'')}</div>`;
+    } else if(m.type==='link'){
+      bodyHtml=`<div class="kind">Lien</div>`
+             + (m.caption?`<div class="txt">${esc(m.caption)}</div>`:'')
+             + `<a href="${encodeURI(m.url)}" target="_blank" rel="noopener">${esc(m.url)}</a>`;
+    } else {
+      bodyHtml=`<div class="kind">${m.type==='video'?'Vidéo':'Image'}</div>`
+             + (m.caption?`<div class="txt">${esc(m.caption)}</div>`:'')+media;
+    }
+    card.innerHTML=`<div class="ico">${ico}</div><div class="body">${bodyHtml}</div>`
+                 + `<div class="acts"><button data-a="edit">✏️</button><button data-a="del">🗑️</button></div>`;
+    card.querySelector('[data-a="del"]').onclick=()=>removeSupport(idx);
+    card.querySelector('[data-a="edit"]').onclick=()=>editSupport(idx, m);
+    supportsEl.appendChild(card);
+  });
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// ── Type d'ajout (onglets) ──
+document.querySelectorAll('.type-tab').forEach(tab=>{
+  tab.onclick=()=>{
+    curType=tab.dataset.type;
+    document.querySelectorAll('.type-tab').forEach(t=>t.classList.toggle('active',t===tab));
+    document.querySelectorAll('.pane').forEach(p=>p.style.display=(p.dataset.pane===curType?'':'none'));
+  };
+});
+
+// ── Enregistrement serveur ──
+async function saveSupport(media, opts){
+  opts=opts||{};
+  const payload=Object.assign({ chapterId:sel.chapter, step:String(sel.step), media }, opts);
+  const r=await fetch('/api/content',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+  const j=await r.json(); if(!r.ok) throw new Error(j.error||'échec');
+  content[sel.chapter]=content[sel.chapter]||{}; content[sel.chapter][String(sel.step)]=j.list;
+  renderSupports(); renderSteps();
+}
+
+$('addBtn').onclick=async ()=>{
+  const btn=$('addBtn'); btn.disabled=true; $('busy').textContent='Enregistrement…';
+  try{
+    if(curType==='text'){
+      const body=$('txtBody').value.trim(); if(!body){ toast('Écris un contenu avant d\'ajouter.',true); return; }
+      await saveSupport({ type:'text', body, caption:$('txtCaption').value.trim() });
+      $('txtBody').value=''; $('txtCaption').value='';
+    } else if(curType==='link'){
+      const url=$('lnkUrl').value.trim(); if(!/^https?:\/\//i.test(url)){ toast('Entre une URL valide (http…).',true); return; }
+      await saveSupport({ type:'link', url, caption:$('lnkCaption').value.trim() });
+      $('lnkUrl').value=''; $('lnkCaption').value='';
+    } else {
+      const f=$('mediaFile').files[0]; if(!f){ toast('Choisis un fichier.',true); return; }
+      $('busy').textContent='Téléversement…';
+      const up=await fetch('/api/upload?name='+encodeURIComponent(f.name),
+        { method:'POST', headers:{'Content-Type':f.type||'application/octet-stream'}, body:f });
+      const uj=await up.json(); if(!up.ok||!uj.url) throw new Error(uj.error||'échec du téléversement');
+      await saveSupport({ type:/^video\//.test(f.type)?'video':'image', url:uj.url, caption:$('mediaCaption').value.trim(), name:f.name });
+      $('mediaFile').value=''; $('mediaCaption').value='';
+    }
+    toast('Support ajouté ✓ — l\'IA en tiendra compte.');
+  }catch(e){ toast('Erreur : '+e.message, true); }
+  finally{ btn.disabled=false; $('busy').textContent=''; }
+};
+
+async function removeSupport(idx){
+  if(!confirm('Supprimer ce support ?')) return;
+  try{ await saveSupport(null, { remove:true, index:idx }); toast('Support supprimé.'); }
+  catch(e){ toast('Erreur : '+e.message, true); }
+}
+
+async function editSupport(idx, m){
+  try{
+    if(m.type==='text'){
+      const body=prompt('Modifier le contenu :', m.body||''); if(body===null) return;
+      if(!body.trim()){ toast('Contenu vide — non modifié.',true); return; }
+      await saveSupport({ type:'text', body:body.trim(), caption:m.caption||'' }, { update:true, index:idx });
+    } else if(m.type==='link'){
+      const url=prompt('Modifier l\'URL :', m.url||''); if(url===null) return;
+      if(!/^https?:\/\//i.test(url)){ toast('URL invalide.',true); return; }
+      await saveSupport({ type:'link', url:url.trim(), caption:m.caption||'' }, { update:true, index:idx });
+    } else {
+      const caption=prompt('Modifier la légende :', m.caption||''); if(caption===null) return;
+      await saveSupport(Object.assign({}, m, { caption:caption.trim() }), { update:true, index:idx });
+    }
+    toast('Support modifié ✓');
+  }catch(e){ toast('Erreur : '+e.message, true); }
+}
+
+// ── Init ──
+chapterSel.onchange=()=>{ sel.chapter=chapterSel.value; sel.step=null; renderSteps(); renderEditor(); };
+$('addStepBtn').onclick=addCustomCoursePart;
+
+Promise.all([
+  fetch('/api/content').then(r=>r.ok?r.json():{}).catch(()=>({})),
+  fetch('/api/overrides').then(r=>r.ok?r.json():{}).catch(()=>({})),
+  fetch('/api/custom-steps').then(r=>r.ok?r.json():{}).catch(()=>({}))
+]).then(([c,o,cs])=>{
+  content=c||{}; overrides=o||{}; mergeCustomSteps(cs||{});
+  fillChapters();
+  if(LECONS.length){ sel.chapter=LECONS[0].id; chapterSel.value=sel.chapter; }
+  renderSteps(); renderEditor();
+}).catch(()=>{ fillChapters(); if(LECONS.length){ sel.chapter=LECONS[0].id; } renderSteps(); renderEditor(); });
+</script>
+</body>
+</html>

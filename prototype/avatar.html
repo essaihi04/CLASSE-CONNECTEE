@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Avatar</title>
+<style>
+  html,body{margin:0;height:100%;background:transparent;overflow:hidden;font-family:'Segoe UI',sans-serif}
+  .stage{width:100%;height:100%;display:flex;align-items:flex-end;justify-content:center;position:relative}
+  video{max-width:100%;max-height:100%;object-fit:contain;display:block;transition:filter .4s}
+  /* humeurs : teinte de la video */
+  .explain video{filter:none}
+  .think   video{filter:grayscale(.3) brightness(.92) hue-rotate(-10deg)}
+  .motivate video{filter:saturate(1.3) brightness(1.08)}
+  .greet   video{filter:saturate(1.1)}
+  /* badge d'etat */
+  .badge{position:absolute;top:10px;left:50%;transform:translateX(-50%);
+    background:rgba(2,6,23,.7);color:#fff;font-size:13px;font-weight:700;
+    padding:4px 12px;border-radius:20px;white-space:nowrap;backdrop-filter:blur(3px)}
+  .think .badge{animation:pulse 1.1s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+  /* petite emote flottante pour motivation/accueil */
+  .emote{position:absolute;top:40px;font-size:34px;animation:floaty 1.6s ease-in-out infinite;display:none}
+  .motivate .emote,.greet .emote{display:block}
+  @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+</style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <span class="badge" id="badge"></span>
+    <span class="emote" id="emote"></span>
+    <video id="v" autoplay loop muted playsinline></video>
+  </div>
+  <script>
+    const p=new URLSearchParams(location.search);
+    const src=p.get('src')||'avatar.mp4';
+    const mood=p.get('mood')||'explain';     // explain | think | motivate | greet
+    const label=p.get('label')||'';
+    const stage=document.getElementById('stage');
+    const v=document.getElementById('v');
+    const badge=document.getElementById('badge');
+    const emote=document.getElementById('emote');
+
+    stage.classList.add(mood);
+    v.src=src; v.play().catch(()=>{});
+    if(label){ badge.textContent=label; } else { badge.style.display='none'; }
+    emote.textContent = mood==='motivate' ? '🎉' : (mood==='greet' ? '👋' : '');
+  </script>
+</body>
+</html>
