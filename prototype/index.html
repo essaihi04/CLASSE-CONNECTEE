@@ -1145,7 +1145,9 @@ let currentAudio=null, ttsToken=0, ttsAbort=null, afterSpeakCb=null;
 const ttsCache=new Map();   // text -> Blob (rejoue instantanément, sans refaire la requête)
 let curSchemaEl=null, highlightTimers=[];   // schéma courant + minuteries d'allumage
 let ttsServerDown=0;                        // disjoncteur : si >0, le serveur TTS est KO (timestamp)
-const TTS_RETRY_MS=5*60*1000;               // on réessaie le serveur toutes les 5 min
+const TTS_RETRY_MS=45*1000;                 // on redonne sa chance au serveur après 45 s
+                                            // (5 min = toute la fin de leçon en voix robotique
+                                            //  à la moindre erreur passagère d'ElevenLabs)
 
 /* RÈGLE : un seul audio à la fois. Coupe l'audio en cours, la voix navigateur,
    ET annule la requête Gemini précédente encore en vol (jeton + AbortController). */

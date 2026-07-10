@@ -308,20 +308,41 @@ const ELEVEN_MODEL    = (process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2
 // Débit un peu ralenti (collégiens). Plage acceptée par l'API : 0.7 à 1.2.
 const ELEVEN_RATE     = Math.min(1.2, Math.max(0.7, parseFloat(process.env.ELEVENLABS_RATE) || 0.9));
 
+// FILE D'ATTENTE : l'offre gratuite ElevenLabs n'accepte que 2 requêtes SIMULTANÉES.
+// La page précharge l'audio de l'étape suivante pendant la parole → collisions 429.
+// On sérialise donc tous les appels (un à la fois) : le préchargement attend son tour.
+let elQueue = Promise.resolve();
+function elEnqueue(fn){
+  const run = elQueue.then(fn, fn);
+  elQueue = run.then(()=>{}, ()=>{});
+  return run;
+}
+
 async function callElevenLabsTTS(text){
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}?output_format=mp3_44100_128`;
-  const body = {
+  const body = JSON.stringify({
     text,
     model_id: ELEVEN_MODEL,
     // stability basse + style : rendu plus vivant/chaleureux qu'une lecture plate
     voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.3, speed: ELEVEN_RATE }
-  };
-  const r = await fetch(url, {
-    method:'POST',
-    headers:{ 'xi-api-key': getElevenKey(), 'Content-Type':'application/json' },
-    body: JSON.stringify(body)
   });
-  if(!r.ok) throw new Error('ElevenLabs TTS HTTP '+r.status+' : '+(await r.text()).slice(0,200));
+  // On INSISTE sur les erreurs passagères (429 rebond de concurrence, 5xx) avec un backoff
+  // — mais on échoue TOUT DE SUITE si le quota mensuel est épuisé (réessayer ne sert à rien).
+  const sleep = ms => new Promise(r=>setTimeout(r, ms));
+  const BACKOFF = [600, 1500, 3000];
+  let r, lastTxt='';
+  for (let attempt=0; attempt<=BACKOFF.length; attempt++){
+    r = await fetch(url, {
+      method:'POST',
+      headers:{ 'xi-api-key': getElevenKey(), 'Content-Type':'application/json' },
+      body
+    });
+    if (r.ok) break;
+    lastTxt = (await r.text()).slice(0,300);
+    const transient = (r.status===429 || r.status>=500) && !/quota_exceeded/i.test(lastTxt);
+    if (transient && attempt<BACKOFF.length){ await sleep(BACKOFF[attempt]); continue; }
+    throw new Error('ElevenLabs TTS HTTP '+r.status+' : '+lastTxt.slice(0,200));
+  }
   return Buffer.from(await r.arrayBuffer());
 }
 
@@ -481,9 +502,9 @@ function handleTTS(req, res){
       const { text } = JSON.parse(body || '{}');
       if(!text || !text.trim()) throw new Error('texte manquant');
       const clean = text.trim().slice(0, 2000);
-      // 1) ElevenLabs (primaire) — voix chaleureuse
+      // 1) ElevenLabs (primaire) — voix chaleureuse ; appels sérialisés (limite de concurrence)
       if (hasElevenKey()){
-        try{ return sendAudio(res, await callElevenLabsTTS(clean), 'audio/mpeg'); }
+        try{ return sendAudio(res, await elEnqueue(()=>callElevenLabsTTS(clean)), 'audio/mpeg'); }
         catch(e){ errs.push('ElevenLabs → '+e.message); }
       } else { errs.push('ElevenLabs → clé absente'); }
       // 2) Gemini TTS — désactivable via l'interrupteur USE_GEMINI_TTS
