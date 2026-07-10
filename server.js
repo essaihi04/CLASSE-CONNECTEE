@@ -368,7 +368,11 @@ const GEMINI_VOICES = [
   { name:'Enceladus',    desc:'Calme, feutrée' },
   { name:'Despina',      desc:'Fluide, moderne' }
 ];
-const TTS_MODEL = (process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts').trim();
+const DEFAULT_TTS_MODELS = ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts'];
+const TTS_MODELS = [
+  ...(process.env.GEMINI_TTS_MODEL || '').split(',').map(s=>s.trim()).filter(Boolean),
+  ...DEFAULT_TTS_MODELS
+].filter((m, i, arr)=>m && arr.indexOf(m)===i);
 // Interrupteur : Gemini TTS ACTIVÉ en 2e choix — si ElevenLabs échoue (quota mensuel
 // épuisé, panne), la voix reste neurale au lieu de tomber sur celle du navigateur.
 // Mettre GEMINI_TTS=off pour le couper.
@@ -387,16 +391,12 @@ function pcmToWav(pcm, sampleRate){
 
 async function callGeminiTTS(text){
   const key = getGeminiKey();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:generateContent`;
-  // On envoie le texte BRUT : le modèle TTS le lit tel quel (un préfixe de consigne
-  // déclenche l'erreur "tried to generate text"). Le ton vient de la voix choisie.
-  const body = {
-    contents: [{ parts: [{ text: text }] }],
-    generationConfig: {
-      responseModalities: ['AUDIO'],
-      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE } } }
-    }
-  };
+  const voiceName = currentGeminiVoice();
+  // Les modèles TTS attendent une consigne audio claire. Avec l'ancien 2.5, envoyer
+  // seulement "Bonjour" peut déclencher : "Model tried to generate text".
+  const transcript =
+    'Lis exactement le texte français suivant à voix haute, avec un ton calme et pédagogique. ' +
+    'Ne rajoute aucun mot ni commentaire.\n\n' + text;
   // Jeton OAuth ("ya29...") -> Bearer ; sinon (clé API "AIza..." ou "AQ...") -> x-goog-api-key.
   const headers = { 'Content-Type':'application/json' };
   if (/^ya29\./.test(key)) headers['Authorization'] = 'Bearer ' + key;
@@ -405,26 +405,39 @@ async function callGeminiTTS(text){
   // Le modèle TTS preview a une limite de requêtes/minute. On INSISTE avec un backoff
   // progressif (jusqu'à ~9 s cumulées) pour que la voix reste Gemini et ne bascule pas
   // sur la voix du navigateur dès le premier 429.
-  const payload = JSON.stringify(body);
   const sleep = ms => new Promise(r=>setTimeout(r, ms));
   const BACKOFF = [700];   // un seul essai de plus (quota épuisé ne se rétablit pas en quelques secondes)
-  let r, lastTxt='';
-  for (let attempt=0; attempt<=BACKOFF.length; attempt++){
-    r = await fetch(url, { method:'POST', headers, body: payload });
-    if (r.ok) break;
-    lastTxt = (await r.text()).slice(0,300);
-    if ((r.status===429 || r.status===503) && attempt<BACKOFF.length){ await sleep(BACKOFF[attempt]); continue; }
-    throw new Error('Gemini TTS HTTP '+r.status+' : '+lastTxt);
+  const modelErrs = [];
+  for (const model of TTS_MODELS){
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    const body = {
+      contents: [{ parts: [{ text: transcript }] }],
+      generationConfig: {
+        responseModalities: ['AUDIO'],
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
+      },
+      model
+    };
+    const payload = JSON.stringify(body);
+    let r, lastTxt='';
+    for (let attempt=0; attempt<=BACKOFF.length; attempt++){
+      r = await fetch(url, { method:'POST', headers, body: payload });
+      if (r.ok) break;
+      lastTxt = (await r.text()).slice(0,300);
+      if ((r.status===429 || r.status===503) && attempt<BACKOFF.length){ await sleep(BACKOFF[attempt]); continue; }
+      break;
+    }
+    if(!r.ok){ modelErrs.push(model+' HTTP '+r.status+' : '+lastTxt); continue; }
+    const data = await r.json();
+    const part = data.candidates?.[0]?.content?.parts?.find(p=>p.inlineData);
+    const b64 = part?.inlineData?.data;
+    if(!b64){ modelErrs.push(model+' : audio absent de la réponse'); continue; }
+    const mime = part.inlineData.mimeType || '';
+    const m = /rate=(\d+)/.exec(mime);
+    const rate = m ? parseInt(m[1],10) : 24000;
+    return pcmToWav(Buffer.from(b64, 'base64'), rate);
   }
-  if(!r.ok) throw new Error('Gemini TTS HTTP '+r.status+' (quota/minute atteint) : '+lastTxt);
-  const data = await r.json();
-  const part = data.candidates?.[0]?.content?.parts?.find(p=>p.inlineData);
-  const b64 = part?.inlineData?.data;
-  if(!b64) throw new Error('Gemini TTS : audio absent de la réponse');
-  const mime = part.inlineData.mimeType || '';
-  const m = /rate=(\d+)/.exec(mime);
-  const rate = m ? parseInt(m[1],10) : 24000;
-  return pcmToWav(Buffer.from(b64, 'base64'), rate);
+  throw new Error(modelErrs.join('  |  '));
 }
 
 // ============ Repli secondaire : Google Cloud Text-to-Speech (voix Neural2) ============
