@@ -1238,13 +1238,31 @@ function playBlob(blob, text, my){
    son mot est prononcé : on place l'allumage à (position du mot / longueur du texte) × durée audio. */
 function norm(s){ return (s||'').toLowerCase().normalize('NFD')
   .split('').filter(c=>{ const x=c.charCodeAt(0); return x<0x300 || x>0x36f; }).join(''); }
+// Distance² du point (lx,ly) au point le PLUS PROCHE de la forme. Pour une flèche (<line>) ou
+// une ligne brisée (<polyline>/<polygon>), on prend ses SOMMETS et non le centre de sa boîte :
+// sinon une flèche longue « attrape » une étiquette voisine par le milieu de son trait (bug où
+// la flèche de Eau s'allumait à la place de Glucides). Les formes compactes gardent leur centre.
+function shapeAnchorDist2(s, lx, ly){
+  const tag=(s.tagName||'').toLowerCase(); const pts=[];
+  if(tag==='line'){
+    pts.push([+s.getAttribute('x1'),+s.getAttribute('y1')]);
+    pts.push([+s.getAttribute('x2'),+s.getAttribute('y2')]);
+  }else if(tag==='polyline'||tag==='polygon'){
+    const raw=(s.getAttribute('points')||'').trim().split(/[\s,]+/).map(Number);
+    for(let i=0;i+1<raw.length;i+=2) pts.push([raw[i],raw[i+1]]);
+  }
+  const valid=pts.filter(p=>isFinite(p[0])&&isFinite(p[1]));
+  if(!valid.length){ let b; try{ b=s.getBBox(); }catch(e){ return 1e9; }
+    valid.push([b.x+b.width/2, b.y+b.height/2]); }
+  let best=1e9;
+  valid.forEach(p=>{ const d=(p[0]-lx)*(p[0]-lx)+(p[1]-ly)*(p[1]-ly); if(d<best) best=d; });
+  return best;
+}
 function nearestShape(svg, lab){
   const shapes=[...svg.querySelectorAll('path,line,polyline,polygon,circle,ellipse,rect')];
   let lb; try{ lb=lab.getBBox(); }catch(e){ return null; }
   const lx=lb.x+lb.width/2, ly=lb.y+lb.height/2; let best=null, bd=1e9;
-  shapes.forEach(s=>{ let b; try{ b=s.getBBox(); }catch(e){ return; }
-    const cx=b.x+b.width/2, cy=b.y+b.height/2, d=(cx-lx)*(cx-lx)+(cy-ly)*(cy-ly);
-    if(d<bd){ bd=d; best=s; } });
+  shapes.forEach(s=>{ const d=shapeAnchorDist2(s, lx, ly); if(d<bd){ bd=d; best=s; } });
   return best;
 }
 function glowPart(svg, lab){

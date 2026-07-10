@@ -348,6 +348,26 @@ async function callElevenLabsTTS(text){
 
 // Voix Gemini par défaut (modifiable via GEMINI_TTS_VOICE). "Charon" = posée, pédagogue.
 const TTS_VOICE = (process.env.GEMINI_TTS_VOICE || 'Charon').trim();
+// Choix persistant fait sur la page /voix.html : voice_config.json PRIME sur l'env.
+// (fichier committé avec le projet → le choix suit le déploiement Render)
+const VOICE_CONFIG_FILE = path.join(__dirname, 'voice_config.json');
+function currentGeminiVoice(){
+  try{ const v = JSON.parse(fs.readFileSync(VOICE_CONFIG_FILE,'utf8')).geminiVoice; if(v) return String(v); }catch(e){}
+  return TTS_VOICE;
+}
+// Voix candidates proposées à l'écoute sur /voix.html (descriptions officielles traduites)
+const GEMINI_VOICES = [
+  { name:'Charon',       desc:'Posée, informative (voix par défaut)' },
+  { name:'Sulafat',      desc:'Chaleureuse' },
+  { name:'Achird',       desc:'Amicale' },
+  { name:'Algieba',      desc:'Douce et fluide' },
+  { name:'Gacrux',       desc:'Mûre, rassurante' },
+  { name:'Sadaltager',   desc:'Savante, professorale' },
+  { name:'Vindemiatrix', desc:'Douce, bienveillante' },
+  { name:'Iapetus',      desc:'Claire' },
+  { name:'Enceladus',    desc:'Calme, feutrée' },
+  { name:'Despina',      desc:'Fluide, moderne' }
+];
 const TTS_MODEL = (process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts').trim();
 // Interrupteur : Gemini TTS ACTIVÉ en 2e choix — si ElevenLabs échoue (quota mensuel
 // épuisé, panne), la voix reste neurale au lieu de tomber sur celle du navigateur.
