@@ -532,29 +532,33 @@ function handleTTS(req, res){
   req.on('data', c=> body += c);
   req.on('end', async ()=>{
     const errs = [];
+    let clean = '';
     try{
       const { text } = JSON.parse(body || '{}');
       if(!text || !text.trim()) throw new Error('texte manquant');
-      const clean = text.trim().slice(0, 2000);
-      // 1) ElevenLabs (primaire) — voix chaleureuse ; appels sérialisés (limite de concurrence)
-      if (hasElevenKey()){
-        try{ return sendAudio(res, await elEnqueue(()=>callElevenLabsTTS(clean)), 'audio/mpeg'); }
-        catch(e){ errs.push('ElevenLabs → '+e.message); }
-      } else { errs.push('ElevenLabs → clé absente'); }
-      // 2) Gemini TTS — désactivable via l'interrupteur USE_GEMINI_TTS
-      if (USE_GEMINI_TTS){
-        try{ return sendAudio(res, await callGeminiTTS(clean), 'audio/wav'); }
-        catch(e){ errs.push('Gemini → '+e.message); }
-      } else { errs.push('Gemini → désactivé'); }
-      // 3) Google Cloud TTS
-      try{ const a = await callCloudTTS(clean); return sendAudio(res, a.buf, a.mime); }
-      catch(e){ errs.push('Cloud → '+e.message); }
-      // 4) tout a échoué → le navigateur basculera sur sa propre voix (Web Speech)
-      throw new Error(errs.join('  |  '));
+      clean = text.trim().slice(0, 2000);
     }catch(e){
-      res.writeHead(502, { 'Content-Type':'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ error: String(e.message || e) }));
+      res.writeHead(400, { 'Content-Type':'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({ error: String(e.message || e) }));
     }
+    // 1) ElevenLabs (primaire) — voix chaleureuse ; appels sérialisés (limite de concurrence)
+    if (hasElevenKey()){
+      try{ return sendAudio(res, await elEnqueue(()=>callElevenLabsTTS(clean)), 'audio/mpeg'); }
+      catch(e){ errs.push('ElevenLabs → '+e.message); }
+    } else { errs.push('ElevenLabs → clé absente'); }
+    // 2) Gemini TTS — désactivable via l'interrupteur USE_GEMINI_TTS
+    if (USE_GEMINI_TTS){
+      try{ return sendAudio(res, await callGeminiTTS(clean), 'audio/wav'); }
+      catch(e){ errs.push('Gemini → '+e.message); }
+    } else { errs.push('Gemini → désactivé'); }
+    // 3) Google Cloud TTS
+    try{ const a = await callCloudTTS(clean); return sendAudio(res, a.buf, a.mime); }
+    catch(e){ errs.push('Cloud → '+e.message); }
+    // 4) tout a échoué → le navigateur bascule sur sa propre voix (Web Speech).
+    // 204 évite un faux "Bad Gateway" dans la console pour un repli attendu.
+    console.warn('[TTS] repli navigateur : '+errs.join('  |  '));
+    res.writeHead(204, { 'Cache-Control':'no-store', 'X-TTS-Fallback':'browser' });
+    res.end();
   });
 }
 

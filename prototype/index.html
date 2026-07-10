@@ -1310,8 +1310,9 @@ function speak(text, then){
   const ctrl=new AbortController(); ttsAbort=ctrl;
   fetch('/api/tts',{ method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({text}), signal:ctrl.signal })  // requête principale
-    .then(r=>{ if(!r.ok) throw new Error('tts '+r.status); return r.blob(); })
+    .then(r=>{ if(r.status===204) throw new Error('tts fallback'); if(!r.ok) throw new Error('tts '+r.status); return r.blob(); })
     .then(blob=>{
+      if(!blob.size) throw new Error('tts empty');
       if(my!==ttsToken) return;                      // demande dépassée → on abandonne
       ttsServerDown=0;                               // serveur OK → on referme le disjoncteur
       if(ttsCache.size>40) ttsCache.clear();
@@ -1363,8 +1364,8 @@ function prefetchTTS(text){
   if(!text || ttsCache.has(text) || !document.getElementById('voice').checked) return;
   if(ttsServerDown && (Date.now()-ttsServerDown) < TTS_RETRY_MS) return;   // serveur KO : on ne précharge pas
   fetch('/api/tts',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text}) })
-    .then(r=> r.ok ? r.blob() : null)
-    .then(blob=>{ if(blob){ if(ttsCache.size>40) ttsCache.clear(); ttsCache.set(text, blob); } })
+    .then(r=> (r.ok && r.status!==204) ? r.blob() : null)
+    .then(blob=>{ if(blob && blob.size){ if(ttsCache.size>40) ttsCache.clear(); ttsCache.set(text, blob); } })
     .catch(()=>{});
 }
 /* attend que le module 3D (Three.js) soit chargé, puis monte l'objet dans le conteneur */
