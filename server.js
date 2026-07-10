@@ -349,9 +349,10 @@ async function callElevenLabsTTS(text){
 // Voix Gemini par défaut (modifiable via GEMINI_TTS_VOICE). "Charon" = posée, pédagogue.
 const TTS_VOICE = (process.env.GEMINI_TTS_VOICE || 'Charon').trim();
 const TTS_MODEL = (process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts').trim();
-// Interrupteur : Gemini TTS DÉSACTIVÉ pour le moment (repasser à true pour le réactiver,
-// ou définir GEMINI_TTS=on). Désactivé → /api/tts passe direct à Cloud TTS, sinon voix navigateur.
-const USE_GEMINI_TTS = /^(1|on|true|yes)$/i.test(process.env.GEMINI_TTS || 'off');
+// Interrupteur : Gemini TTS ACTIVÉ en 2e choix — si ElevenLabs échoue (quota mensuel
+// épuisé, panne), la voix reste neurale au lieu de tomber sur celle du navigateur.
+// Mettre GEMINI_TTS=off pour le couper.
+const USE_GEMINI_TTS = /^(1|on|true|yes)$/i.test(process.env.GEMINI_TTS || 'on');
 
 // Le TTS renvoie du PCM brut (16 bits, mono) : on l'emballe dans un en-tête WAV lisible par le navigateur.
 function pcmToWav(pcm, sampleRate){
