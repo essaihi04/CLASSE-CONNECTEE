@@ -294,6 +294,37 @@ function getGeminiKey(){
   return fs.readFileSync(path.join(__dirname, 'gemini.key'), 'utf8').trim();
 }
 
+// ---- Clé ElevenLabs (voix primaire) : variable d'env OU fichier elevenlabs.key ----
+function getElevenKey(){
+  if (process.env.ELEVENLABS_API_KEY) return process.env.ELEVENLABS_API_KEY.trim();
+  return fs.readFileSync(path.join(__dirname, 'elevenlabs.key'), 'utf8').trim();
+}
+function hasElevenKey(){ try{ return !!getElevenKey(); }catch(e){ return false; } }
+
+// Voix ElevenLabs par défaut : "George" = masculine, chaleureuse, posée (le modèle
+// multilingue la fait parler français). Modifiable via ELEVENLABS_VOICE_ID.
+const ELEVEN_VOICE_ID = (process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb').trim();
+const ELEVEN_MODEL    = (process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2').trim();
+// Débit un peu ralenti (collégiens). Plage acceptée par l'API : 0.7 à 1.2.
+const ELEVEN_RATE     = Math.min(1.2, Math.max(0.7, parseFloat(process.env.ELEVENLABS_RATE) || 0.9));
+
+async function callElevenLabsTTS(text){
+  const url = `https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}?output_format=mp3_44100_128`;
+  const body = {
+    text,
+    model_id: ELEVEN_MODEL,
+    // stability basse + style : rendu plus vivant/chaleureux qu'une lecture plate
+    voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.3, speed: ELEVEN_RATE }
+  };
+  const r = await fetch(url, {
+    method:'POST',
+    headers:{ 'xi-api-key': getElevenKey(), 'Content-Type':'application/json' },
+    body: JSON.stringify(body)
+  });
+  if(!r.ok) throw new Error('ElevenLabs TTS HTTP '+r.status+' : '+(await r.text()).slice(0,200));
+  return Buffer.from(await r.arrayBuffer());
+}
+
 // Voix Gemini par défaut (modifiable via GEMINI_TTS_VOICE). "Charon" = posée, pédagogue.
 const TTS_VOICE = (process.env.GEMINI_TTS_VOICE || 'Charon').trim();
 const TTS_MODEL = (process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts').trim();
@@ -440,7 +471,7 @@ function sendAudio(res, buf, mime){
   res.end(buf);
 }
 
-// Chaîne de repli : 1) Gemini TTS  2) Google Cloud TTS  3) (navigateur, côté client)
+// Chaîne de repli : 1) ElevenLabs  2) Gemini TTS  3) Google Cloud TTS  4) (navigateur, côté client)
 function handleTTS(req, res){
   let body='';
   req.on('data', c=> body += c);
@@ -450,15 +481,20 @@ function handleTTS(req, res){
       const { text } = JSON.parse(body || '{}');
       if(!text || !text.trim()) throw new Error('texte manquant');
       const clean = text.trim().slice(0, 2000);
-      // 1) Gemini TTS (primaire) — désactivable via l'interrupteur USE_GEMINI_TTS
+      // 1) ElevenLabs (primaire) — voix chaleureuse
+      if (hasElevenKey()){
+        try{ return sendAudio(res, await callElevenLabsTTS(clean), 'audio/mpeg'); }
+        catch(e){ errs.push('ElevenLabs → '+e.message); }
+      } else { errs.push('ElevenLabs → clé absente'); }
+      // 2) Gemini TTS — désactivable via l'interrupteur USE_GEMINI_TTS
       if (USE_GEMINI_TTS){
         try{ return sendAudio(res, await callGeminiTTS(clean), 'audio/wav'); }
         catch(e){ errs.push('Gemini → '+e.message); }
       } else { errs.push('Gemini → désactivé'); }
-      // 2) Google Cloud TTS (secondaire)
+      // 3) Google Cloud TTS
       try{ const a = await callCloudTTS(clean); return sendAudio(res, a.buf, a.mime); }
       catch(e){ errs.push('Cloud → '+e.message); }
-      // 3) les deux ont échoué → le navigateur basculera sur sa propre voix (Web Speech)
+      // 4) tout a échoué → le navigateur basculera sur sa propre voix (Web Speech)
       throw new Error(errs.join('  |  '));
     }catch(e){
       res.writeHead(502, { 'Content-Type':'application/json; charset=utf-8' });
@@ -961,8 +997,9 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`\n  Classes Connectees -> http://localhost:${PORT}`);
   console.log(`  IA DeepSeek : ${ (()=>{ try{ getKey(); return 'clé chargée ✅'; }catch(e){ return 'clé absente ❌'; } })() }`);
-  console.log(`  Voix 1) Gemini TTS (${TTS_VOICE}) : ${ USE_GEMINI_TTS ? ((()=>{ try{ getGeminiKey(); return 'clé chargée ✅'; }catch(e){ return 'clé absente ❌'; } })()) : 'DÉSACTIVÉ ⛔ (GEMINI_TTS=on pour réactiver)' }`);
-  console.log(`  Voix 2) Google Cloud TTS (${CLOUD_TTS_VOICE}) : ${ fs.existsSync(OAUTH_TOKEN_FILE) ? 'autorisé ✅' : 'à autoriser → http://localhost:'+PORT+'/oauth2/start' }`);
-  console.log('  Voix 3) Navigateur (Web Speech) : repli automatique côté client');
+  console.log(`  Voix 1) ElevenLabs (${ELEVEN_VOICE_ID === 'JBFqnCBsd6RMkjVDRZzb' ? 'George' : ELEVEN_VOICE_ID}) : ${ hasElevenKey() ? 'clé chargée ✅' : 'clé absente ❌ (elevenlabs.key ou ELEVENLABS_API_KEY)' }`);
+  console.log(`  Voix 2) Gemini TTS (${TTS_VOICE}) : ${ USE_GEMINI_TTS ? ((()=>{ try{ getGeminiKey(); return 'clé chargée ✅'; }catch(e){ return 'clé absente ❌'; } })()) : 'DÉSACTIVÉ ⛔ (GEMINI_TTS=on pour réactiver)' }`);
+  console.log(`  Voix 3) Google Cloud TTS (${CLOUD_TTS_VOICE}) : ${ fs.existsSync(OAUTH_TOKEN_FILE) ? 'autorisé ✅' : 'à autoriser → http://localhost:'+PORT+'/oauth2/start' }`);
+  console.log('  Voix 4) Navigateur (Web Speech) : repli automatique côté client');
   console.log('  (Ctrl+C pour arreter)\n');
 });
