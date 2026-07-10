@@ -1068,8 +1068,9 @@ function animateMouth(on){ setSpeakingSession(on); setMouthMoving(on); }
 /* choisit la voix française la PLUS humaine disponible dans le navigateur.
    Priorité : voix neurales (Natural/Online/Neural) > Google > voix masculines FR (prof = homme). */
 /* Source du narrateur : 'browser' = voix web du navigateur (Web Speech, aucune clé/quota) ;
-   'server' = TTS neural via /api/tts (Gemini/Cloud). Choix actuel : navigateur. */
-const VOICE_SOURCE = 'browser';
+   'server' = TTS neural via /api/tts (ElevenLabs/Gemini/Cloud). Choix actuel : serveur
+   (voix George d'ElevenLabs, chaleureuse) — repli automatique sur le navigateur si échec/quota. */
+const VOICE_SOURCE = 'server';
 let bestVoice=null;
 function pickFrenchVoice(){
   const voices=speechSynthesis.getVoices().filter(v=>/^fr/i.test(v.lang));
