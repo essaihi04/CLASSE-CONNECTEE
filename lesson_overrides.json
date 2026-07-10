@@ -370,15 +370,15 @@
           },
           "body": {
             "x": 32.2,
-            "y": 72.8,
+            "y": 74.5,
             "w": 56,
             "z": 2,
             "fs": 21,
             "h": 21.1
           },
           "schema": {
-            "x": 29.4,
-            "y": 18.9,
+            "x": 28,
+            "y": 16,
             "w": 60.6,
             "z": 4,
             "h": 55.8
@@ -391,6 +391,31 @@
           "z": 6,
           "mode": "full",
           "h": 52.5
+        }
+      }
+    },
+    "12": {
+      "title": "Bilan : bien manger, c'est varier ✅",
+      "lines": [],
+      "say": "Revenons à Ahmed et Sara. Ahmed n'a mangé que du pain : surtout des glucides. Sara a mangé du pain, un œuf, du lait et une pomme : elle a des glucides, des protides, du calcium et des vitamines. C'est donc Sara qui a le repas le plus équilibré ! Et maintenant, une question : une fois dans la bouche, que deviennent vraiment ces aliments ? C'est notre prochaine activité.",
+      "sayExtra": "Revenons à Ahmed et Sara. Ahmed n'a mangé que du pain : surtout des glucides. Sara a mangé du pain, un œuf, du lait et une pomme : elle a des glucides, des protides, du calcium et des vitamines. C'est donc Sara qui a le repas le plus équilibré ! Et maintenant, une question : une fois dans la bouche, que deviennent vraiment ces aliments ? C'est notre prochaine activité.",
+      "layout": {
+        "el": {
+          "title": {
+            "x": 5,
+            "y": 4,
+            "w": 66,
+            "z": 3,
+            "fs": 32
+          }
+        },
+        "avatar": {
+          "x": 34.8,
+          "y": 25.1,
+          "w": 32.2,
+          "z": 6,
+          "mode": "full",
+          "h": 75.1
         }
       }
     }

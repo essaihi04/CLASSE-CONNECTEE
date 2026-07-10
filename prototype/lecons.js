@@ -969,6 +969,13 @@ window.LECONS = [
       board:{title:"Document 1 : la digestion mécanique 👄",
         media:{ type:'video', src:"/uploads/1783600351038-e3vowo.mp4",
           desc:"Anatomie de la bouche et passage du bol alimentaire vers l'estomac.",
+          // NARRATION SYNCHRONISÉE : l'avatar commente le passage AU MOMENT où il apparaît dans la vidéo
+          // (durée ≈ 35 s). `at` en % de la durée → reste valable même si la vidéo est remplacée.
+          cues:[
+            {at:"58%", say:"Regarde bien maintenant : la mastication est finie, l'aliment est devenu une boulette molle, le bol alimentaire. On l'avale : c'est la déglutition."},
+            {at:"78%", say:"Le bol alimentaire descend par l'œsophage, ce long tube derrière la gorge…"},
+            {at:"92%", say:"… et il arrive enfin dans l'estomac, où la digestion va se poursuivre."}
+          ],
           explain:"Tu as bien suivi ? Dans la bouche, les dents écrasent et coupent l'aliment en petits morceaux, et la langue le mélange à la salive : cela forme une boulette molle, le bol alimentaire. Par la déglutition, il descend ensuite par l'œsophage jusqu'à l'estomac.",
           conclusion:"Dans la bouche, la mastication (dents + langue) découpe l'aliment et le mélange à la salive : c'est la transformation mécanique. Le bol alimentaire est ensuite avalé (déglutition) et poussé vers l'estomac." },
         lines:[

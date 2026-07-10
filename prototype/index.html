@@ -1255,11 +1255,21 @@ function scheduleHighlights(schemaEl, text, audio, my){
   const dur = (audio && isFinite(audio.duration) && audio.duration>0.5) ? audio.duration*1000
                                                                         : Math.max(2600, text.length/9.5*1000);
   const nt=norm(text);
+  // POSITION SENSIBLE AUX PAUSES : la voix marque un silence sur . ! ? : ; , — ces signes
+  // coûtent peu de caractères mais beaucoup de temps. On leur donne un poids supplémentaire
+  // pour que les mots situés APRÈS une pause soient allumés au bon instant. Sans ça, un texte
+  // à longue intro + « : » (ex. la carte mentale des familles de nutriments) fait clignoter
+  // les étiquettes en décalé. `pre[i]` = poids cumulé (≈ temps) avant le i-ème caractère.
+  const PAUSE={ '.':8, '!':8, '?':8, ':':7, ';':6, ',':4 };
+  const pre=new Float64Array(nt.length+1);
+  for(let i=0;i<nt.length;i++){ pre[i+1]=pre[i]+1+(PAUSE[nt[i]]||0); }
+  const total=pre[nt.length]||1;
+  const LEAD=420;   // anticipe pour que l'allumage soit en place QUAND le mot est prononcé (cf. schedule3DTour, lead 450)
   [...svg.querySelectorAll('text')].forEach(lab=>{
     const word=(norm(lab.textContent).split(/\s+/).sort((a,b)=>b.length-a.length)[0])||'';
     if(word.length<3) return;                        // ignore les mots trop courts
     const idx=nt.indexOf(word); if(idx<0) return;    // mot non prononcé → pas d'allumage
-    const at=Math.max(0, (idx/Math.max(1,nt.length))*dur - 120);
+    const at=Math.max(0, (pre[idx]/total)*dur - LEAD);
     const t=setTimeout(()=>{ if(my===ttsToken) glowPart(svg, lab); }, at);
     highlightTimers.push(t);
   });
@@ -1459,6 +1469,24 @@ function renderLessonMedia(m){
     rb.textContent='↻ Revoir la vidéo';
     rb.onclick=()=>{ v.currentTime=0; try{ const p=v.play(); if(p&&p.catch)p.catch(()=>{}); }catch(e){} };
     bar.appendChild(rb); box.appendChild(bar);
+    // NARRATION SYNCHRONISÉE : m.cues = [{ at, say }]. `at` = secondes (nombre) ou pourcentage de la
+    // durée ("70%"). L'avatar COMMENTE la vidéo au bon moment (ex : « le bol descend par l'œsophage…»).
+    if(Array.isArray(m.cues) && m.cues.length){
+      const cues=m.cues.filter(c=>c&&c.say).map(c=>({at:c.at, say:c.say, done:false}));
+      const cueTime=(c)=>{ const d=v.duration||0;
+        return (typeof c.at==='string' && /%\s*$/.test(c.at)) ? (parseFloat(c.at)/100)*d : (+c.at||0); };
+      v.addEventListener('timeupdate', ()=>{
+        if(!v.isConnected) return;
+        cues.forEach(c=>{ if(c.done) return; const t=cueTime(c);
+          if(t>0 && v.currentTime>=t){
+            c.done=true;
+            if(typeof avatarExpress==='function') avatarExpress('explain','neutral');
+            if(typeof voiceOn==='function' && voiceOn()) speak(c.say);
+            else if(typeof speech!=='undefined') speech.textContent=c.say;
+          } });
+      });
+      rb.addEventListener('click', ()=>{ cues.forEach(c=>c.done=false); });   // revoir → les cues rejouent
+    }
     const tryPlay=()=>{ try{ const p=v.play(); if(p&&p.catch)p.catch(()=>{}); }catch(e){} };
     v.addEventListener('canplay', tryPlay, {once:true}); tryPlay();
     let ended=false, endTimer=null;
