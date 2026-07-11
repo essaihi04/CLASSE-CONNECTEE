@@ -937,6 +937,83 @@ function handleGenerateText(req, res){
   });
 }
 
+// Nettoie/garantit le schéma d'UNE question de quiz selon son type (qcm|vf|libre|association).
+function sanitizeQuizQuestion(raw, type){
+  raw = (raw && typeof raw==='object') ? raw : {};
+  const enonce = cleanText(raw.enonce, 400);
+  const q = cleanText(raw.q, 400) || 'Question ?';
+  const fb = cleanText(raw.fb, 400);
+  if(type==='vf'){
+    return { type:'vf', enonce, q, correct: (raw.correct===true || raw.correct==='true'), fb };
+  }
+  if(type==='libre'){
+    let att = Array.isArray(raw.attendus) ? raw.attendus.map(x=>cleanText(x,80)).filter(Boolean).slice(0,8) : [];
+    if(!att.length) att = ['réponse'];
+    return { type:'libre', enonce, q, attendus:att, reponse: cleanText(raw.reponse,160)||att[0], fb };
+  }
+  if(type==='association'){
+    let pairs = Array.isArray(raw.pairs) ? raw.pairs.map(p=>({ l:cleanText(p&&p.l,80), r:cleanText(p&&p.r,80) }))
+      .filter(p=>p.l && p.r).slice(0,6) : [];
+    if(pairs.length<2) pairs = [{l:'Élément A', r:'Réponse A'},{l:'Élément B', r:'Réponse B'}];
+    return { type:'association', enonce, q, pairs, fb };
+  }
+  // qcm par défaut
+  let options = Array.isArray(raw.options) ? raw.options.map(x=>cleanText(x,120)).filter(Boolean).slice(0,6) : [];
+  if(options.length<2) options = ['Réponse A','Réponse B','Réponse C'];
+  let correct = Number(raw.correct); if(!Number.isInteger(correct) || correct<0 || correct>=options.length) correct = 0;
+  return { type:'qcm', enonce, q, options, correct, fb };
+}
+
+// POST /api/generate-quiz { chapterTitle, type, phase?, context?, instruction? } -> une question de quiz.
+async function callDeepSeekQuizQuestion(ctx){
+  const key = getKey();
+  const type = ['qcm','vf','libre','association'].includes(ctx.type) ? ctx.type : 'qcm';
+  const shapes = {
+    qcm:'{"type":"qcm","enonce":"<contexte court, facultatif>","q":"<question>","options":["<choix1>","<choix2>","<choix3>"],"correct":<index de la bonne réponse, 0..n>,"fb":"<correction/explication>"}',
+    vf:'{"type":"vf","enonce":"<contexte court, facultatif>","q":"<affirmation à juger>","correct":<true ou false>,"fb":"<correction/explication>"}',
+    libre:'{"type":"libre","enonce":"<contexte court, facultatif>","q":"<question ouverte>","attendus":["<mot-clé accepté>","<variante>"],"reponse":"<la réponse attendue en toutes lettres>","fb":"<correction/explication>"}',
+    association:'{"type":"association","enonce":"<contexte court, facultatif>","q":"<consigne : relie chaque élément>","pairs":[{"l":"<élément>","r":"<sa réponse>"}],"fb":"<correction/explication>"}'
+  };
+  const sys =
+`Tu es un concepteur pédagogique de SVT pour la 3ème année du collège (3APIC) au Maroc.
+Tu crées UNE question d'évaluation, en FRANÇAIS simple et clair, adaptée au niveau collège, fidèle au programme officiel (jamais de notions de lycée/université).
+${PROGRAMME_SVT_3AC}
+Réponds UNIQUEMENT par un objet JSON valide (sans texte autour) de type "${type}", EXACTEMENT de la forme :
+${shapes[type]}
+Règles : la question doit être claire et sans ambiguïté ; la bonne réponse doit être correcte ; "fb" explique brièvement pourquoi. Pour "qcm", donne 3 ou 4 options plausibles. Pour "association", donne 3 ou 4 paires. N'ajoute aucun autre champ.`;
+  const user =
+`Chapitre : ${ctx.chapterTitle || 'SVT collège'}${ctx.phase?` (phase : ${ctx.phase})`:''}.
+${ctx.context && String(ctx.context).trim() ? `Contexte / notions déjà vues :\n${String(ctx.context).slice(0,1500)}\n` : ''}Consigne du professeur : ${ctx.instruction && ctx.instruction.trim() ? ctx.instruction.trim() : 'Génère une question pertinente sur ce chapitre.'}`;
+  const body = {
+    model:'deepseek-chat',
+    messages:[ { role:'system', content:sys }, { role:'user', content:user } ],
+    temperature:0.7, max_tokens:600, response_format:{ type:'json_object' }
+  };
+  const r = await fetch('https://api.deepseek.com/chat/completions', {
+    method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+key },
+    body: JSON.stringify(body)
+  });
+  if(!r.ok) throw new Error('DeepSeek HTTP '+r.status+' : '+(await r.text()).slice(0,300));
+  const data = await r.json();
+  const raw = data.choices?.[0]?.message?.content || '{}';
+  let out; try{ out = JSON.parse(raw); }catch(e){ throw new Error('réponse IA illisible'); }
+  return sanitizeQuizQuestion(out, type);
+}
+function handleGenerateQuiz(req, res){
+  let body=''; req.on('data', c=> body += c);
+  req.on('end', async ()=>{
+    try{
+      const ctx = JSON.parse(body || '{}');
+      const out = await callDeepSeekQuizQuestion(ctx);
+      res.writeHead(200, { 'Content-Type':'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok:true, question: out }));
+    }catch(e){
+      res.writeHead(502, { 'Content-Type':'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: String(e.message || e) }));
+    }
+  });
+}
+
 // ============ GÉNÉRATION IA d'une EXPÉRIENCE 3D (espace prof) ============
 // Le prof choisit des modèles de la bibliothèque /api/models3d et décrit l'expérience :
 // l'IA compose une config `labExperiment` (objets posés sur la paillasse + action + question
@@ -1060,6 +1137,7 @@ const server = http.createServer((req, res) => {
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/ask') return handleAsk(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/intent') return handleIntent(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/generate-text') return handleGenerateText(req, res);
+    if (req.method === 'POST' && req.url.split('?')[0] === '/api/generate-quiz') return handleGenerateQuiz(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/generate-experience') return handleGenerateExperience(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/handwriting') return handleHandwriting(req, res);
     // ---- API voix (Gemini TTS → Cloud TTS → navigateur) ----

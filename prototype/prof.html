@@ -53,6 +53,66 @@
   .step-tools .tool:hover:not(:disabled){border-color:var(--accent);color:#fff}
   .step-tools .tool:disabled{opacity:.28;cursor:default}
   .step-tools .tool.danger:hover:not(:disabled){border-color:#f87171;color:#fecaca}
+  /* ── Éditeur visuel de l'évaluation ── */
+  .qp-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 4px}
+  .qp-tab{background:var(--card);border:1px solid var(--line);color:#cbd5e1;border-radius:9px;padding:6px 11px;cursor:pointer;font-size:12px}
+  .qp-tab:hover{border-color:var(--accent)}
+  .qp-tab.on{border-color:var(--accent);background:#12233b;color:#fff;box-shadow:0 0 0 1px var(--accent) inset}
+  .qp-tab.add{border-style:dashed;color:#7dd3fc}
+  .qp-hidden-tag{font-size:11px;background:#7f1d1d;color:#fecaca;border-radius:6px;padding:2px 7px;margin-left:6px;vertical-align:middle}
+  .qp-meta{display:flex;align-items:center;gap:10px;justify-content:space-between;margin:4px 0 10px;font-size:13px;color:#e2e8f0}
+  .qp-intro{color:#94a3b8}
+  .qp-metatools{display:flex;gap:6px;flex:0 0 auto}
+  .qp-mini{background:var(--card);border:1px solid var(--line);color:#cbd5e1;border-radius:8px;padding:5px 9px;cursor:pointer;font-size:11px}
+  .qp-mini:hover{border-color:var(--accent);color:#fff}
+  .qp-mini.danger:hover{border-color:#f87171;color:#fecaca}
+  /* aperçu « tableau » */
+  .qp-board{background:#0b1728;border:2px solid #1e3a5f;border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+  .qp-head{font-weight:700;color:#a5f3fc;font-size:14px;display:flex;align-items:center;gap:8px}
+  .qp-type{font-size:10px;text-transform:uppercase;letter-spacing:.04em;background:var(--accent);color:#0b1220;border-radius:6px;padding:2px 7px;font-weight:700}
+  .qp-enonce{background:#0f213b;border-left:3px solid var(--accent);border-radius:8px;padding:9px 11px;font-size:13px;color:#dbeafe}
+  .qp-enonce .doc-tag{display:inline-block;font-size:10px;background:#1e3a5f;color:#a5f3fc;border-radius:5px;padding:1px 6px;margin-right:6px}
+  .qp-img{max-width:360px}.qp-img img,.qp-img svg{max-width:100%;height:auto;border-radius:8px;background:#fff}
+  .qp-img .qi-cap{font-size:11px;color:#94a3b8;margin-top:3px}
+  .qp-q{font-size:16px;font-weight:600;color:#f1f5f9;line-height:1.3}
+  .qp-opts{display:flex;flex-wrap:wrap;gap:8px}
+  .qp-opts.col{flex-direction:column}
+  .qp-opt{background:#132a45;border:1px solid #274b6e;border-radius:9px;padding:8px 12px;font-size:13px;color:#e2e8f0}
+  .qp-opt.good{background:#064e3b;border-color:#10b981;color:#d1fae5;font-weight:600}
+  .qp-pair{display:flex;align-items:center;gap:8px;font-size:13px;color:#e2e8f0}
+  .qp-pair .qp-arrow{color:#64748b}.qp-pair .good{color:#6ee7b7;font-weight:600}
+  .qp-ans{font-size:13px;color:#d1fae5}.qp-sub{font-size:12px;color:#94a3b8}.qp-sub code{background:#132a45;border-radius:4px;padding:1px 5px}
+  .qp-fb{background:#0f213b;border-radius:8px;padding:8px 11px;font-size:12px;color:#a5b4fc}
+  .qp-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 4px}
+  .qp-navbtn{background:var(--card);border:1px solid var(--line);color:#cbd5e1;border-radius:9px;padding:7px 13px;cursor:pointer;font-size:12px}
+  .qp-navbtn:hover:not(:disabled){border-color:var(--accent);color:#fff}
+  .qp-navbtn:disabled{opacity:.35;cursor:default}
+  .qp-dots{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
+  .qp-dot{width:11px;height:11px;border-radius:50%;border:1px solid #475569;background:transparent;cursor:pointer;padding:0}
+  .qp-dot.on{background:var(--accent);border-color:var(--accent)}
+  .qp-toolbar{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+  .qp-btn{background:var(--card);border:1px solid var(--line);color:#e2e8f0;border-radius:9px;padding:7px 12px;cursor:pointer;font-size:12px}
+  .qp-btn:hover{border-color:var(--accent);color:#fff}
+  .qp-btn.icon{padding:7px 10px}.qp-btn.danger:hover{border-color:#f87171;color:#fecaca}
+  .qp-addrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;padding:10px;background:#0d1a2c;border:1px dashed #274b6e;border-radius:10px}
+  .qp-addlab{font-size:12px;color:#94a3b8}
+  .qp-typesel{background:#0b1220;color:#e2e8f0;border:1px solid #243449;border-radius:8px;padding:6px 9px;font-size:12px}
+  .gen-btn{background:linear-gradient(135deg,#7c3aed,#2563eb);border:none;color:#fff;border-radius:9px;padding:7px 13px;cursor:pointer;font-size:12px;font-weight:600}
+  .gen-btn:hover{filter:brightness(1.1)}
+  .qp-empty{background:#0d1a2c;border:1px dashed #274b6e;border-radius:10px;padding:14px;color:#94a3b8;font-size:13px}
+  /* formulaire de question */
+  .qf-field{display:block}.qf-lab{font-size:12px;color:#94a3b8;margin-bottom:4px}
+  .qf-inp,.qf-ta{width:100%;background:#0b1220;color:#e2e8f0;border:1px solid #243449;border-radius:9px;padding:8px 10px;font-size:13px;font-family:inherit}
+  .qf-ta{min-height:52px;resize:vertical;line-height:1.4}
+  .qf-typebox{background:#0d1a2c;border:1px solid #1e3a5f;border-radius:10px;padding:10px}
+  .qf-list{display:flex;flex-direction:column;gap:6px}
+  .qf-optrow,.qf-pairrow{display:flex;align-items:center;gap:7px}
+  .qf-optrow .qf-inp,.qf-pairrow .qf-inp{flex:1}
+  .qf-rm{background:transparent;border:1px solid #475569;color:#94a3b8;border-radius:7px;width:28px;height:30px;cursor:pointer;flex:0 0 auto}
+  .qf-rm:hover{border-color:#f87171;color:#fecaca}
+  .qf-add{margin-top:7px;background:transparent;border:1px dashed #274b6e;color:#7dd3fc;border-radius:8px;padding:6px 11px;cursor:pointer;font-size:12px}
+  .qf-vf{display:flex;gap:16px}.qf-vfopt{display:flex;align-items:center;gap:5px;font-size:13px;color:#e2e8f0;cursor:pointer}
+  .qf-arrow{color:#64748b;flex:0 0 auto}
   .editor .head{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
   .editor .head h2{margin:0}
   .editor .head .sub{color:var(--muted);font-size:13px}
@@ -765,13 +825,15 @@ function parseQuizSet(v){
   obj.quiz.forEach((q,i)=>{
     const n='question '+(i+1);
     if(!q || typeof q!=='object') throw new Error(n+' : objet attendu');
-    if(!['qcm','vf','libre'].includes(q.type)) throw new Error(n+' : "type" doit être "qcm", "vf" ou "libre"');
+    if(!['qcm','vf','libre','association'].includes(q.type)) throw new Error(n+' : "type" doit être "qcm", "vf", "libre" ou "association"');
     if(!q.q) throw new Error(n+' : champ "q" (la question) obligatoire');
     if(q.type==='qcm' && (!Array.isArray(q.options) || q.options.length<2 || typeof q.correct!=='number'))
       throw new Error(n+' (qcm) : "options" (liste d\'au moins 2 choix) et "correct" (index de la bonne réponse) obligatoires');
     if(q.type==='vf' && typeof q.correct!=='boolean') throw new Error(n+' (vf) : "correct" doit être true ou false');
     if(q.type==='libre' && (!Array.isArray(q.attendus) || !q.attendus.length))
       throw new Error(n+' (libre) : "attendus" (liste des réponses acceptées) obligatoire');
+    if(q.type==='association' && (!Array.isArray(q.pairs) || q.pairs.length<2 || q.pairs.some(p=>!p||!p.l||!p.r)))
+      throw new Error(n+' (association) : "pairs" (au moins 2 paires {l,r}) obligatoire');
   });
   return obj;
 }
@@ -782,70 +844,311 @@ const QUIZ_TEMPLATE={ label:'Nouveau quiz', intro:'Un quiz pour vérifier ce que
 ]};
 function saveQuizSets(sets){ return setOverride(sel.chapter, 'quiz', { quizSets:sets }); }
 
+/* ── Éditeur VISUEL de l'évaluation ──
+   Aperçu « comme au tableau », navigation entre les questions, réponses affichées,
+   édition par FORMULAIRE (pas de JSON) et génération IA par type. État : quel quiz + quelle question. */
+let qEdit={ set:0, q:0 };
+const QTYPES={ qcm:'QCM', vf:'Vrai / Faux', libre:'Réponse libre', association:'Association' };
+function emptyQuestion(type){
+  if(type==='vf')          return { type:'vf', q:'Nouvelle affirmation à juger ?', correct:true, fb:'' };
+  if(type==='libre')       return { type:'libre', q:'Nouvelle question ouverte ?', attendus:['réponse'], reponse:'la réponse attendue', fb:'' };
+  if(type==='association') return { type:'association', q:'Relie chaque élément à sa réponse :', pairs:[{l:'Élément A',r:'Réponse A'},{l:'Élément B',r:'Réponse B'}], fb:'' };
+  return { type:'qcm', q:'Nouvelle question ?', options:['Réponse A','Réponse B','Réponse C'], correct:0, fb:'' };
+}
+// copie profonde des quiz courants (les quiz d'origine viennent de lecons.js : ne jamais les muter directement)
+function editSets(){ return currentQuizSets(chapById(sel.chapter)).map(s=>JSON.parse(JSON.stringify(s))); }
+
+// APERÇU d'une question, présenté comme sur le tableau de l'élève (réponses mises en évidence).
+function quizOptionsPreview(item){
+  if(item.type==='vf'){
+    return `<div class="qp-opts">`
+      + `<span class="qp-opt ${item.correct===true?'good':''}">✔ Vrai${item.correct===true?' ✓':''}</span>`
+      + `<span class="qp-opt ${item.correct===false?'good':''}">✘ Faux${item.correct===false?' ✓':''}</span></div>`;
+  }
+  if(item.type==='libre'){
+    return `<div class="qp-opts col">`
+      + `<div class="qp-ans">✅ Réponse attendue : <b>${esc(item.reponse||'')}</b></div>`
+      + `<div class="qp-sub">Acceptée si la réponse contient : ${(item.attendus||[]).map(a=>'<code>'+esc(a)+'</code>').join(', ')||'—'}</div></div>`;
+  }
+  if(item.type==='association'){
+    return `<div class="qp-opts col">`
+      + (item.pairs||[]).map(p=>`<div class="qp-pair"><span>${esc(p.l)}</span><span class="qp-arrow">→</span><span class="good">${esc(p.r)}</span></div>`).join('')
+      + `</div>`;
+  }
+  return `<div class="qp-opts">`
+    + (item.options||[]).map((o,idx)=>`<span class="qp-opt ${idx===item.correct?'good':''}">${esc(o)}${idx===item.correct?' ✓':''}</span>`).join('')
+    + `</div>`;
+}
+function buildQuizPreview(item, qi, total){
+  const w=document.createElement('div'); w.className='qp-board';
+  w.innerHTML=`<div class="qp-head">📝 Évaluation — Question ${qi+1} / ${total} <span class="qp-type">${QTYPES[item.type]||item.type}</span></div>`
+    + (item.enonce?`<div class="qp-enonce"><span class="doc-tag">📄 Énoncé</span>${esc(item.enonce)}</div>`:'')
+    + ((item.svg||item.img)?`<div class="qp-img">${item.svg?item.svg:'<img src="'+esc(item.img)+'" alt="">'}${item.imgCaption?'<div class="qi-cap">'+esc(item.imgCaption)+'</div>':''}</div>`:'')
+    + `<div class="qp-q">${item.q||''}</div>`
+    + quizOptionsPreview(item)
+    + (item.fb?`<div class="qp-fb">💬 ${esc(item.fb)}</div>`:'');
+  return w;
+}
+
 function renderQuizBuiltin(box, chap){
   const ov=stepOverride(sel.chapter,'quiz');
   const sets=currentQuizSets(chap);
   const edited=Array.isArray(ov.quizSets);
   const hidden=!!ov.hideQuiz;
-  box.style.display='';
-  box.innerHTML=`<h3>📝 Quiz de l'évaluation</h3>`
-    + `<div class="sub">Les quiz proposés à l'élève en fin de chapitre (il en voit un au hasard et peut en changer). Vous pouvez <b>modifier</b> chaque quiz (énoncés, questions, réponses, corrections), en <b>ajouter</b>, en <b>supprimer</b>, <b>masquer</b> toute l'évaluation ou <b>rétablir</b> les quiz d'origine. Effet immédiat côté élève, réversible. Les supports ajoutés ci-dessous sont connus de l'IA pour cette évaluation.</div>`;
-  const cards=[];
+  box.style.display=''; box.innerHTML='';
+  if(qEdit.set>=sets.length) qEdit.set=Math.max(0,sets.length-1);
+
+  const head=document.createElement('div');
+  head.innerHTML=`<h3>📝 Évaluation du chapitre ${hidden?'<span class="qp-hidden-tag">masquée</span>':''}</h3>`
+    + `<div class="sub">Aperçu tel que l'élève le voit au tableau. Navigue entre les questions, <b>vois les réponses</b>, <b>modifie</b> tout, <b>génère</b> des questions par IA et gère les quiz. Effet immédiat côté élève, réversible.</div>`;
+  box.appendChild(head);
+
+  // — Onglets des quiz (sets) —
+  const tabs=document.createElement('div'); tabs.className='qp-tabs';
   sets.forEach((s,idx)=>{
-    const qz=(s&&Array.isArray(s.quiz))?s.quiz:[];
-    const first=qz[0] ? String(qz[0].q||'').replace(/<[^>]+>/g,'').slice(0,110) : '';
-    cards.push({
-      ico:'📝', name:(s&&s.label)||('Quiz '+(idx+1)),
-      state:{ t:qz.length+' question'+(qz.length>1?'s':''), c:edited?'rep':'' },
-      hidden,
-      preview:`<div class="bi-prev"><div class="bi-txtprev">${s&&s.intro?'<b>'+esc(s.intro)+'</b>':''}${first?((s&&s.intro?' — ':'')+esc(first)+'…'):''}</div></div>`,
-      acts:[
-        { label:'✏️ Modifier', noAutoToast:true, run:()=>openBuiltinEditor({
-            title:'Modifier le quiz — '+((s&&s.label)||('Quiz '+(idx+1))),
-            hint:'Édite le quiz en JSON : "label", "intro" (facultatif) et "quiz" = liste de questions de type "qcm" (options + correct), "vf" (correct true/false) ou "libre" (attendus). Champs facultatifs : "enonce", "svg" ou "img", "fb" (correction).',
-            value:JSON.stringify(s, null, 2), mono:true,
-            onSave:async(v)=>{ const obj=parseQuizSet(v);
-              await saveQuizSets(sets.map((x,i)=>i===idx?obj:x)); toast('Quiz modifié ✓'); } }) },
-        { label:'🗑️ Supprimer', noAutoToast:true, run:async()=>{
-            if(!confirm('Supprimer ce quiz de l\'évaluation ? (« Rétablir » ramènera les quiz d\'origine)')) return;
-            await saveQuizSets(sets.filter((_,i)=>i!==idx)); toast('Quiz supprimé ✓'); } }
-      ]
-    });
+    const t=document.createElement('button'); t.className='qp-tab'+(idx===qEdit.set?' on':'');
+    t.textContent=(s&&s.label)||('Quiz '+(idx+1));
+    t.onclick=()=>{ qEdit.set=idx; qEdit.q=0; renderBuiltin(); };
+    tabs.appendChild(t);
   });
-  if(!cards.length){
-    const empty=document.createElement('div'); empty.className='bi-card';
-    empty.innerHTML=`<div class="bi-ico">📝</div><div class="bi-body"><div class="bi-name">Aucun quiz</div>`
-      + `<div class="bi-prev"><span class="ph">${edited?'Tous les quiz ont été supprimés — « Rétablir » ramène ceux d\'origine.':'Ce chapitre n\'a pas encore d\'évaluation. Ajoute un premier quiz.'}</span></div></div>`;
+  const addSet=document.createElement('button'); addSet.className='qp-tab add'; addSet.textContent='➕ Quiz';
+  addSet.onclick=async()=>{ try{ const s=editSets(); s.push({label:'Quiz '+(s.length+1), intro:'', quiz:[emptyQuestion('qcm')]});
+    qEdit.set=s.length-1; qEdit.q=0; await saveQuizSets(s); toast('Quiz ajouté ✓'); }catch(e){ toast('Erreur : '+e.message,true); } };
+  tabs.appendChild(addSet);
+  box.appendChild(tabs);
+
+  if(!sets.length){
+    const empty=document.createElement('div'); empty.className='qp-empty';
+    empty.innerHTML=edited ? 'Tous les quiz ont été supprimés — « Rétablir » ramène ceux d\'origine.'
+                           : 'Ce chapitre n\'a pas encore d\'évaluation. Ajoute un premier quiz avec « ➕ Quiz ».';
     box.appendChild(empty);
+    if(edited){ const r=document.createElement('button'); r.className='ghost'; r.textContent='↩ Rétablir les quiz d\'origine';
+      r.style.marginTop='10px'; r.onclick=async()=>{ await setOverride(sel.chapter,'quiz',{quizSets:null}); toast('Quiz d\'origine rétablis ✓'); };
+      box.appendChild(r); }
+    return;
   }
-  cards.forEach(c=>{
-    const el=document.createElement('div'); el.className='bi-card'+(c.hidden?' hidden':'');
-    el.innerHTML=`<div class="bi-ico">${c.ico}</div><div class="bi-body">`
-      + `<div class="bi-name">${esc(c.name)}</div><div class="bi-state ${c.state.c}">${c.state.t}</div>`
-      + c.preview + `</div>`;
-    const acts=document.createElement('div'); acts.className='bi-acts';
-    c.acts.forEach(a=>{ const b=document.createElement('button'); b.textContent=a.label;
-      b.onclick=async()=>{ try{ await a.run(); if(!a.noAutoToast) toast('Réglage enregistré ✓'); }catch(e){ toast('Erreur : '+e.message,true); } };
-      acts.appendChild(b); });
-    el.appendChild(acts); box.appendChild(el);
-  });
-  // Actions globales : ajouter un quiz, masquer / réafficher l'évaluation, rétablir l'original
+
+  const set=sets[qEdit.set];
+  const qz=(set&&Array.isArray(set.quiz))?set.quiz:[];
+  if(qEdit.q>=qz.length) qEdit.q=Math.max(0,qz.length-1);
+
+  // — Métadonnées du quiz (label + intro) —
+  const meta=document.createElement('div'); meta.className='qp-meta';
+  meta.innerHTML=`<div><b>${esc(set.label||('Quiz '+(qEdit.set+1)))}</b>${set.intro?' — <span class="qp-intro">'+esc(set.intro)+'</span>':''}</div>`;
+  const metaEdit=document.createElement('button'); metaEdit.className='qp-mini'; metaEdit.textContent='✏️ Titre / intro';
+  metaEdit.onclick=()=>openQuizMetaForm(set);
+  const setDel=document.createElement('button'); setDel.className='qp-mini danger'; setDel.textContent='🗑️ Ce quiz';
+  setDel.onclick=async()=>{ if(!confirm('Supprimer ce quiz de l\'évaluation ?')) return;
+    try{ const s=editSets(); s.splice(qEdit.set,1); qEdit.set=Math.max(0,qEdit.set-1); qEdit.q=0; await saveQuizSets(s); toast('Quiz supprimé ✓'); }
+    catch(e){ toast('Erreur : '+e.message,true); } };
+  const mtools=document.createElement('div'); mtools.className='qp-metatools'; mtools.append(metaEdit,setDel);
+  meta.appendChild(mtools);
+  box.appendChild(meta);
+
+  if(!qz.length){
+    const e=document.createElement('div'); e.className='qp-empty'; e.textContent='Ce quiz n\'a pas encore de question.';
+    box.appendChild(e);
+  } else {
+    box.appendChild(buildQuizPreview(qz[qEdit.q], qEdit.q, qz.length));
+    // navigation
+    const nav=document.createElement('div'); nav.className='qp-nav';
+    const prev=document.createElement('button'); prev.className='qp-navbtn'; prev.textContent='◀ Précédent'; prev.disabled=qEdit.q===0;
+    prev.onclick=()=>{ if(qEdit.q>0){ qEdit.q--; renderBuiltin(); } };
+    const dots=document.createElement('div'); dots.className='qp-dots';
+    qz.forEach((_,k)=>{ const d=document.createElement('button'); d.className='qp-dot'+(k===qEdit.q?' on':''); d.title='Question '+(k+1);
+      d.onclick=()=>{ qEdit.q=k; renderBuiltin(); }; dots.appendChild(d); });
+    const next=document.createElement('button'); next.className='qp-navbtn'; next.textContent='Suivant ▶'; next.disabled=qEdit.q>=qz.length-1;
+    next.onclick=()=>{ if(qEdit.q<qz.length-1){ qEdit.q++; renderBuiltin(); } };
+    nav.append(prev,dots,next); box.appendChild(nav);
+  }
+
+  // — Barre d'outils de la question courante —
+  const tb=document.createElement('div'); tb.className='qp-toolbar';
+  const mk=(label,cls,fn)=>{ const b=document.createElement('button'); b.className=cls; b.textContent=label;
+    b.onclick=async()=>{ try{ await fn(); }catch(e){ toast('Erreur : '+e.message,true); } }; return b; };
+  if(qz.length){
+    tb.appendChild(mk('✏️ Modifier','qp-btn',()=>openQuizForm(qz[qEdit.q], 'Modifier la question', async(d)=>{
+      const s=editSets(); s[qEdit.set].quiz[qEdit.q]=d; await saveQuizSets(s); toast('Question modifiée ✓'); })));
+    tb.appendChild(mk('▲','qp-btn icon',async()=>{ if(qEdit.q===0) return; const s=editSets(); const a=s[qEdit.set].quiz;
+      [a[qEdit.q-1],a[qEdit.q]]=[a[qEdit.q],a[qEdit.q-1]]; qEdit.q--; await saveQuizSets(s); }));
+    tb.appendChild(mk('▼','qp-btn icon',async()=>{ const s=editSets(); const a=s[qEdit.set].quiz; if(qEdit.q>=a.length-1) return;
+      [a[qEdit.q+1],a[qEdit.q]]=[a[qEdit.q],a[qEdit.q+1]]; qEdit.q++; await saveQuizSets(s); }));
+    tb.appendChild(mk('🗑️ Supprimer','qp-btn danger',async()=>{ if(!confirm('Supprimer cette question ?')) return;
+      const s=editSets(); s[qEdit.set].quiz.splice(qEdit.q,1); qEdit.q=Math.max(0,qEdit.q-1); await saveQuizSets(s); toast('Question supprimée ✓'); }));
+  }
+  box.appendChild(tb);
+
+  // — Ajouter / Générer (avec choix du type) —
+  const add=document.createElement('div'); add.className='qp-addrow';
+  const typeSel=document.createElement('select'); typeSel.className='qp-typesel';
+  Object.keys(QTYPES).forEach(t=>{ const o=document.createElement('option'); o.value=t; o.textContent=QTYPES[t]; typeSel.appendChild(o); });
+  const addBtn=mk('➕ Ajouter une question','add-btn',()=>{
+    openQuizForm(emptyQuestion(typeSel.value), 'Nouvelle question ('+QTYPES[typeSel.value]+')', async(d)=>{
+      const s=editSets(); const at=(qz.length?qEdit.q+1:0); s[qEdit.set].quiz.splice(at,0,d); qEdit.q=at; await saveQuizSets(s); toast('Question ajoutée ✓'); }); });
+  const genBtn=mk('✨ Générer par IA','gen-btn',()=>aiGenerateQuestion(typeSel.value));
+  const lab=document.createElement('span'); lab.className='qp-addlab'; lab.textContent='Type :';
+  add.append(lab, typeSel, addBtn, genBtn);
+  box.appendChild(add);
+
+  // — Outils globaux de l'évaluation —
   const tools=document.createElement('div'); tools.className='builtin-tools';
   const row=document.createElement('div'); row.style.cssText='display:flex;gap:8px;flex-wrap:wrap;align-items:center';
-  const mkBtn=(label,cls,fn)=>{ const b=document.createElement('button'); b.className=cls; b.textContent=label;
-    b.style.padding='8px 13px'; b.onclick=async()=>{ try{ await fn(); }catch(e){ toast('Erreur : '+e.message,true); } }; return b; };
-  row.appendChild(mkBtn('➕ Ajouter un quiz','add-btn',()=>openBuiltinEditor({
-    title:'Ajouter un quiz à l\'évaluation',
-    hint:'Complète le modèle : "label" (titre du quiz), "intro" (présentation) et les questions ("qcm", "vf", "libre").',
-    value:JSON.stringify(QUIZ_TEMPLATE, null, 2), mono:true,
-    onSave:async(v)=>{ const obj=parseQuizSet(v); await saveQuizSets(sets.concat([obj])); toast('Quiz ajouté ✓'); } })));
-  row.appendChild(mkBtn(hidden?'👁 Réafficher l\'évaluation':'🚫 Masquer l\'évaluation','ghost',async()=>{
+  row.appendChild(mk(hidden?'👁 Réafficher l\'évaluation':'🚫 Masquer l\'évaluation','ghost',async()=>{
     await setOverride(sel.chapter,'quiz',{ hideQuiz: hidden?null:true });
     toast(hidden?'Évaluation réaffichée ✓':'Évaluation masquée côté élève ✓'); }));
-  if(edited) row.appendChild(mkBtn('↩ Rétablir les quiz d\'origine','ghost',async()=>{
+  if(edited) row.appendChild(mk('↩ Rétablir les quiz d\'origine','ghost',async()=>{
     if(!confirm('Abandonner vos modifications et revenir aux quiz d\'origine du chapitre ?')) return;
     await setOverride(sel.chapter,'quiz',{ quizSets:null }); toast('Quiz d\'origine rétablis ✓'); }));
   tools.appendChild(row); box.appendChild(tools);
+}
+
+// Formulaire : titre + intro d'un quiz.
+function openQuizMetaForm(set){
+  const label=prompt('Titre du quiz :', set.label||'');
+  if(label===null) return;
+  const intro=prompt('Phrase d\'introduction (facultatif) :', set.intro||'');
+  if(intro===null) return;
+  (async()=>{ try{ const s=editSets(); s[qEdit.set].label=label.trim()||('Quiz '+(qEdit.set+1)); s[qEdit.set].intro=intro.trim();
+    await saveQuizSets(s); toast('Quiz mis à jour ✓'); }catch(e){ toast('Erreur : '+e.message,true); } })();
+}
+
+// Génère une question par IA (type choisi) et l'insère après la question courante.
+async function aiGenerateQuestion(type){
+  const chap=chapById(sel.chapter);
+  const instruction=prompt('Sur quel point porte la question ? (facultatif — précise un thème)', '');
+  if(instruction===null) return;
+  toast('Génération de la question…');
+  try{
+    const r=await fetch('/api/generate-quiz',{ method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ chapterTitle:chap.titre, type, instruction }) });
+    const j=await r.json(); if(!r.ok) throw new Error(j.error||'échec');
+    const s=editSets(); const qz=(s[qEdit.set].quiz||[]); const at=(qz.length?qEdit.q+1:0);
+    s[qEdit.set].quiz.splice(at,0,j.question); qEdit.q=at;
+    await saveQuizSets(s); toast('Question générée ✓ — vérifie-la puis ajuste si besoin.');
+  }catch(e){ toast('Erreur IA : '+e.message,true); }
+}
+
+// FORMULAIRE guidé d'édition d'une question (selon son type). onSave reçoit l'objet question validé.
+function openQuizForm(item, title, onSave){
+  const d=JSON.parse(JSON.stringify(item||{type:'qcm'})); if(!d.type) d.type='qcm';
+  d.options=Array.isArray(d.options)?d.options:['Réponse A','Réponse B'];
+  d.attendus=Array.isArray(d.attendus)?d.attendus:['réponse'];
+  d.pairs=Array.isArray(d.pairs)?d.pairs:[{l:'',r:''},{l:'',r:''}];
+  if(typeof d.correct!=='number' && (d.type==='qcm')) d.correct=0;
+  const back=document.createElement('div');
+  back.style.cssText='position:fixed;inset:0;background:rgba(2,6,23,.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  const boxEl=document.createElement('div'); boxEl.className='qform';
+  boxEl.style.cssText='background:#0f1b2e;border:1px solid #243449;border-radius:14px;padding:18px;max-width:640px;width:100%;max-height:90vh;overflow:auto;display:flex;flex-direction:column;gap:12px';
+  const field=(lab)=>{ const wrap=document.createElement('label'); wrap.className='qf-field';
+    const l=document.createElement('div'); l.className='qf-lab'; l.textContent=lab; wrap.appendChild(l); return wrap; };
+  const ta=(val,ph)=>{ const t=document.createElement('textarea'); t.className='qf-ta'; t.value=val||''; if(ph)t.placeholder=ph; return t; };
+  const inp=(val,ph)=>{ const t=document.createElement('input'); t.className='qf-inp'; t.value=val||''; if(ph)t.placeholder=ph; return t; };
+
+  const h=document.createElement('div'); h.style.cssText='font-weight:700;font-size:15px'; h.textContent=title; boxEl.appendChild(h);
+
+  // Type
+  const fType=field('Type de question'); const typeSel=document.createElement('select'); typeSel.className='qf-inp';
+  Object.keys(QTYPES).forEach(t=>{ const o=document.createElement('option'); o.value=t; o.textContent=QTYPES[t]; typeSel.appendChild(o); });
+  typeSel.value=d.type; fType.appendChild(typeSel); boxEl.appendChild(fType);
+
+  // Énoncé
+  const fEn=field('Énoncé / contexte (facultatif)'); const enTa=ta(d.enonce,'Texte de contexte affiché avant la question…');
+  enTa.oninput=()=>d.enonce=enTa.value; fEn.appendChild(enTa); boxEl.appendChild(fEn);
+
+  // Question
+  const fQ=field('Question'); const qTa=ta(d.q,'La question posée à l\'élève…'); qTa.oninput=()=>d.q=qTa.value; fQ.appendChild(qTa); boxEl.appendChild(fQ);
+
+  // Zone spécifique au type
+  const typeBox=document.createElement('div'); typeBox.className='qf-typebox'; boxEl.appendChild(typeBox);
+
+  // Correction
+  const fFb=field('Correction / explication (facultatif)'); const fbTa=ta(d.fb,'Pourquoi c\'est la bonne réponse…'); fbTa.oninput=()=>d.fb=fbTa.value; fFb.appendChild(fbTa); boxEl.appendChild(fFb);
+
+  function renderTypeFields(){
+    typeBox.innerHTML='';
+    if(d.type==='qcm'){
+      const f=field('Choix (coche la bonne réponse)'); const list=document.createElement('div'); list.className='qf-list';
+      const draw=()=>{ list.innerHTML='';
+        d.options.forEach((o,idx)=>{
+          const rowc=document.createElement('div'); rowc.className='qf-optrow';
+          const radio=document.createElement('input'); radio.type='radio'; radio.name='qcmcorrect'; radio.checked=(d.correct===idx);
+          radio.onchange=()=>{ d.correct=idx; };
+          const ti=inp(o,'Choix '+(idx+1)); ti.oninput=()=>{ d.options[idx]=ti.value; };
+          const rm=document.createElement('button'); rm.type='button'; rm.className='qf-rm'; rm.textContent='✕';
+          rm.onclick=()=>{ if(d.options.length<=2){ toast('Au moins 2 choix.',true); return; } d.options.splice(idx,1);
+            if(d.correct>=d.options.length) d.correct=d.options.length-1; draw(); };
+          rowc.append(radio,ti,rm); list.appendChild(rowc);
+        });
+      };
+      draw();
+      const addO=document.createElement('button'); addO.type='button'; addO.className='qf-add'; addO.textContent='➕ Ajouter un choix';
+      addO.onclick=()=>{ if(d.options.length>=6){ toast('6 choix maximum.',true); return; } d.options.push(''); draw(); };
+      f.appendChild(list); f.appendChild(addO); typeBox.appendChild(f);
+    } else if(d.type==='vf'){
+      const f=field('Bonne réponse'); const wrap=document.createElement('div'); wrap.className='qf-vf';
+      [['Vrai',true],['Faux',false]].forEach(([lab,val])=>{
+        const b=document.createElement('label'); b.className='qf-vfopt';
+        const r=document.createElement('input'); r.type='radio'; r.name='vfcorrect'; r.checked=(d.correct===val);
+        r.onchange=()=>{ d.correct=val; }; b.append(r, document.createTextNode(' '+lab)); wrap.appendChild(b);
+      });
+      if(typeof d.correct!=='boolean') d.correct=true;
+      f.appendChild(wrap); typeBox.appendChild(f);
+    } else if(d.type==='libre'){
+      const f1=field('Réponses acceptées (un mot-clé par ligne)');
+      const at=ta((d.attendus||[]).join('\n'),'amidon\nglucide'); at.oninput=()=>{ d.attendus=at.value.split('\n').map(s=>s.trim()).filter(Boolean); };
+      f1.appendChild(at); typeBox.appendChild(f1);
+      const f2=field('Réponse attendue (affichée à l\'élève)'); const ri=inp(d.reponse,'la réponse en toutes lettres'); ri.oninput=()=>d.reponse=ri.value;
+      f2.appendChild(ri); typeBox.appendChild(f2);
+    } else if(d.type==='association'){
+      const f=field('Paires à relier (élément → réponse)'); const list=document.createElement('div'); list.className='qf-list';
+      const draw=()=>{ list.innerHTML='';
+        d.pairs.forEach((p,idx)=>{
+          const rowc=document.createElement('div'); rowc.className='qf-pairrow';
+          const li=inp(p.l,'Élément'); li.oninput=()=>{ d.pairs[idx].l=li.value; };
+          const ar=document.createElement('span'); ar.className='qf-arrow'; ar.textContent='→';
+          const ri=inp(p.r,'Réponse'); ri.oninput=()=>{ d.pairs[idx].r=ri.value; };
+          const rm=document.createElement('button'); rm.type='button'; rm.className='qf-rm'; rm.textContent='✕';
+          rm.onclick=()=>{ if(d.pairs.length<=2){ toast('Au moins 2 paires.',true); return; } d.pairs.splice(idx,1); draw(); };
+          rowc.append(li,ar,ri,rm); list.appendChild(rowc);
+        });
+      };
+      draw();
+      const addP=document.createElement('button'); addP.type='button'; addP.className='qf-add'; addP.textContent='➕ Ajouter une paire';
+      addP.onclick=()=>{ if(d.pairs.length>=6){ toast('6 paires maximum.',true); return; } d.pairs.push({l:'',r:''}); draw(); };
+      f.appendChild(list); f.appendChild(addP); typeBox.appendChild(f);
+    }
+  }
+  typeSel.onchange=()=>{ d.type=typeSel.value;
+    if(d.type==='qcm' && typeof d.correct!=='number') d.correct=0;
+    if(d.type==='vf' && typeof d.correct!=='boolean') d.correct=true;
+    renderTypeFields(); };
+  renderTypeFields();
+
+  const row=document.createElement('div'); row.style.cssText='display:flex;gap:10px;justify-content:flex-end;margin-top:4px';
+  const cancel=document.createElement('button'); cancel.className='ghost'; cancel.textContent='Annuler'; cancel.onclick=()=>back.remove();
+  const save=document.createElement('button'); save.className='add-btn'; save.textContent='💾 Enregistrer';
+  save.onclick=async()=>{
+    // nettoyage + validation par type
+    d.q=(d.q||'').trim(); d.enonce=(d.enonce||'').trim(); d.fb=(d.fb||'').trim();
+    if(!d.q){ toast('La question est vide.',true); return; }
+    if(d.type==='qcm'){ d.options=d.options.map(o=>(o||'').trim()).filter(Boolean);
+      if(d.options.length<2){ toast('Au moins 2 choix non vides.',true); return; }
+      if(typeof d.correct!=='number'||d.correct<0||d.correct>=d.options.length) d.correct=0;
+      delete d.attendus; delete d.reponse; delete d.pairs; }
+    else if(d.type==='vf'){ if(typeof d.correct!=='boolean') d.correct=true;
+      delete d.options; delete d.attendus; delete d.reponse; delete d.pairs; }
+    else if(d.type==='libre'){ d.attendus=(d.attendus||[]).map(s=>(s||'').trim()).filter(Boolean);
+      if(!d.attendus.length){ toast('Ajoute au moins une réponse acceptée.',true); return; }
+      d.reponse=(d.reponse||'').trim()||d.attendus[0]; delete d.options; delete d.correct; delete d.pairs; }
+    else if(d.type==='association'){ d.pairs=(d.pairs||[]).map(p=>({l:(p.l||'').trim(),r:(p.r||'').trim()})).filter(p=>p.l&&p.r);
+      if(d.pairs.length<2){ toast('Au moins 2 paires complètes.',true); return; }
+      delete d.options; delete d.correct; delete d.attendus; delete d.reponse; }
+    save.disabled=true;
+    try{ await onSave(d); back.remove(); }catch(e){ toast('Erreur : '+e.message,true); save.disabled=false; }
+  };
+  row.append(cancel,save); boxEl.appendChild(row);
+  back.appendChild(boxEl); back.onclick=(e)=>{ if(e.target===back) back.remove(); };
+  document.body.appendChild(back);
 }
 
 // Éditeur modal simple (textarea) pour MODIFIER un schéma (SVG) ou une simulation (JSON).
