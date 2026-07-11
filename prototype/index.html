@@ -2284,7 +2284,7 @@ function applyLayout(cid, n){
 }
 // le tableau change de taille (entrée/sortie plein écran, fenêtre redimensionnée) :
 // on ré-applique la disposition pour recalculer le cadre de référence
-window.addEventListener('resize', ()=>{ try{ if(typeof lecon!=='undefined') applyLayout(lecon.id, board&&board.querySelector('.quiz-layout-block')?'quiz':i); }catch(e){} });
+window.addEventListener('resize', ()=>{ try{ if(typeof lecon!=='undefined') applyLayout(lecon.id, board&&board.querySelector('.quiz-layout-block')?activeQuizLayoutKey:i); }catch(e){} });
 function render(n){ const e=lecon.etapes[n];
   cancelAutoNext(); cancelAutoResume();  // nouvelle étape → on repart de zéro (avance auto)
   const eb=effectiveBoard(e.board, lecon.id, n);   // applique les réglages prof (masquer/remplacer)
@@ -2384,10 +2384,10 @@ function render(n){ const e=lecon.etapes[n];
   // ÉVALUATION INTERMÉDIAIRE : une étape peut proposer l'évaluation AVANT de continuer
   // (ex. avant la 2ᵉ activité). Bouton DISTINCT du « Suivant ▶ » ; après l'évaluation,
   // l'élève revient automatiquement à l'étape suivante (quizReturnStep) pour poursuivre.
-  if(e.evalHere && n < lecon.etapes.length-1 && (getQuizSets().length)){
+  if(isIntermediateQuizStep(e) && n < lecon.etapes.length-1 && (getQuizSets().length)){
     const b=mkOpt("📝 Passer l'évaluation maintenant",'primary'); b.style.marginTop='16px';
     b.style.background='var(--accent2)'; b.style.color='#082f49';
-    b.onclick=()=>{ quizReturnStep=n+1; startQuiz(); };
+    b.onclick=()=>{ quizReturnStep=n+1; startQuiz('quiz-mid'); };
     setTimeout(()=>board.appendChild(b), 400);
   }
   // à la dernière étape : cours terminé (mémorisé) + proposition d'évaluation
@@ -2396,7 +2396,7 @@ function render(n){ const e=lecon.etapes[n];
     if(getQuizSets().length){
       const b=mkOpt("📝 Faire l'évaluation",'primary'); b.style.marginTop='16px';
       b.style.background='var(--accent2)'; b.style.color='#082f49';
-      b.onclick=()=>{ quizReturnStep=null; startQuiz(); };
+      b.onclick=()=>{ quizReturnStep=null; startQuiz('quiz'); };
       setTimeout(()=>board.appendChild(b), 400);
     }
   } }
@@ -2404,6 +2404,11 @@ function render(n){ const e=lecon.etapes[n];
 let inQuiz=false, quizAnswered=false, pendingQuizNext=null;
 // Évaluation intermédiaire (déclenchée avant une activité) : étape à reprendre à la fin.
 let quizReturnStep=null;
+let activeQuizLayoutKey='quiz';
+function isIntermediateQuizStep(step){
+  const ov=stepOverride(lecon&&lecon.id,'quiz');
+  return ov.evalAfterId ? step.__id===ov.evalAfterId : !!step.evalHere;
+}
 function go(n){ if(n<0||n>=lecon.etapes.length)return; if(typeof resumePlayback==='function') resumePlayback(); inQuiz=false; i=n; render(i); }
 
 /* dévoile la réponse d'une étape "Vérifions" : écrit la ligne réponse + voix + hochement */
@@ -2639,7 +2644,8 @@ function getQuizSets(){
     : (lecon.quiz && lecon.quiz.length) ? [{label:'Évaluation', quiz:lecon.quiz}] : [];
   return sets.filter(s=>s&&Array.isArray(s.quiz)&&s.quiz.length);
 }
-function startQuiz(){
+function startQuiz(layoutKey){
+  activeQuizLayoutKey=typeof layoutKey==='string'?layoutKey:'quiz';
   bar.style.width='100%'; renderPhase(-1);
   const sets=getQuizSets();
   if(!sets.length){
@@ -2679,7 +2685,7 @@ function renderQuizChooser(sets, cur){
   }
   const quizLayout=document.createElement('div'); quizLayout.className='quiz-layout-block';
   quizLayout.appendChild(card); board.appendChild(quizLayout);
-  applyLayout(lecon.id,'quiz');
+  applyLayout(lecon.id,activeQuizLayoutKey);
   avatarExpress('explain','happy');
   speak('Choisis ton évaluation. J\'en ai préparé '+sets.length+'. Tu peux changer de quiz avant de commencer.');
 }
@@ -2735,7 +2741,7 @@ function renderQ(){
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter') b.onclick(); });
     row.appendChild(inp); row.appendChild(b); opts.appendChild(row); setTimeout(()=>inp.focus(),50);
   }
-  applyLayout(lecon.id,'quiz');
+  applyLayout(lecon.id,activeQuizLayoutKey);
   avatarExpress('think','curious');
   speak(stripHtml(item.q));
 }
@@ -2808,7 +2814,7 @@ function endQuiz(){
             : pct>=50 ? 'Bien joué ! Revois les points manqués et ce sera parfait.'
             : 'Courage ! Reprends le cours, puis retente l\'évaluation. 💪';
   const m=document.createElement('div'); m.className='line def'; m.innerHTML=msg; board.appendChild(m);
-  const again=mkOpt('↻ Refaire l\'évaluation'); again.style.marginTop='14px'; again.onclick=startQuiz;
+  const again=mkOpt('↻ Refaire l\'évaluation'); again.style.marginTop='14px'; again.onclick=()=>startQuiz(activeQuizLayoutKey);
   board.appendChild(again);
   // ÉVALUATION INTERMÉDIAIRE : proposer de poursuivre le cours (activité suivante).
   if(quizReturnStep!=null && quizReturnStep<lecon.etapes.length){

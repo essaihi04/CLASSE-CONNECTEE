@@ -407,7 +407,7 @@ function renderSteps(){
   if(!chap) return;
   const mk=(step, phase, title)=>{
     const b=document.createElement('button'); b.className='step-btn'+((String(sel.step)===String(step))?' active':'');
-    const n = step==='*' ? '★' : (step==='quiz' ? '📝' : (Number(step)+1));
+    const n = step==='*' ? '★' : (String(step).startsWith('quiz') ? '📝' : (Number(step)+1));
     const ph = phase ? `<span class="ph">${PHASES[phase]||phase}</span>` : '';
     const c = countFor(sel.chapter, step);
     b.innerHTML=`<span class="n">${n}</span>${ph}<span style="flex:1">${title}</span>`
@@ -417,6 +417,9 @@ function renderSteps(){
   };
   stepsEl.appendChild(mk('*', null, '<b>Toute la leçon</b> (contexte général)'));
   const etapes = chap.etapes||[];
+  const quizOv=stepOverride(sel.chapter,'quiz');
+  let intermediateIdx=etapes.findIndex(e=>e.__id===quizOv.evalAfterId);
+  if(intermediateIdx<0) intermediateIdx=etapes.findIndex(e=>e.evalHere);
   etapes.forEach((e,idx)=>{
     const title=(e.board&&e.board.title)? e.board.title : ('Étape '+(idx+1));
     // Ligne = bouton de sélection + petits outils (monter / descendre / supprimer)
@@ -434,10 +437,31 @@ function renderSteps(){
     tools.append(up,down,del,add);
     row.appendChild(tools);
     stepsEl.appendChild(row);
+    if(idx===intermediateIdx){
+      const qRow=document.createElement('div'); qRow.className='step-row quiz-step-row';
+      qRow.appendChild(mk('quiz-mid', null, '<b>Évaluation 1</b> (intermédiaire)'));
+      const qTools=document.createElement('div'); qTools.className='step-tools';
+      const qUp=document.createElement('button'); qUp.className='tool'; qUp.title='Déplacer cette évaluation plus haut'; qUp.textContent='▲';
+      qUp.disabled=idx===0; qUp.onclick=ev=>{ ev.stopPropagation(); moveIntermediateQuiz(-1); };
+      const qDown=document.createElement('button'); qDown.className='tool'; qDown.title='Déplacer cette évaluation plus bas'; qDown.textContent='▼';
+      qDown.disabled=idx>=etapes.length-2; qDown.onclick=ev=>{ ev.stopPropagation(); moveIntermediateQuiz(1); };
+      qTools.append(qUp,qDown); qRow.appendChild(qTools); stepsEl.appendChild(qRow);
+    }
   });
   // Bouton d'insertion + pseudo-étape ÉVALUATION.
   // (l'ajout se fait via #addStepBtn, sous la liste)
-  stepsEl.appendChild(mk('quiz', null, '<b>Évaluation</b> (quiz du chapitre)'));
+  stepsEl.appendChild(mk('quiz', null, '<b>Évaluation 2</b> (fin du chapitre)'));
+}
+
+async function moveIntermediateQuiz(dir){
+  const chap=chapById(sel.chapter); if(!chap) return;
+  const steps=chap.etapes||[], quizOv=stepOverride(sel.chapter,'quiz');
+  let idx=steps.findIndex(e=>e.__id===quizOv.evalAfterId);
+  if(idx<0) idx=steps.findIndex(e=>e.evalHere);
+  const next=Math.max(0,Math.min(steps.length-2,idx+dir));
+  if(idx<0||next===idx||!steps[next]) return;
+  try{ await setOverride(sel.chapter,'quiz',{evalAfterId:steps[next].__id}); renderSteps(); toast('Évaluation intermédiaire déplacée ✓'); }
+  catch(e){ toast('Erreur : '+e.message,true); }
 }
 
 function selectStep(step){
@@ -450,7 +474,7 @@ function selectStep(step){
 function remapSupports(chapId, oldIds, newIds){
   const remap = obj=>{
     const src = obj[chapId] || {}; const dst = {};
-    if(src['*']) dst['*'] = src['*'];
+    Object.keys(src).forEach(k=>{ if(k==='*'||!/^[0-9]+$/.test(k)) dst[k]=src[k]; });
     newIds.forEach((id,j)=>{ const oldIdx=oldIds.indexOf(id);
       if(oldIdx>=0 && src[String(oldIdx)]) dst[String(j)] = src[String(oldIdx)]; });
     obj[chapId] = dst;
@@ -466,13 +490,13 @@ async function saveStructure(chapId){
 }
 // applique un nouvel ordre visible (tableau de __id) + éventuel nouvel hidden, ré-indexe et sauvegarde
 async function applyNewOrder(chapId, oldIds, newIds, hidden, okMsg){
-  const selId = (sel.step==='*'||sel.step==='quiz'||sel.step===null) ? sel.step
+  const selId = (sel.step==='*'||String(sel.step).startsWith('quiz')||sel.step===null) ? sel.step
               : (chapById(chapId).etapes[sel.step]||{}).__id;
   structure[chapId] = { order:newIds.slice(), hidden:(hidden||((structure[chapId]&&structure[chapId].hidden)||[])).slice() };
   remapSupports(chapId, oldIds, newIds);
   applyStepPlan();
   // garde la sélection sur la même étape (si elle existe encore)
-  if(selId==='*'||selId==='quiz'||selId===null||selId===undefined){ /* inchangé */ }
+  if(selId==='*'||String(selId).startsWith('quiz')||selId===null||selId===undefined){ /* inchangé */ }
   else { const ni=chapById(chapId).etapes.findIndex(e=>e.__id===selId); sel.step = ni>=0 ? ni : null; }
   try{ await saveStructure(chapId); renderSteps(); renderEditor(); toast(okMsg||'Enregistré ✓'); }
   catch(e){ toast('Erreur : '+e.message, true); }
@@ -553,9 +577,10 @@ function renderEditor(){
   if(sel.step==='*'){
     $('ctxTitle').textContent='★ Toute la leçon';
     $('ctxSub').textContent=chap.titre;
-  } else if(sel.step==='quiz'){
-    $('ctxTitle').textContent='📝 Évaluation du chapitre';
-    $('ctxSub').textContent=chap.titre+' · quiz proposés à l\'élève en fin de chapitre';
+  } else if(String(sel.step).startsWith('quiz')){
+    const mid=sel.step==='quiz-mid';
+    $('ctxTitle').textContent=mid?'📝 Évaluation 1 — intermédiaire':'📝 Évaluation 2 — fin du chapitre';
+    $('ctxSub').textContent=chap.titre+(mid?' · proposée pendant le cours':' · proposée en fin de chapitre');
   } else {
     const e=chap.etapes[sel.step];
     $('ctxTitle').textContent=(e.board&&e.board.title)||('Étape '+(sel.step+1));
@@ -586,7 +611,7 @@ function renderLayoutTools(){
   zone.innerHTML=''; zone.style.display='none';
   const chap=chapById(sel.chapter);
   if(!chap || sel.step===null || sel.step==='*') return;
-  if(sel.step!=='quiz' && (!chap.etapes || !chap.etapes[sel.step])) return;
+  if(!String(sel.step).startsWith('quiz') && (!chap.etapes || !chap.etapes[sel.step])) return;
   const layBtn=document.createElement('button'); layBtn.className='add-btn'; layBtn.textContent='🎬 Mise en page du tableau';
   layBtn.onclick=()=>openLayoutEditor(sel.step);
   zone.appendChild(layBtn);
@@ -604,7 +629,7 @@ function renderBuiltin(){
   const box=$('builtin');
   const chap=chapById(sel.chapter);
   // Pseudo-étape ÉVALUATION : cartes d'édition des quiz du chapitre.
-  if(chap && sel.step==='quiz'){ renderQuizBuiltin(box, chap); return; }
+  if(chap && String(sel.step).startsWith('quiz')){ renderQuizBuiltin(box, chap); return; }
   // Seulement sur une VRAIE étape (pas « toute la leçon », qui n'a pas de board intégré).
   if(!chap || sel.step===null || sel.step==='*' || !chap.etapes || !chap.etapes[sel.step]){
     box.style.display='none'; box.innerHTML=''; return;
@@ -1303,9 +1328,10 @@ async function openLayoutEditor(step){
   try{ await refreshContent(); renderSupports(); renderSteps(); }catch(_){}
   const chap=chapById(sel.chapter); const et=(chap&&chap.etapes&&chap.etapes[step])||{}; const board=et.board||{};
   const ov=stepOverride(sel.chapter, step);
+  const isQuiz=String(step).startsWith('quiz');
   // Éléments réellement présents sur l'étape (en tenant compte des overrides)
   const present=[];
-  if(step==='quiz'){
+  if(isQuiz){
     const sets=currentQuizSets(chap);
     const sample=sets[0]&&sets[0].quiz&&sets[0].quiz[0];
     const html=sample ? buildQuizPreview(sample,0,sets[0].quiz.length).outerHTML
@@ -1313,22 +1339,22 @@ async function openLayoutEditor(step){
     present.push({key:'quiz', label:'Évaluation', html:html});
   }
   // HTML de mise en forme (gras/italique/indice…) rendu tel quel → l'édition round-trip proprement
-  const curTitle=('title' in ov)?ov.title:board.title; if(step!=='quiz'&&curTitle) present.push({key:'title', label:'Titre', html:curTitle});
-  const curLines=(('lines' in ov)?ov.lines:board.lines)||[]; if(step!=='quiz'&&curLines.length) present.push({key:'body', label:'Texte', html:curLines.map(l=>l.t||'').join('<br>')});
-  const curProb=('probleme' in ov)?ov.probleme:board.probleme; if(step!=='quiz'&&curProb) present.push({key:'probleme', label:'Situation-problème', html:curProb});
-  if(step!=='quiz' && board.media && !ov.hideMedia){
+  const curTitle=('title' in ov)?ov.title:board.title; if(!isQuiz&&curTitle) present.push({key:'title', label:'Titre', html:curTitle});
+  const curLines=(('lines' in ov)?ov.lines:board.lines)||[]; if(!isQuiz&&curLines.length) present.push({key:'body', label:'Texte', html:curLines.map(l=>l.t||'').join('<br>')});
+  const curProb=('probleme' in ov)?ov.probleme:board.probleme; if(!isQuiz&&curProb) present.push({key:'probleme', label:'Situation-problème', html:curProb});
+  if(!isQuiz && board.media && !ov.hideMedia){
     const carS=Array.isArray(ov.mediaSlides)?ov.mediaSlides.filter(s=>s&&(s.src||s.svg)):[];
     const first=carS[0];
     const html = carS.length
       ? (first.svg ? first.svg : '<img src="'+first.src+'" style="width:100%;height:100%;max-height:none;object-fit:contain;border-radius:4px">')
       : ((ov.mediaSrc||board.media.src) ? '<img src="'+(ov.mediaSrc||board.media.src)+'" style="width:100%;height:100%;max-height:none;object-fit:contain;border-radius:4px">' : '🖼️ '+esc(board.media.desc||'image à générer'));
     present.push({key:'media', label:carS.length?('Carrousel ('+carS.length+' diapos)'):'Image / Vidéo', html: html}); }
-  const schema=step!=='quiz'&&(!ov.hideSchema)?(ov.schema||board.schema):null;
+  const schema=!isQuiz&&(!ov.hideSchema)?(ov.schema||board.schema):null;
   if(schema) present.push({key:'schema', label:'Schéma', html:schema});
   // Activité interactive (tableau à compléter / tri / expérience) : positionnable comme les autres blocs
-  const sim=step!=='quiz'?simLayoutPreview(board, ov):null;
+  const sim=!isQuiz?simLayoutPreview(board, ov):null;
   if(sim) present.push({key:'sim', label:sim.label, html:sim.html});
-  (step==='quiz'?[]:layoutSupportEntries(sel.chapter, step)).forEach((it, n)=>{
+  (isQuiz?[]:layoutSupportEntries(sel.chapter, step)).forEach((it, n)=>{
     present.push({ key:it.key, label:(it.whole?'Support toute la leçon ':'Support ')+(n+1), html:supportLayoutPreview(it.media, it.idx, it.whole), support:true });
   });
   // l'avatar est affiché avec le VRAI moteur 3D (avatar3d.html) : allure et proportions réelles
