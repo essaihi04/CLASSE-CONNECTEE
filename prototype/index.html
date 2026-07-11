@@ -910,7 +910,7 @@ function loadAvatar(src){
     return;
   }
   const f=document.createElement('iframe');
-  f.src=src; f.allow="autoplay; fullscreen; xr-spatial-tracking"; f.setAttribute('allowfullscreen','');
+  f.src=src; f.allow="autoplay; fullscreen; xr-spatial-tracking";   // 'allow: fullscreen' suffit (évite l'avertissement allowfullscreen)
   f.onerror=()=>{ fallback2d.style.display='flex'; };
   avatarBox.appendChild(f); fallback2d.style.display='none';
 }
