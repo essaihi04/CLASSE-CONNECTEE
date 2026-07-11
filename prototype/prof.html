@@ -43,6 +43,16 @@
   .step-btn .n{color:var(--muted);font-variant-numeric:tabular-nums;min-width:20px}
   .step-btn .count{margin-left:auto;background:#334155;border-radius:20px;padding:1px 8px;font-size:11px;color:#cbd5e1}
   .step-btn .count.zero{opacity:.35}
+  .step-btn .badge-custom{font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:#0b1220;
+    background:#a5f3fc;border-radius:6px;padding:1px 5px;font-weight:700;margin-left:4px}
+  .step-row{display:flex;align-items:stretch;gap:4px}
+  .step-row .step-btn{flex:1;min-width:0}
+  .step-tools{display:flex;flex-direction:column;gap:2px;flex:0 0 auto}
+  .step-tools .tool{width:26px;flex:1;min-height:0;background:var(--card);border:1px solid var(--line);
+    color:#cbd5e1;border-radius:8px;cursor:pointer;font-size:10px;line-height:1;padding:0;transition:.12s}
+  .step-tools .tool:hover:not(:disabled){border-color:var(--accent);color:#fff}
+  .step-tools .tool:disabled{opacity:.28;cursor:default}
+  .step-tools .tool.danger:hover:not(:disabled){border-color:#f87171;color:#fecaca}
   .editor .head{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
   .editor .head h2{margin:0}
   .editor .head .sub{color:var(--muted);font-size:13px}
@@ -199,6 +209,7 @@ const PHASES = {
 let content = {};                 // { chapId: { step: [support...] } }
 let overrides = {};               // { chapId: { step: { hideSchema?, hideSim?, hideMedia?, mediaSrc?, mediaType? } } }
 let customSteps = {};             // { chapId: [etape personnalisee, ...] }
+let structure = {};               // { chapId: { order:[id...], hidden:[id...] } } (deplacement / suppression)
 let curType = 'text';
 let sel = { chapter:null, step:null };   // step : index numérique OU '*' (toute la leçon)
 
@@ -211,13 +222,28 @@ function toast(msg, err){
 }
 
 function chapById(id){ return LECONS.find(c=>c.id===id); }
-function mergeCustomSteps(map){
-  customSteps = map || {};
-  LECONS.forEach(ch=>{
-    ch.etapes = (ch.etapes || []).filter(e=>!e.custom);
-    (customSteps[ch.id] || []).forEach(e=>ch.etapes.push(e));
-  });
+
+/* PLAN D'ÉTAPES (identique à index.html) : ordre affiché = étapes d'origine + parties
+   personnalisées, réordonnées/masquées selon `structure`. __id stable par étape. */
+function snapshotBaseEtapes(ch){
+  if(!ch.__base) ch.__base = (ch.etapes||[]).map((e,idx)=>{ if(!e.__id) e.__id='b'+idx; return e; });
 }
+function buildEtapes(ch, customMap, structMap){
+  snapshotBaseEtapes(ch);
+  const customs = ((customMap && customMap[ch.id]) || []).map(e=>{
+    e.custom=true; if(!e.__id) e.__id = e.id || ('c'+Math.random().toString(36).slice(2)); return e; });
+  const all = ch.__base.concat(customs);
+  const byId = {}; all.forEach(e=> byId[e.__id]=e);
+  const st = (structMap && structMap[ch.id]) || {};
+  const order = Array.isArray(st.order)? st.order : [];
+  const hidden = new Set(Array.isArray(st.hidden)? st.hidden : []);
+  const out=[], used=new Set();
+  order.forEach(id=>{ const e=byId[id]; if(e && !hidden.has(id) && !used.has(id)){ out.push(e); used.add(id); } });
+  all.forEach(e=>{ if(!used.has(e.__id) && !hidden.has(e.__id)){ out.push(e); used.add(e.__id); } });
+  ch.etapes = out;
+}
+function applyStepPlan(){ LECONS.forEach(ch=> buildEtapes(ch, customSteps, structure)); }
+function mergeCustomSteps(map){ customSteps = map || {}; applyStepPlan(); }
 function stepList(chapId, step){
   const s=String(step);
   return (content[chapId] && content[chapId][s]) || [];
@@ -321,23 +347,101 @@ function renderSteps(){
   if(!chap) return;
   const mk=(step, phase, title)=>{
     const b=document.createElement('button'); b.className='step-btn'+((String(sel.step)===String(step))?' active':'');
-    const n = step==='*' ? '★' : (Number(step)+1);
+    const n = step==='*' ? '★' : (step==='quiz' ? '📝' : (Number(step)+1));
     const ph = phase ? `<span class="ph">${PHASES[phase]||phase}</span>` : '';
     const c = countFor(sel.chapter, step);
     b.innerHTML=`<span class="n">${n}</span>${ph}<span style="flex:1">${title}</span>`
               + `<span class="count ${c?'':'zero'}">${c}</span>`;
     b.onclick=()=>selectStep(step);
-    stepsEl.appendChild(b);
+    return b;
   };
-  mk('*', null, '<b>Toute la leçon</b> (contexte général)');
-  (chap.etapes||[]).forEach((e,idx)=>{
+  stepsEl.appendChild(mk('*', null, '<b>Toute la leçon</b> (contexte général)'));
+  const etapes = chap.etapes||[];
+  etapes.forEach((e,idx)=>{
     const title=(e.board&&e.board.title)? e.board.title : ('Étape '+(idx+1));
-    mk(idx, e.phase, title);
+    // Ligne = bouton de sélection + petits outils (monter / descendre / supprimer)
+    const row=document.createElement('div'); row.className='step-row';
+    row.appendChild(mk(idx, e.phase, title + (e.custom?' <span class="badge-custom">ajout</span>':'')));
+    const tools=document.createElement('div'); tools.className='step-tools';
+    const up=document.createElement('button'); up.className='tool'; up.title='Monter cette étape'; up.textContent='▲';
+    up.disabled = idx===0; up.onclick=(ev)=>{ ev.stopPropagation(); moveStep(idx,-1); };
+    const down=document.createElement('button'); down.className='tool'; down.title='Descendre cette étape'; down.textContent='▼';
+    down.disabled = idx===etapes.length-1; down.onclick=(ev)=>{ ev.stopPropagation(); moveStep(idx,1); };
+    const del=document.createElement('button'); del.className='tool danger'; del.title='Supprimer cette étape'; del.textContent='✕';
+    del.onclick=(ev)=>{ ev.stopPropagation(); deleteStep(idx); };
+    tools.append(up,down,del);
+    row.appendChild(tools);
+    stepsEl.appendChild(row);
   });
+  // Bouton d'insertion + pseudo-étape ÉVALUATION.
+  // (l'ajout se fait via #addStepBtn, sous la liste)
+  stepsEl.appendChild(mk('quiz', null, '<b>Évaluation</b> (quiz du chapitre)'));
 }
 
 function selectStep(step){
   sel.step=step; renderSteps(); renderEditor();
+}
+
+// ── Déplacement / suppression / insertion des étapes ──
+// Les supports (content) et réglages (overrides) sont indexés par NUMÉRO d'étape : on les
+// ré-indexe pour qu'ils suivent leur étape lors d'un déplacement/suppression/insertion.
+function remapSupports(chapId, oldIds, newIds){
+  const remap = obj=>{
+    const src = obj[chapId] || {}; const dst = {};
+    if(src['*']) dst['*'] = src['*'];
+    newIds.forEach((id,j)=>{ const oldIdx=oldIds.indexOf(id);
+      if(oldIdx>=0 && src[String(oldIdx)]) dst[String(j)] = src[String(oldIdx)]; });
+    obj[chapId] = dst;
+  };
+  remap(content); remap(overrides);
+}
+async function saveStructure(chapId){
+  const st = structure[chapId] || {order:[],hidden:[]};
+  const r = await fetch('/api/course-structure',{ method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ chapterId:chapId, order:st.order||[], hidden:st.hidden||[],
+      content: content[chapId]||{}, overrides: overrides[chapId]||{} }) });
+  const j = await r.json(); if(!r.ok) throw new Error(j.error||'echec');
+}
+// applique un nouvel ordre visible (tableau de __id) + éventuel nouvel hidden, ré-indexe et sauvegarde
+async function applyNewOrder(chapId, oldIds, newIds, hidden, okMsg){
+  const selId = (sel.step==='*'||sel.step==='quiz'||sel.step===null) ? sel.step
+              : (chapById(chapId).etapes[sel.step]||{}).__id;
+  structure[chapId] = { order:newIds.slice(), hidden:(hidden||((structure[chapId]&&structure[chapId].hidden)||[])).slice() };
+  remapSupports(chapId, oldIds, newIds);
+  applyStepPlan();
+  // garde la sélection sur la même étape (si elle existe encore)
+  if(selId==='*'||selId==='quiz'||selId===null||selId===undefined){ /* inchangé */ }
+  else { const ni=chapById(chapId).etapes.findIndex(e=>e.__id===selId); sel.step = ni>=0 ? ni : null; }
+  try{ await saveStructure(chapId); renderSteps(); renderEditor(); toast(okMsg||'Enregistré ✓'); }
+  catch(e){ toast('Erreur : '+e.message, true); }
+}
+function moveStep(idx, dir){
+  const chap=chapById(sel.chapter); if(!chap) return;
+  const steps=chap.etapes||[]; const j=idx+dir;
+  if(j<0 || j>=steps.length) return;
+  const oldIds=steps.map(e=>e.__id); const newIds=oldIds.slice();
+  const t=newIds[idx]; newIds[idx]=newIds[j]; newIds[j]=t;
+  applyNewOrder(sel.chapter, oldIds, newIds, null, 'Étape déplacée ✓');
+}
+async function deleteStep(idx){
+  const chap=chapById(sel.chapter); if(!chap) return;
+  const step=(chap.etapes||[])[idx]; if(!step) return;
+  const label=(step.board&&step.board.title)||('Étape '+(idx+1));
+  if(!confirm('Supprimer cette étape du cours ?\n\n« '+label.replace(/<[^>]*>/g,'')+' »'
+    + (step.custom?'\n\n(partie ajoutée : suppression définitive)':'\n\n(étape d\'origine : elle sera masquée)'))) return;
+  const oldIds=(chap.etapes||[]).map(e=>e.__id);
+  const newIds=oldIds.filter((id,k)=>k!==idx);
+  const hidden=((structure[sel.chapter]&&structure[sel.chapter].hidden)||[]).slice();
+  try{
+    if(step.custom){
+      const r=await fetch('/api/custom-steps',{ method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ chapterId:sel.chapter, removeId:step.__id }) });
+      const j=await r.json(); if(!r.ok) throw new Error(j.error||'echec');
+      customSteps[sel.chapter]=j.steps||[];
+    } else if(hidden.indexOf(step.__id)<0){ hidden.push(step.__id); }
+    if(String(sel.step)===String(idx)) sel.step=null;   // l'étape sélectionnée disparaît
+    await applyNewOrder(sel.chapter, oldIds, newIds, hidden, 'Étape supprimée ✓');
+  }catch(e){ toast('Erreur : '+e.message, true); }
 }
 
 async function addCustomCoursePart(){
@@ -349,16 +453,28 @@ async function addCustomCoursePart(){
   const phaseRaw=prompt('Type de partie : situation, hypothese, concept, structuration ou bilan', 'concept');
   if(phaseRaw===null) return;
   const phase=String(phaseRaw||'concept').trim().toLowerCase();
+  // Position d'insertion : juste APRÈS l'étape sélectionnée (sinon à la fin).
+  const insertAfter = (typeof sel.step==='number') ? sel.step : ((chap.etapes||[]).length-1);
   try{
     const r=await fetch('/api/custom-steps',{ method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({ chapterId:sel.chapter, step:{ title:title.trim(), phase } }) });
     const j=await r.json(); if(!r.ok) throw new Error(j.error||'echec');
     customSteps[sel.chapter]=j.steps||[];
-    mergeCustomSteps(customSteps);
-    const refreshed=chapById(sel.chapter);
-    sel.step=(refreshed.etapes||[]).length-1;
+    const newId = j.step && j.step.id;
+    applyStepPlan();
+    // la nouvelle partie est en fin de liste : on la remonte juste après l'étape choisie
+    const chap2=chapById(sel.chapter);
+    const oldIds=(chap2.etapes||[]).map(e=>e.__id);
+    const from=oldIds.indexOf(newId);
+    const newIds=oldIds.slice();
+    if(from>=0){ newIds.splice(from,1); newIds.splice(Math.min(insertAfter+1,newIds.length),0,newId); }
+    structure[sel.chapter]={ order:newIds, hidden:(structure[sel.chapter]&&structure[sel.chapter].hidden)||[] };
+    remapSupports(sel.chapter, oldIds, newIds);
+    applyStepPlan();
+    sel.step=chapById(sel.chapter).etapes.findIndex(e=>e.__id===newId);
+    await saveStructure(sel.chapter);
     renderSteps(); renderEditor();
-    toast('Partie ajoutee ✓');
+    toast('Partie ajoutée ✓');
   }catch(e){ toast('Erreur : '+e.message, true); }
 }
 
@@ -373,6 +489,9 @@ function renderEditor(){
   if(sel.step==='*'){
     $('ctxTitle').textContent='★ Toute la leçon';
     $('ctxSub').textContent=chap.titre;
+  } else if(sel.step==='quiz'){
+    $('ctxTitle').textContent='📝 Évaluation du chapitre';
+    $('ctxSub').textContent=chap.titre+' · quiz proposés à l\'élève en fin de chapitre';
   } else {
     const e=chap.etapes[sel.step];
     $('ctxTitle').textContent=(e.board&&e.board.title)||('Étape '+(sel.step+1));
@@ -419,6 +538,8 @@ function renderLayoutTools(){
 function renderBuiltin(){
   const box=$('builtin');
   const chap=chapById(sel.chapter);
+  // Pseudo-étape ÉVALUATION : cartes d'édition des quiz du chapitre.
+  if(chap && sel.step==='quiz'){ renderQuizBuiltin(box, chap); return; }
   // Seulement sur une VRAIE étape (pas « toute la leçon », qui n'a pas de board intégré).
   if(!chap || sel.step===null || sel.step==='*' || !chap.etapes || !chap.etapes[sel.step]){
     box.style.display='none'; box.innerHTML=''; return;
@@ -616,6 +737,111 @@ function renderBuiltin(){
   gRow.appendChild(gLabel); gRow.appendChild(selects);
   tools.appendChild(gRow);
   box.appendChild(tools);
+}
+
+/* ── ÉVALUATION du chapitre (pseudo-étape 'quiz') ──
+   Les quiz de fin de chapitre (lecon.quizSets, ou lecon.quiz pour les anciens chapitres) deviennent
+   éditables comme les autres éléments : MODIFIER chaque quiz (JSON), en AJOUTER, en SUPPRIMER,
+   MASQUER toute l'évaluation, ou RÉTABLIR les quiz d'origine.
+   Stocké en override à la clé 'quiz' : { quizSets:[…], hideQuiz } — lu côté élève par getQuizSets(). */
+function builtinQuizSets(chap){
+  if(chap.quizSets && chap.quizSets.length) return chap.quizSets;
+  if(chap.quiz && chap.quiz.length) return [{ label:'Évaluation', quiz:chap.quiz }];
+  return [];
+}
+function currentQuizSets(chap){
+  const ov=stepOverride(sel.chapter,'quiz');
+  return Array.isArray(ov.quizSets) ? ov.quizSets : builtinQuizSets(chap);
+}
+// Valide un quiz saisi en JSON : { label, intro?, quiz:[{type:'qcm'|'vf'|'libre', q, …}] }
+function parseQuizSet(v){
+  let obj; try{ obj=JSON.parse(v); }catch(e){ throw new Error('JSON invalide : '+e.message); }
+  if(!obj || typeof obj!=='object' || Array.isArray(obj)) throw new Error('attendu : un objet { "label", "intro"?, "quiz":[…] }');
+  if(!Array.isArray(obj.quiz) || !obj.quiz.length) throw new Error('"quiz" doit être une liste d\'au moins une question');
+  obj.quiz.forEach((q,i)=>{
+    const n='question '+(i+1);
+    if(!q || typeof q!=='object') throw new Error(n+' : objet attendu');
+    if(!['qcm','vf','libre'].includes(q.type)) throw new Error(n+' : "type" doit être "qcm", "vf" ou "libre"');
+    if(!q.q) throw new Error(n+' : champ "q" (la question) obligatoire');
+    if(q.type==='qcm' && (!Array.isArray(q.options) || q.options.length<2 || typeof q.correct!=='number'))
+      throw new Error(n+' (qcm) : "options" (liste d\'au moins 2 choix) et "correct" (index de la bonne réponse) obligatoires');
+    if(q.type==='vf' && typeof q.correct!=='boolean') throw new Error(n+' (vf) : "correct" doit être true ou false');
+    if(q.type==='libre' && (!Array.isArray(q.attendus) || !q.attendus.length))
+      throw new Error(n+' (libre) : "attendus" (liste des réponses acceptées) obligatoire');
+  });
+  return obj;
+}
+const QUIZ_TEMPLATE={ label:'Nouveau quiz', intro:'Un quiz pour vérifier ce que tu as compris.', quiz:[
+  { type:'qcm', enonce:'', q:'Question à choix multiple ?', options:['Réponse A','Réponse B','Réponse C'], correct:0, fb:'Explication de la bonne réponse.' },
+  { type:'vf', q:'Affirmation vraie ou fausse ?', correct:true, fb:'Explication.' },
+  { type:'libre', q:'Question à réponse libre ?', attendus:['réponse'], reponse:'la réponse attendue', fb:'Explication.' }
+]};
+function saveQuizSets(sets){ return setOverride(sel.chapter, 'quiz', { quizSets:sets }); }
+
+function renderQuizBuiltin(box, chap){
+  const ov=stepOverride(sel.chapter,'quiz');
+  const sets=currentQuizSets(chap);
+  const edited=Array.isArray(ov.quizSets);
+  const hidden=!!ov.hideQuiz;
+  box.style.display='';
+  box.innerHTML=`<h3>📝 Quiz de l'évaluation</h3>`
+    + `<div class="sub">Les quiz proposés à l'élève en fin de chapitre (il en voit un au hasard et peut en changer). Vous pouvez <b>modifier</b> chaque quiz (énoncés, questions, réponses, corrections), en <b>ajouter</b>, en <b>supprimer</b>, <b>masquer</b> toute l'évaluation ou <b>rétablir</b> les quiz d'origine. Effet immédiat côté élève, réversible. Les supports ajoutés ci-dessous sont connus de l'IA pour cette évaluation.</div>`;
+  const cards=[];
+  sets.forEach((s,idx)=>{
+    const qz=(s&&Array.isArray(s.quiz))?s.quiz:[];
+    const first=qz[0] ? String(qz[0].q||'').replace(/<[^>]+>/g,'').slice(0,110) : '';
+    cards.push({
+      ico:'📝', name:(s&&s.label)||('Quiz '+(idx+1)),
+      state:{ t:qz.length+' question'+(qz.length>1?'s':''), c:edited?'rep':'' },
+      hidden,
+      preview:`<div class="bi-prev"><div class="bi-txtprev">${s&&s.intro?'<b>'+esc(s.intro)+'</b>':''}${first?((s&&s.intro?' — ':'')+esc(first)+'…'):''}</div></div>`,
+      acts:[
+        { label:'✏️ Modifier', noAutoToast:true, run:()=>openBuiltinEditor({
+            title:'Modifier le quiz — '+((s&&s.label)||('Quiz '+(idx+1))),
+            hint:'Édite le quiz en JSON : "label", "intro" (facultatif) et "quiz" = liste de questions de type "qcm" (options + correct), "vf" (correct true/false) ou "libre" (attendus). Champs facultatifs : "enonce", "svg" ou "img", "fb" (correction).',
+            value:JSON.stringify(s, null, 2), mono:true,
+            onSave:async(v)=>{ const obj=parseQuizSet(v);
+              await saveQuizSets(sets.map((x,i)=>i===idx?obj:x)); toast('Quiz modifié ✓'); } }) },
+        { label:'🗑️ Supprimer', noAutoToast:true, run:async()=>{
+            if(!confirm('Supprimer ce quiz de l\'évaluation ? (« Rétablir » ramènera les quiz d\'origine)')) return;
+            await saveQuizSets(sets.filter((_,i)=>i!==idx)); toast('Quiz supprimé ✓'); } }
+      ]
+    });
+  });
+  if(!cards.length){
+    const empty=document.createElement('div'); empty.className='bi-card';
+    empty.innerHTML=`<div class="bi-ico">📝</div><div class="bi-body"><div class="bi-name">Aucun quiz</div>`
+      + `<div class="bi-prev"><span class="ph">${edited?'Tous les quiz ont été supprimés — « Rétablir » ramène ceux d\'origine.':'Ce chapitre n\'a pas encore d\'évaluation. Ajoute un premier quiz.'}</span></div></div>`;
+    box.appendChild(empty);
+  }
+  cards.forEach(c=>{
+    const el=document.createElement('div'); el.className='bi-card'+(c.hidden?' hidden':'');
+    el.innerHTML=`<div class="bi-ico">${c.ico}</div><div class="bi-body">`
+      + `<div class="bi-name">${esc(c.name)}</div><div class="bi-state ${c.state.c}">${c.state.t}</div>`
+      + c.preview + `</div>`;
+    const acts=document.createElement('div'); acts.className='bi-acts';
+    c.acts.forEach(a=>{ const b=document.createElement('button'); b.textContent=a.label;
+      b.onclick=async()=>{ try{ await a.run(); if(!a.noAutoToast) toast('Réglage enregistré ✓'); }catch(e){ toast('Erreur : '+e.message,true); } };
+      acts.appendChild(b); });
+    el.appendChild(acts); box.appendChild(el);
+  });
+  // Actions globales : ajouter un quiz, masquer / réafficher l'évaluation, rétablir l'original
+  const tools=document.createElement('div'); tools.className='builtin-tools';
+  const row=document.createElement('div'); row.style.cssText='display:flex;gap:8px;flex-wrap:wrap;align-items:center';
+  const mkBtn=(label,cls,fn)=>{ const b=document.createElement('button'); b.className=cls; b.textContent=label;
+    b.style.padding='8px 13px'; b.onclick=async()=>{ try{ await fn(); }catch(e){ toast('Erreur : '+e.message,true); } }; return b; };
+  row.appendChild(mkBtn('➕ Ajouter un quiz','add-btn',()=>openBuiltinEditor({
+    title:'Ajouter un quiz à l\'évaluation',
+    hint:'Complète le modèle : "label" (titre du quiz), "intro" (présentation) et les questions ("qcm", "vf", "libre").',
+    value:JSON.stringify(QUIZ_TEMPLATE, null, 2), mono:true,
+    onSave:async(v)=>{ const obj=parseQuizSet(v); await saveQuizSets(sets.concat([obj])); toast('Quiz ajouté ✓'); } })));
+  row.appendChild(mkBtn(hidden?'👁 Réafficher l\'évaluation':'🚫 Masquer l\'évaluation','ghost',async()=>{
+    await setOverride(sel.chapter,'quiz',{ hideQuiz: hidden?null:true });
+    toast(hidden?'Évaluation réaffichée ✓':'Évaluation masquée côté élève ✓'); }));
+  if(edited) row.appendChild(mkBtn('↩ Rétablir les quiz d\'origine','ghost',async()=>{
+    if(!confirm('Abandonner vos modifications et revenir aux quiz d\'origine du chapitre ?')) return;
+    await setOverride(sel.chapter,'quiz',{ quizSets:null }); toast('Quiz d\'origine rétablis ✓'); }));
+  tools.appendChild(row); box.appendChild(tools);
 }
 
 // Éditeur modal simple (textarea) pour MODIFIER un schéma (SVG) ou une simulation (JSON).
@@ -1447,9 +1673,10 @@ $('addStepBtn').onclick=addCustomCoursePart;
 Promise.all([
   fetch('/api/content').then(r=>r.ok?r.json():{}).catch(()=>({})),
   fetch('/api/overrides').then(r=>r.ok?r.json():{}).catch(()=>({})),
-  fetch('/api/custom-steps').then(r=>r.ok?r.json():{}).catch(()=>({}))
-]).then(([c,o,cs])=>{
-  content=c||{}; overrides=o||{}; mergeCustomSteps(cs||{});
+  fetch('/api/custom-steps').then(r=>r.ok?r.json():{}).catch(()=>({})),
+  fetch('/api/course-structure').then(r=>r.ok?r.json():{}).catch(()=>({}))
+]).then(([c,o,cs,st])=>{
+  content=c||{}; overrides=o||{}; customSteps=cs||{}; structure=st||{}; applyStepPlan();
   fillChapters();
   if(LECONS.length){ sel.chapter=LECONS[0].id; chapterSel.value=sel.chapter; }
   renderSteps(); renderEditor();

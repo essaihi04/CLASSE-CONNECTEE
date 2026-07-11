@@ -805,14 +805,33 @@
 /* Les chapitres jouables sont définis dans lecons.js -> window.LECONS.
    "lecon" = chapitre courant (modifiable via le menu déroulant). */
 let lecon = window.LECONS[0];
-let customSteps = {};
-function mergeCustomSteps(map){
-  customSteps = map || {};
-  window.LECONS.forEach(ch=>{
-    ch.etapes = (ch.etapes || []).filter(e=>!e.custom);
-    (customSteps[ch.id] || []).forEach(e=>ch.etapes.push(e));
-  });
+let customSteps = {};      // { chapId: [partie personnalisée…] } (fournies par l'espace prof)
+let structure = {};        // { chapId: { order:[id…], hidden:[id…] } } (déplacement/suppression d'étapes)
+
+/* PLAN D'ÉTAPES : l'ordre affiché d'un chapitre = étapes d'origine (lecons.js) + parties
+   personnalisées, RÉORGANISÉES et éventuellement MASQUÉES selon `structure` (édité côté prof).
+   Chaque étape reçoit un identifiant stable __id : 'b<index d'origine>' ou 'c<id>' (personnalisée).
+   index.html et prof.html appliquent EXACTEMENT le même calcul → les indices numériques (supports,
+   réglages) désignent la même étape des deux côtés. */
+function snapshotBaseEtapes(ch){
+  if(!ch.__base) ch.__base = (ch.etapes||[]).map((e,idx)=>{ if(!e.__id) e.__id='b'+idx; return e; });
 }
+function buildEtapes(ch, customMap, structMap){
+  snapshotBaseEtapes(ch);
+  const customs = ((customMap && customMap[ch.id]) || []).map(e=>{
+    e.custom=true; if(!e.__id) e.__id = e.id || ('c'+Math.random().toString(36).slice(2)); return e; });
+  const all = ch.__base.concat(customs);
+  const byId = {}; all.forEach(e=> byId[e.__id]=e);
+  const st = (structMap && structMap[ch.id]) || {};
+  const order = Array.isArray(st.order)? st.order : [];
+  const hidden = new Set(Array.isArray(st.hidden)? st.hidden : []);
+  const out=[], used=new Set();
+  order.forEach(id=>{ const e=byId[id]; if(e && !hidden.has(id) && !used.has(id)){ out.push(e); used.add(id); } });
+  all.forEach(e=>{ if(!used.has(e.__id) && !hidden.has(e.__id)){ out.push(e); used.add(e.__id); } });
+  ch.etapes = out;
+}
+function applyStepPlan(){ window.LECONS.forEach(ch=> buildEtapes(ch, customSteps, structure)); }
+function mergeCustomSteps(map){ customSteps = map || {}; applyStepPlan(); }   // rétro-compat
 
 /* ============ STRUCTURE PÉDAGOGIQUE : LES PHASES D'UNE LEÇON ============
    Chaque étape porte un champ "phase" (optionnel). Le moteur affiche alors
@@ -1704,7 +1723,7 @@ function handleVoiceCommand(said){
   // 2) ÉVALUATION : « passe / lance / fais l'évaluation », « je suis prêt pour le quiz »…
   if(/([ée]valuation|\bquiz\b|contr[ôo]le|questionnaire|exercices?)/.test(t)
      && /(passe|passer|passons|commence|commencer|lance|lancer|d[ée]marre|fais|faisons|faire|allons|on fait|va |vais|pr[êe]te?\b)/.test(t)){
-    if(lecon.quiz && lecon.quiz.length){
+    if(getQuizSets().length){
       cancelAutoNext(); cancelAutoResume(); compClear(); askedFromStep=null;
       speech.textContent="📝 C'est parti pour l'évaluation ! Bonne chance."; startQuiz();
     } else speak("Ce chapitre n'a pas encore d'évaluation. On continue le cours ensemble ?");
@@ -2603,9 +2622,14 @@ function mkOpt(label, cls){ const b=document.createElement('button');
    On en montre UN SEUL à la fois (choisi au hasard), avec un bouton « 🔄 Changer de quiz ». Rétro-
    compatible : si le chapitre n'a qu'un `lecon.quiz`, on le lance directement, sans écran de choix. */
 function getQuizSets(){
-  if(lecon.quizSets && lecon.quizSets.length) return lecon.quizSets.filter(s=>s&&Array.isArray(s.quiz)&&s.quiz.length);
-  if(lecon.quiz && lecon.quiz.length) return [{label:'Évaluation', quiz:lecon.quiz}];
-  return [];
+  // Le prof peut MODIFIER / MASQUER l'évaluation depuis l'espace supports (prof.html) :
+  // override à la clé 'quiz' → { quizSets:[…] } remplace les quiz de la leçon, hideQuiz la masque.
+  const ov=stepOverride(lecon&&lecon.id, 'quiz');
+  if(ov.hideQuiz) return [];
+  const sets = Array.isArray(ov.quizSets) ? ov.quizSets
+    : (lecon.quizSets && lecon.quizSets.length) ? lecon.quizSets
+    : (lecon.quiz && lecon.quiz.length) ? [{label:'Évaluation', quiz:lecon.quiz}] : [];
+  return sets.filter(s=>s&&Array.isArray(s.quiz)&&s.quiz.length);
 }
 function startQuiz(){
   bar.style.width='100%'; renderPhase(-1);
@@ -2868,10 +2892,12 @@ chapSelect.onchange=()=>{
   showChapterHome();
 };
 
-fetch('/api/custom-steps')
-  .then(r=>r.ok?r.json():{})
-  .then(cs=>{
-    mergeCustomSteps(cs||{});
+Promise.all([
+  fetch('/api/custom-steps').then(r=>r.ok?r.json():{}).catch(()=>({})),
+  fetch('/api/course-structure').then(r=>r.ok?r.json():{}).catch(()=>({}))
+]).then(([cs, st])=>{
+    customSteps = cs||{}; structure = st||{};
+    applyStepPlan();
     fillChapterSelect();
     lecon = window.LECONS[+chapSelect.value] || window.LECONS[0];
     if(i<0) showChapterHome();
@@ -3138,7 +3164,7 @@ function classifyThenAct(q){
   thinking.style.display='block'; speech.textContent='…';
   fetch('/api/intent',{ method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ text:q, phases:lessonPhases(),
-                             hasQuiz:!!(lecon.quiz&&lecon.quiz.length),
+                             hasQuiz:!!getQuizSets().length,
                              hasVideo:findVideoStep()>=0, step:(typeof i==='number'?i:null) }) })
     .then(r=>r.json())
     .then(d=>{

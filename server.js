@@ -28,6 +28,7 @@ const MODEL3D_DIR  = path.join(ROOT, 'models3d');
 const DOWNLOAD_MODEL3D_DIR = path.join(process.env.USERPROFILE || '', 'Desktop', '3D svg');
 const CONTENT_FILE = path.join(__dirname, 'teacher_content.json');
 const CUSTOM_STEPS_FILE = path.join(__dirname, 'custom_course_steps.json');
+const STRUCTURE_FILE = path.join(__dirname, 'course_structure.json');   // { chapId: { order:[id...], hidden:[id...] } }
 try { fs.mkdirSync(UPLOAD_DIR, { recursive:true }); } catch(e){}
 try { fs.mkdirSync(MODEL3D_DIR, { recursive:true }); } catch(e){}
 const ALLOWED_EXT = ['.png','.jpg','.jpeg','.gif','.webp','.svg','.mp4','.webm','.ogg','.mov'];
@@ -38,6 +39,19 @@ function readContent(){ try{ return JSON.parse(fs.readFileSync(CONTENT_FILE,'utf
 function writeContent(obj){ try{ fs.writeFileSync(CONTENT_FILE, JSON.stringify(obj,null,2)); }catch(e){} }
 function readCustomSteps(){ try{ return JSON.parse(fs.readFileSync(CUSTOM_STEPS_FILE,'utf8')); }catch(e){ return {}; } }
 function writeCustomSteps(obj){ try{ fs.writeFileSync(CUSTOM_STEPS_FILE, JSON.stringify(obj,null,2)); }catch(e){} }
+function readStructure(){ try{ return JSON.parse(fs.readFileSync(STRUCTURE_FILE,'utf8')); }catch(e){ return {}; } }
+function writeStructure(obj){ try{ fs.writeFileSync(STRUCTURE_FILE, JSON.stringify(obj,null,2)); }catch(e){} }
+// Identifiant STABLE pour une partie personnalisée (référencé par l'ordre / le masquage des étapes).
+function newStepId(){ return 'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+// Rétro-compat : d'anciennes parties personnalisées n'ont pas d'id → on leur en attribue un et on réécrit.
+function ensureCustomIds(all){
+  let changed=false;
+  Object.keys(all||{}).forEach(chap=>{
+    (Array.isArray(all[chap])?all[chap]:[]).forEach(s=>{ if(s && !s.id){ s.id=newStepId(); changed=true; } });
+  });
+  if(changed) writeCustomSteps(all);
+  return all;
+}
 
 function cleanText(v, max){
   return String(v == null ? '' : v).replace(/[<>]/g, '').trim().slice(0, max);
@@ -58,30 +72,74 @@ function sanitizeCustomStep(raw){
     { t:`<span class='o'>${title}</span>`, cls:'def' },
     { t:'Ajoute ici les documents, consignes ou explications de cette partie depuis l’espace professeur.', cls:'sub' }
   ];
-  return { phase, say, board:{ title, lines }, custom:true };
+  return { id:newStepId(), phase, say, board:{ title, lines }, custom:true };
 }
 
 // GET /api/custom-steps -> parties de cours ajoutées depuis l'espace prof.
 function handleCustomStepsGet(req, res){
   res.writeHead(200, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
-  res.end(JSON.stringify(readCustomSteps()));
+  res.end(JSON.stringify(ensureCustomIds(readCustomSteps())));
 }
 
-// POST /api/custom-steps { chapterId, step:{ phase,title,say?,lines? } } -> ajoute une partie à la fin.
+// POST /api/custom-steps
+//   ajout    : { chapterId, step:{ phase,title,say?,lines? } } -> ajoute une partie à la fin.
+//   retrait  : { chapterId, removeId } -> supprime la partie personnalisée d'id donné.
 function handleCustomStepsPost(req, res){
   let body=''; req.on('data', c=> body+=c);
   req.on('end', ()=>{
     try{
-      const { chapterId, step } = JSON.parse(body || '{}');
+      const { chapterId, step, removeId } = JSON.parse(body || '{}');
       const chapId = cleanText(chapterId, 80);
       if(!chapId) throw new Error('chapitre manquant');
-      const all = readCustomSteps();
+      const all = ensureCustomIds(readCustomSteps());
       all[chapId] = Array.isArray(all[chapId]) ? all[chapId] : [];
-      const clean = sanitizeCustomStep(step || {});
-      all[chapId].push(clean);
+      let clean=null;
+      if(removeId){
+        all[chapId] = all[chapId].filter(s=> s && s.id!==removeId);
+      } else {
+        clean = sanitizeCustomStep(step || {});
+        all[chapId].push(clean);
+      }
       writeCustomSteps(all);
       res.writeHead(200, {'Content-Type':'application/json; charset=utf-8'});
       res.end(JSON.stringify({ ok:true, steps:all[chapId], step:clean }));
+    }catch(e){
+      res.writeHead(400, {'Content-Type':'application/json; charset=utf-8'});
+      res.end(JSON.stringify({ error:String(e.message||e) }));
+    }
+  });
+}
+
+// GET /api/course-structure -> ordre + étapes masquées par chapitre.
+function handleStructureGet(req, res){
+  res.writeHead(200, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
+  res.end(JSON.stringify(readStructure()));
+}
+
+// POST /api/course-structure { chapterId, order:[id...], hidden:[id...], content?, overrides? }
+// Enregistre l'ordre/masquage des étapes. `content`/`overrides` (facultatifs) RÉ-INDEXENT les supports
+// du prof pour qu'ils restent attachés à leur étape après un déplacement/suppression (indices numériques).
+function handleStructurePost(req, res){
+  let body=''; req.on('data', c=> body+=c);
+  req.on('end', ()=>{
+    try{
+      const { chapterId, order, hidden, content, overrides } = JSON.parse(body || '{}');
+      const chapId = cleanText(chapterId, 80);
+      if(!chapId) throw new Error('chapitre manquant');
+      const clean = a => (Array.isArray(a)?a:[]).map(x=>cleanText(x,60)).filter(Boolean).slice(0,300);
+      const all = readStructure();
+      all[chapId] = { order:clean(order), hidden:clean(hidden) };
+      if(!all[chapId].order.length && !all[chapId].hidden.length) delete all[chapId];
+      writeStructure(all);
+      // Ré-indexation des supports/réglages du prof (le client fournit la carte complète du chapitre).
+      if(content && typeof content==='object'){
+        const c=readContent(); c[chapId]=content; writeContent(c);
+      }
+      if(overrides && typeof overrides==='object'){
+        const o=readOverrides(); o[chapId]=overrides; writeOverrides(o);
+      }
+      res.writeHead(200, {'Content-Type':'application/json; charset=utf-8'});
+      res.end(JSON.stringify({ ok:true, structure: all[chapId] || {order:[],hidden:[]} }));
     }catch(e){
       res.writeHead(400, {'Content-Type':'application/json; charset=utf-8'});
       res.end(JSON.stringify({ error:String(e.message||e) }));
@@ -1012,6 +1070,8 @@ const server = http.createServer((req, res) => {
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/content')  return handleContentPost(req, res);
     if (req.method === 'GET'  && req.url.split('?')[0] === '/api/custom-steps') return handleCustomStepsGet(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/custom-steps') return handleCustomStepsPost(req, res);
+    if (req.method === 'GET'  && req.url.split('?')[0] === '/api/course-structure') return handleStructureGet(req, res);
+    if (req.method === 'POST' && req.url.split('?')[0] === '/api/course-structure') return handleStructurePost(req, res);
     if (req.method === 'GET'  && req.url.split('?')[0] === '/api/overrides') return handleOverridesGet(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/overrides') return handleOverridesPost(req, res);
     if (req.method === 'GET'  && req.url.split('?')[0] === '/api/models3d') return handleModels3DGet(req, res);
