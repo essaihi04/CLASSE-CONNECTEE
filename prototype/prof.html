@@ -369,7 +369,9 @@ function renderSteps(){
     down.disabled = idx===etapes.length-1; down.onclick=(ev)=>{ ev.stopPropagation(); moveStep(idx,1); };
     const del=document.createElement('button'); del.className='tool danger'; del.title='Supprimer cette étape'; del.textContent='✕';
     del.onclick=(ev)=>{ ev.stopPropagation(); deleteStep(idx); };
-    tools.append(up,down,del);
+    const add=document.createElement('button'); add.className='tool add-step'; add.title='Ajouter une partie après cette étape'; add.textContent='＋';
+    add.onclick=(ev)=>{ ev.stopPropagation(); addCustomCoursePart(idx); };
+    tools.append(up,down,del,add);
     row.appendChild(tools);
     stepsEl.appendChild(row);
   });
@@ -444,7 +446,7 @@ async function deleteStep(idx){
   }catch(e){ toast('Erreur : '+e.message, true); }
 }
 
-async function addCustomCoursePart(){
+async function addCustomCoursePart(insertAfterOverride){
   const chap=chapById(sel.chapter);
   if(!chap){ toast('Choisis d\'abord un chapitre.', true); return; }
   const title=prompt('Titre de la nouvelle partie :', 'Nouvelle partie du cours');
@@ -454,7 +456,9 @@ async function addCustomCoursePart(){
   if(phaseRaw===null) return;
   const phase=String(phaseRaw||'concept').trim().toLowerCase();
   // Position d'insertion : juste APRÈS l'étape sélectionnée (sinon à la fin).
-  const insertAfter = (typeof sel.step==='number') ? sel.step : ((chap.etapes||[]).length-1);
+  const insertAfter = Number.isInteger(insertAfterOverride)
+    ? insertAfterOverride
+    : ((typeof sel.step==='number') ? sel.step : ((chap.etapes||[]).length-1));
   try{
     const r=await fetch('/api/custom-steps',{ method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({ chapterId:sel.chapter, step:{ title:title.trim(), phase } }) });
