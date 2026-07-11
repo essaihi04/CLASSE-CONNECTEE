@@ -659,7 +659,7 @@ const schemaSimpleCompose = `
    Chaque organe est un mesh nommé (mouth_0, stomach_0, liver_0, intestine_*, tongue_0…). Le moteur
    (schema3d-library.js) colore chaque organe (organColor), fait tourner le modèle (autoRotate) et
    l'illumine (glow ambre + pulse) quand le prof parle de l'objet (window.__cc3dSpeaking). */
-const MODEL_TUBE_DIGESTIF = "downloads/Downloads/Matej Hora/01- Human digestive system - anatomical/model.FBX";
+const MODEL_TUBE_DIGESTIF = "models3d/tube-digestif/model.FBX";
 
 /* ========================= LES CHAPITRES ========================= */
 window.LECONS = [
