@@ -673,6 +673,7 @@
       <button id="replay">↻ Rejouer</button>
       <button id="quizBtn">📝 Évaluation</button>
       <button id="progBtn">📊 Progression</button>
+      <button id="fsBtn" title="Passer en plein écran (ou revenir)">⛶ Plein écran</button>
       <button id="profBtn" title="Espace prof : ajouter des images / vidéos aux étapes">👩‍🏫 Prof</button>
       <button id="addMediaBtn" class="primary" title="Ajouter une image ou une vidéo à cette étape" style="display:none">➕ Média</button>
       <a id="profSpaceLink" href="prof.html" title="Espace dédié : gérer tous les supports pédagogiques" style="display:none">🗂️ Espace supports</a>
@@ -2785,6 +2786,20 @@ function endQuiz(){
 }
 document.getElementById('quizBtn').onclick=startQuiz;
 document.getElementById('progBtn').onclick=()=>showProgress();
+
+/* ============ PLEIN ÉCRAN ============ (bascule tout le tableau en plein écran) */
+(function(){
+  const fsBtn=document.getElementById('fsBtn');
+  if(!fsBtn) return;
+  const enter=()=>{ const el=document.documentElement;
+    (el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen||function(){}).call(el); };
+  const exit=()=>{ (document.exitFullscreen||document.webkitExitFullscreen||document.msExitFullscreen||function(){}).call(document); };
+  const isFs=()=>!!(document.fullscreenElement||document.webkitFullscreenElement||document.msFullscreenElement);
+  fsBtn.onclick=()=>{ isFs()?exit():enter(); };
+  const sync=()=>{ fsBtn.innerHTML = isFs()?'✕ Quitter le plein écran':'⛶ Plein écran'; };
+  ['fullscreenchange','webkitfullscreenchange','msfullscreenchange'].forEach(ev=>document.addEventListener(ev,sync));
+  sync();
+})();
 
 /* ============ MÉMOIRE / SUIVI DE PROGRESSION ============
    Stocké en local (profil "classe"). Structure prête pour des comptes élèves :
