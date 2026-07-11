@@ -3131,6 +3131,13 @@ qinput.addEventListener('keydown',e=>{ if(e.key==='Enter') ask(qinput.value); })
   if(!SR){ micBtn.title="Reconnaissance vocale non disponible sur ce navigateur (essaie Chrome)"; micBtn.style.opacity=.5; return; }
   const rec=new SR(); rec.lang='fr-FR'; rec.interimResults=false; rec.maxAlternatives=1;
   let listening=false;
+  // Horodatage du DÉBUT de la session d'écoute courante. Sert à l'anti-écho : la
+  // reconnaissance ne livre son texte (onresult) qu'à la FIN de l'énoncé, souvent APRÈS
+  // que l'avatar s'est tu (tous les signaux « il parle » sont alors déjà retombés). Le
+  // vrai critère d'écho n'est pas « parle-t-il maintenant ? » mais « a-t-il parlé PENDANT
+  // cette session d'écoute ? » : si oui, ce qui est perçu est sa propre voix, pas l'élève.
+  let recStartAt=0;
+  function startRec(){ try{ rec.start(); recStartAt=Date.now(); setListening(true); return true; }catch(e){ setListening(false); return false; } }
 
   // NÉGATION : « non / je n'ai pas compris » → RESTER sur la partie et la réexpliquer autrement
   // (⚠️ testée AVANT l'affirmation : « pas compris » contient « compris » → ne doit PAS passer pour un oui).
@@ -3142,7 +3149,7 @@ qinput.addEventListener('keydown',e=>{ if(e.key==='Enter') ask(qinput.value); })
 
   function setListening(on){ listening=on; micBtn.classList.toggle('listening',on); micBtn.textContent=on?'🔴':'🎤'; }
   micBtn.onclick=()=>{ if(listening){ try{rec.stop();}catch(e){} return; }
-    try{ rec.start(); setListening(true); speech.textContent='🎤 Je t\'écoute…'; }catch(e){ setListening(false); } };
+    if(startRec()) speech.textContent='🎤 Je t\'écoute…'; };
   // ===== MODE MAINS-LIBRES : l'écoute se relance toute seule =====
   // L'élève n'a plus besoin de cliquer : il peut parler à tout moment pour dire
   // « oui / j'ai compris », « je n'ai pas compris », ou poser une question.
@@ -3161,7 +3168,7 @@ qinput.addEventListener('keydown',e=>{ if(e.key==='Enter') ask(qinput.value); })
     if(on){ micSuppressed=true; armHF(); }                             // micro maintenu ouvert
     else  { setTimeout(()=>{ micSuppressed=false; armHF(); }, 700); }  // fin de parole : écoute complète
   };
-  function armHF(){ if(handsFree && !listening){ try{ rec.start(); setListening(true); }catch(e){} } }
+  function armHF(){ if(handsFree && !listening){ startRec(); } }
   // INTERRUPTION pendant la parole : seules des commandes COURTES et sans ambiguïté passent
   // l'anti-écho ; une phrase longue est presque sûrement la voix de l'avatar captée par le micro.
   function handleBargeIn(said){
@@ -3207,10 +3214,15 @@ qinput.addEventListener('keydown',e=>{ if(e.key==='Enter') ask(qinput.value); })
       qinput.value=said; ask(said);                       // sinon : l'IA catégorise (commande ↔ question)
       return;
     }
+    // L'avatar a-t-il parlé PENDANT cette session d'écoute ? avatarSpeakEndAt = dernier
+    // instant où il s'est tu ; s'il est postérieur au début de l'écoute (à ~300 ms près),
+    // c'est que sa voix a été captée par ce micro → écho, même si tout est calme maintenant.
+    const spokeThisSession = avatarSpeakEndAt >= (recStartAt - 300);
     const speaking=avatarSpeaking || micSuppressed
       || (currentAudio && !currentAudio.paused)
       || (window.speechSynthesis && speechSynthesis.speaking)
-      || (Date.now()-avatarSpeakEndAt < 900);
+      || (Date.now()-avatarSpeakEndAt < 900)
+      || spokeThisSession;
     if(speaking){ handleBargeIn(said); return; }          // avatar en train de parler : seuls pause/arrêt passent
 
     if(handleVideoCommand(said)) return;                  // "rejoue / mets pause la vidéo" → contrôle direct
