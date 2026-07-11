@@ -585,7 +585,8 @@ function renderLayoutTools(){
   const zone=$('layoutZone'); if(!zone) return;
   zone.innerHTML=''; zone.style.display='none';
   const chap=chapById(sel.chapter);
-  if(!chap || sel.step===null || sel.step==='*' || !chap.etapes || !chap.etapes[sel.step]) return;
+  if(!chap || sel.step===null || sel.step==='*') return;
+  if(sel.step!=='quiz' && (!chap.etapes || !chap.etapes[sel.step])) return;
   const layBtn=document.createElement('button'); layBtn.className='add-btn'; layBtn.textContent='🎬 Mise en page du tableau';
   layBtn.onclick=()=>openLayoutEditor(sel.step);
   zone.appendChild(layBtn);
@@ -1304,23 +1305,30 @@ async function openLayoutEditor(step){
   const ov=stepOverride(sel.chapter, step);
   // Éléments réellement présents sur l'étape (en tenant compte des overrides)
   const present=[];
+  if(step==='quiz'){
+    const sets=currentQuizSets(chap);
+    const sample=sets[0]&&sets[0].quiz&&sets[0].quiz[0];
+    const html=sample ? buildQuizPreview(sample,0,sets[0].quiz.length).outerHTML
+      : '<div class="qp-board"><div class="qp-head">Évaluation</div><div class="qp-q">Aucune question pour le moment</div></div>';
+    present.push({key:'quiz', label:'Évaluation', html:html});
+  }
   // HTML de mise en forme (gras/italique/indice…) rendu tel quel → l'édition round-trip proprement
-  const curTitle=('title' in ov)?ov.title:board.title; if(curTitle) present.push({key:'title', label:'Titre', html:curTitle});
-  const curLines=(('lines' in ov)?ov.lines:board.lines)||[]; if(curLines.length) present.push({key:'body', label:'Texte', html:curLines.map(l=>l.t||'').join('<br>')});
-  const curProb=('probleme' in ov)?ov.probleme:board.probleme; if(curProb) present.push({key:'probleme', label:'Situation-problème', html:curProb});
-  if(board.media && !ov.hideMedia){
+  const curTitle=('title' in ov)?ov.title:board.title; if(step!=='quiz'&&curTitle) present.push({key:'title', label:'Titre', html:curTitle});
+  const curLines=(('lines' in ov)?ov.lines:board.lines)||[]; if(step!=='quiz'&&curLines.length) present.push({key:'body', label:'Texte', html:curLines.map(l=>l.t||'').join('<br>')});
+  const curProb=('probleme' in ov)?ov.probleme:board.probleme; if(step!=='quiz'&&curProb) present.push({key:'probleme', label:'Situation-problème', html:curProb});
+  if(step!=='quiz' && board.media && !ov.hideMedia){
     const carS=Array.isArray(ov.mediaSlides)?ov.mediaSlides.filter(s=>s&&(s.src||s.svg)):[];
     const first=carS[0];
     const html = carS.length
       ? (first.svg ? first.svg : '<img src="'+first.src+'" style="width:100%;height:100%;max-height:none;object-fit:contain;border-radius:4px">')
       : ((ov.mediaSrc||board.media.src) ? '<img src="'+(ov.mediaSrc||board.media.src)+'" style="width:100%;height:100%;max-height:none;object-fit:contain;border-radius:4px">' : '🖼️ '+esc(board.media.desc||'image à générer'));
     present.push({key:'media', label:carS.length?('Carrousel ('+carS.length+' diapos)'):'Image / Vidéo', html: html}); }
-  const schema=(!ov.hideSchema)?(ov.schema||board.schema):null;
+  const schema=step!=='quiz'&&(!ov.hideSchema)?(ov.schema||board.schema):null;
   if(schema) present.push({key:'schema', label:'Schéma', html:schema});
   // Activité interactive (tableau à compléter / tri / expérience) : positionnable comme les autres blocs
-  const sim=simLayoutPreview(board, ov);
+  const sim=step!=='quiz'?simLayoutPreview(board, ov):null;
   if(sim) present.push({key:'sim', label:sim.label, html:sim.html});
-  layoutSupportEntries(sel.chapter, step).forEach((it, n)=>{
+  (step==='quiz'?[]:layoutSupportEntries(sel.chapter, step)).forEach((it, n)=>{
     present.push({ key:it.key, label:(it.whole?'Support toute la leçon ':'Support ')+(n+1), html:supportLayoutPreview(it.media, it.idx, it.whole), support:true });
   });
   // l'avatar est affiché avec le VRAI moteur 3D (avatar3d.html) : allure et proportions réelles
@@ -1328,7 +1336,7 @@ async function openLayoutEditor(step){
 
   // positions par défaut (en % du tableau) si aucune disposition enregistrée
   const DEF={ title:{x:5,y:4,w:66,z:3,fs:32}, probleme:{x:5,y:17,w:66,z:3,fs:23}, body:{x:5,y:34,w:56,z:2,fs:25},
-              media:{x:64,y:30,w:32,h:32,z:2}, schema:{x:56,y:8,w:42,z:4}, sim:{x:40,y:32,w:56,h:54,z:4}, avatar:{x:3,y:52,w:22,z:6,mode:'full'} };
+              media:{x:64,y:30,w:32,h:32,z:2}, schema:{x:56,y:8,w:42,z:4}, sim:{x:40,y:32,w:56,h:54,z:4}, quiz:{x:22,y:12,w:70,h:72,z:3}, avatar:{x:3,y:52,w:22,z:6,mode:'full'} };
   const state={};
   let supportPos=0;
   present.forEach((p, idx)=>{ const saved=(ov.layout && (p.avatar?ov.layout.avatar:(ov.layout.el&&ov.layout.el[p.key]))) || {};

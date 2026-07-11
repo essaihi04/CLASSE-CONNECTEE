@@ -2166,7 +2166,7 @@ function renderProfEditBar(n, board){
 }
 // MISE EN PAGE MANUELLE (override .layout) : positionne en absolu les blocs du tableau
 // (titre, texte, situation-problème, média, schéma) + l'avatar, en % du tableau. Voir prof.html.
-const LAYOUT_SEL={ title:'#boardTitle', body:'#boardBody', probleme:'.probleme-card', media:'.lesson-media', schema:'.schema',
+const LAYOUT_SEL={ title:'#boardTitle', body:'#boardBody', probleme:'.probleme-card', media:'.lesson-media', schema:'.schema', quiz:'.quiz-layout-block',
   // activité interactive (tableau à compléter / tri / expérience) : positionnable comme les autres blocs
   sim:'.filltable-wrap,.match,.exp,.exp3d' };
 // RATIO DE RÉFÉRENCE de la mise en page = ratio du PLEIN ÉCRAN (en mode présentation le
@@ -2276,7 +2276,7 @@ function applyLayout(cid, n){
 }
 // le tableau change de taille (entrée/sortie plein écran, fenêtre redimensionnée) :
 // on ré-applique la disposition pour recalculer le cadre de référence
-window.addEventListener('resize', ()=>{ try{ if(typeof lecon!=='undefined' && typeof i==='number' && i>=0) applyLayout(lecon.id, i); }catch(e){} });
+window.addEventListener('resize', ()=>{ try{ if(typeof lecon!=='undefined') applyLayout(lecon.id, board&&board.querySelector('.quiz-layout-block')?'quiz':i); }catch(e){} });
 function render(n){ const e=lecon.etapes[n];
   cancelAutoNext(); cancelAutoResume();  // nouvelle étape → on repart de zéro (avance auto)
   const eb=effectiveBoard(e.board, lecon.id, n);   // applique les réglages prof (masquer/remplacer)
@@ -2669,7 +2669,9 @@ function renderQuizChooser(sets, cur){
       d.title='Quiz '+(i+1); d.onclick=()=>renderQuizChooser(sets,i); dots.appendChild(d); });
     card.appendChild(dots);
   }
-  board.appendChild(card);
+  const quizLayout=document.createElement('div'); quizLayout.className='quiz-layout-block';
+  quizLayout.appendChild(card); board.appendChild(quizLayout);
+  applyLayout(lecon.id,'quiz');
   avatarExpress('explain','happy');
   speak('Choisis ton évaluation. J\'en ai préparé '+sets.length+'. Tu peux changer de quiz avant de commencer.');
 }
@@ -2685,18 +2687,19 @@ function renderQ(){
   title.textContent='📝 Évaluation — Question '+(qi+1)+' / '+qMax;
   board.innerHTML='';
   clearBoardFloatingBlocks();
+  const quizLayout=document.createElement('div'); quizLayout.className='quiz-layout-block'; board.appendChild(quizLayout);
   // ÉNONCÉ (texte de contexte) affiché avant la question — pour les exercices « à énoncé »
   if(item.enonce){ const en=document.createElement('div'); en.className='quiz-enonce';
-    en.innerHTML='<span class="doc-tag">📄 Énoncé</span>'+item.enonce; board.appendChild(en); }
+    en.innerHTML='<span class="doc-tag">📄 Énoncé</span>'+item.enonce; quizLayout.appendChild(en); }
   // IMAGE de la question : soit un SVG inline (item.svg), soit un fichier (item.img). Facultatif.
   if(item.svg || item.img){
     const box=document.createElement('div'); box.className='quiz-img';
     box.innerHTML = item.svg ? item.svg : '<img src="'+item.img+'" alt="'+(item.imgCaption||'illustration de la question')+'">';
     if(item.imgCaption){ const cap=document.createElement('div'); cap.className='qi-cap'; cap.textContent=item.imgCaption; box.appendChild(cap); }
-    board.appendChild(box);
+    quizLayout.appendChild(box);
   }
-  const q=document.createElement('div'); q.className='line'; q.innerHTML=item.q; board.appendChild(q);
-  const opts=document.createElement('div'); opts.className='quiz-opts'; board.appendChild(opts);
+  const q=document.createElement('div'); q.className='line'; q.innerHTML=item.q; quizLayout.appendChild(q);
+  const opts=document.createElement('div'); opts.className='quiz-opts'; quizLayout.appendChild(opts);
 
   if(item.type==='qcm'){
     item.options.forEach((o,idx)=>{ const b=mkOpt(o); b.onclick=()=>answerChoice(idx,opts); opts.appendChild(b); });
@@ -2724,6 +2727,7 @@ function renderQ(){
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter') b.onclick(); });
     row.appendChild(inp); row.appendChild(b); opts.appendChild(row); setTimeout(()=>inp.focus(),50);
   }
+  applyLayout(lecon.id,'quiz');
   avatarExpress('think','curious');
   speak(stripHtml(item.q));
 }
