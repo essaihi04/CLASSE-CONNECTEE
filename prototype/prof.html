@@ -1396,7 +1396,8 @@ async function openLayoutEditor(step){
     return arr;
   }
   function restack(){ present.forEach(p=>{ if(blocks[p.key]) blocks[p.key].style.zIndex=state[p.key].z||1; }); }
-  function canResizeText(key){ return key==='title' || key==='body' || key==='probleme'; }
+  function canResizeText(key){ return key==='title' || key==='body' || key==='probleme' || key==='quiz'; }
+  function canEditText(key){ return key==='title' || key==='body' || key==='probleme'; }
   function applyBlockStyle(key){
     const blk=blocks[key], s=state[key]; if(!blk||!s||blk._isAvatar) return;
     if(s.h){ blk.style.height=s.h+'%'; blk.style.overflow='hidden'; }
@@ -1407,6 +1408,12 @@ async function openLayoutEditor(step){
       blk.style.fontSize=((s.fs||18)*stW/1000)+'px';
       blk.style.lineHeight=(key==='title'?'1.2':'1.35');
       blk.style.color=s.color||DEFCOL[key]||'#e2e8f0';
+      if(key==='quiz'){
+        const fs=((s.fs||18)*stW/1000)+'px', color=s.color||'#e2e8f0';
+        blk.querySelectorAll('.qp-head,.qp-enonce,.qp-q,.qp-opt,.qp-ans,.qp-sub,.qp-pair,.qp-fb').forEach(el=>{
+          el.style.fontSize=fs; el.style.lineHeight='1.35'; el.style.color=color;
+        });
+      }
     }
     if(key==='media' || key.indexOf('support-')===0){
       blk.querySelectorAll('img,video').forEach(el=>{ el.style.width='100%'; el.style.height='100%'; el.style.maxHeight='none'; el.style.objectFit='contain'; });
@@ -1419,11 +1426,11 @@ async function openLayoutEditor(step){
     txtMinus.style.opacity=txtPlus.style.opacity=ok?'1':'.45';
     if(colorInp){ colorInp.disabled=!ok; colorInp.style.opacity=ok?'1':'.45';
       if(ok) colorInp.value=toHex(state[selKey]&&state[selKey].color)||DEFCOL[selKey]||'#ffffff'; }
-    if(editBtn){ editBtn.disabled=!ok; editBtn.style.opacity=ok?'1':'.45'; }
+    if(editBtn){ const editable=canEditText(selKey); editBtn.disabled=!editable; editBtn.style.opacity=editable?'1':'.45'; }
   }
   // ── Édition inline du texte (titre / texte / situation-problème) ──
   function startEdit(key){
-    if(!canResizeText(key)) return; const blk=blocks[key], inner=blk&&blk._inner; if(!inner) return;
+    if(!canEditText(key)) return; const blk=blocks[key], inner=blk&&blk._inner; if(!inner) return;
     editingKey=key; selectBlk(key);
     inner.setAttribute('contenteditable','true'); inner.style.cursor='text';
     blk.style.cursor='text'; blk.style.outline='2px solid #22c55e';
@@ -1468,7 +1475,7 @@ async function openLayoutEditor(step){
       const inner=document.createElement('div'); inner.innerHTML=p.html;
       inner.querySelectorAll('svg').forEach(sv=>{ sv.removeAttribute('width'); sv.removeAttribute('height'); sv.style.width='100%'; sv.style.height='auto'; sv.style.maxHeight='120px'; });
       blk.appendChild(inner);
-      if(canResizeText(p.key)){   // titre / texte / situation-problème : éditables sur place
+      if(canEditText(p.key)){   // titre / texte / situation-problème : éditables sur place
         blk._inner=inner;
         inner.addEventListener('dblclick', ()=>{ selectBlk(p.key); startEdit(p.key); });
         inner.addEventListener('blur', ()=>{ if(editingKey===p.key) stopEdit(); });
@@ -1515,7 +1522,7 @@ async function openLayoutEditor(step){
   colorInp=document.createElement('input'); colorInp.type='color'; colorInp.title='Couleur du texte';
   colorInp.style.cssText='width:34px;height:30px;border:1px solid #243449;border-radius:7px;background:#0b1220;cursor:pointer;padding:2px;vertical-align:middle';
   colorInp.oninput=()=>{ if(!canResizeText(selKey)) return; state[selKey].color=colorInp.value; applyBlockStyle(selKey); };
-  editBtn=mk('✏️ Éditer le texte', ()=>{ if(canResizeText(selKey)) startEdit(selKey); });
+  editBtn=mk('✏️ Éditer le texte', ()=>{ if(canEditText(selKey)) startEdit(selKey); });
   tools.appendChild(document.createTextNode('Sélection : ')); tools.appendChild(selName); tools.appendChild(zUp); tools.appendChild(zDn);
   tools.appendChild(document.createTextNode('Texte : ')); tools.appendChild(txtMinus); tools.appendChild(txtPlus);
   tools.appendChild(document.createTextNode('Couleur : ')); tools.appendChild(colorInp); tools.appendChild(editBtn);

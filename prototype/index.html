@@ -2193,6 +2193,9 @@ function applyLayout(cid, n){
     if(el){ el.style.position=''; el.style.left=''; el.style.top=''; el.style.width=''; el.style.height=''; el.style.overflow=''; el.style.zIndex=''; el.style.maxWidth='';
       el.style.fontSize=''; el.style.lineHeight=''; el.style.color='';
       el.querySelectorAll('.line,.pc-q').forEach(ch=>{ ch.style.fontSize=''; ch.style.lineHeight=''; ch.style.color=''; });
+      if(el.classList.contains('quiz-layout-block')) el.querySelectorAll('.quiz-enonce,.quiz-opt,.assoc-l,.assoc-sel,.quiz-input,.qp-label,.qp-desc,.qp-meta,.qp-btn').forEach(ch=>{
+        ch.style.fontSize=''; ch.style.lineHeight=''; ch.style.color='';
+      });
       el.querySelectorAll('img,video').forEach(ch=>{ ch.style.width=''; ch.style.height=''; ch.style.maxHeight=''; ch.style.objectFit=''; });
     } });
   if(mediaPanelEl){
@@ -2226,12 +2229,17 @@ function applyLayout(cid, n){
           const q=el.querySelector('.pc-q')||el; q.style.fontSize=fs+'px'; q.style.lineHeight='1.35';
         } else if(k==='title'){
           el.style.fontSize=fs+'px'; el.style.lineHeight='1.2';
+        } else if(k==='quiz'){
+          el.querySelectorAll('.quiz-enonce,.line,.quiz-opt,.assoc-l,.assoc-sel,.quiz-input,.qp-label,.qp-desc,.qp-meta,.qp-btn').forEach(ch=>{
+            ch.style.fontSize=fs+'px'; ch.style.lineHeight='1.35';
+          });
         }
       }
       if(p.color){   // couleur du texte choisie par le prof dans « Mise en page du tableau »
         if(k==='body') el.querySelectorAll('.line').forEach(ch=>{ ch.style.color=p.color; });
         else if(k==='probleme'){ const q=el.querySelector('.pc-q'); if(q) q.style.color=p.color; }
         else if(k==='title') el.style.color=p.color;
+        else if(k==='quiz') el.querySelectorAll('.quiz-enonce,.line,.quiz-opt,.assoc-l,.assoc-sel,.quiz-input,.qp-label,.qp-desc,.qp-meta,.qp-btn').forEach(ch=>{ ch.style.color=p.color; });
       }
       el.style.zIndex=(p.z!=null?p.z:2); } });
   // Supports ajoutés par le professeur : placés individuellement si la disposition les contient.
