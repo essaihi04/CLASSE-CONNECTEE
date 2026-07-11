@@ -2787,18 +2787,14 @@ function endQuiz(){
 document.getElementById('quizBtn').onclick=startQuiz;
 document.getElementById('progBtn').onclick=()=>showProgress();
 
-/* ============ PLEIN ÉCRAN ============ (bascule tout le tableau en plein écran) */
+/* ============ PLEIN ÉCRAN ============
+   Déclenche le MODE PRÉSENTATION (tableau plein écran, sans texte de barre ni boutons) —
+   le même affichage que « Démarrer le cours ». La barre d'outils est masquée pendant la
+   présentation : on ressort avec le bouton « ⤢ Quitter », la touche Échap ou F11. */
 (function(){
   const fsBtn=document.getElementById('fsBtn');
   if(!fsBtn) return;
-  const enter=()=>{ const el=document.documentElement;
-    (el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen||function(){}).call(el); };
-  const exit=()=>{ (document.exitFullscreen||document.webkitExitFullscreen||document.msExitFullscreen||function(){}).call(document); };
-  const isFs=()=>!!(document.fullscreenElement||document.webkitFullscreenElement||document.msFullscreenElement);
-  fsBtn.onclick=()=>{ isFs()?exit():enter(); };
-  const sync=()=>{ fsBtn.innerHTML = isFs()?'✕ Quitter le plein écran':'⛶ Plein écran'; };
-  ['fullscreenchange','webkitfullscreenchange','msfullscreenchange'].forEach(ev=>document.addEventListener(ev,sync));
-  sync();
+  fsBtn.onclick=()=>{ if(!presenting) enterPresentation(); };
 })();
 
 /* ============ MÉMOIRE / SUIVI DE PROGRESSION ============
