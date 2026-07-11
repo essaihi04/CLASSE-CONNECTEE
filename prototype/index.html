@@ -3419,6 +3419,18 @@ async function removeMedia(cid, n, idx){
   const btnConvert=document.getElementById('writeConvert');
   if(!fab) return;
 
+  // Route la saisie vers l'input de reponse libre quand il existe au tableau.
+  let writeTarget=null;
+  function boardAnswerInput(){
+    const board=document.querySelector('.board');
+    if(!board) return null;
+    return board.querySelector('input.quiz-input:not(:disabled), textarea:not(:disabled)');
+  }
+  function refreshWriteTarget(){
+    if(!writeTarget || !document.contains(writeTarget) || writeTarget.disabled) writeTarget=boardAnswerInput();
+    return writeTarget;
+  }
+
   // strokes = tous les traits ; stroke courant = { x:[], y:[], t:[] } (coordonnées + temps)
   let strokes=[], cur=null, drawing=false, t0=0;
 
@@ -3459,8 +3471,16 @@ async function removeMedia(cid, n, idx){
   document.getElementById('writeClear').onclick=clearAll;
   document.getElementById('writeUndo').onclick=()=>{ strokes.pop(); redraw(); };
 
-  function openPad(){ pad.classList.add('show'); fab.classList.add('on'); setTimeout(fit,30); }
-  function closePad(){ pad.classList.remove('show'); fab.classList.remove('on'); }
+  function openPad(){
+    pad.classList.add('show'); fab.classList.add('on');
+    const target=refreshWriteTarget();
+    if(target){
+      txt.value=target.value||'';
+      status.textContent='Le clavier remplira la reponse de l evaluation.';
+    }
+    setTimeout(fit,30);
+  }
+  function closePad(){ pad.classList.remove('show'); fab.classList.remove('on'); writeTarget=null; }
   fab.onclick=()=>{ pad.classList.contains('show') ? closePad() : openPad(); };
   document.getElementById('writeClose').onclick=closePad;
   window.addEventListener('resize',()=>{ if(pad.classList.contains('show')) fit(); });
@@ -3501,6 +3521,24 @@ async function removeMedia(cid, n, idx){
   /* ============ CLAVIER VIRTUEL SCIENTIFIQUE (nombres · maths · physique · chimie) ============
      Au clic sur « ⌨️ Clavier », on bascule du pavé manuscrit vers un clavier virtuel complet.
      Chaque touche insère son symbole à la position du curseur dans la zone de texte. */
+  // Le bouton d'envoi remplit l'input du tableau quand une question libre est active.
+  document.getElementById('writeSend').onclick=()=>{
+    const target=refreshWriteTarget();
+    const q=(txt.value.trim() || (target ? target.value : '')).trim();
+    if(!q){ status.textContent='Rien a envoyer.'; return; }
+    if(target){
+      target.value=q;
+      target.dispatchEvent(new Event('input',{bubbles:true}));
+      target.focus();
+      txt.value=q;
+      status.textContent='Reponse placee dans l input du tableau.';
+      return;
+    }
+    if(typeof ask==='function') ask(q);
+    else { const qi=document.getElementById('qinput'); if(qi) qi.value=q; }
+    txt.value=''; status.textContent='Envoye au prof'; closePad();
+  };
+
   const kbd=document.getElementById('writeKbd');
   const modeBtn=document.getElementById('writeMode');
   const wTitle=document.getElementById('writeTitle'), wHint=document.getElementById('writeHint');
@@ -3564,17 +3602,20 @@ async function removeMedia(cid, n, idx){
   };
   const TABS=[['abc','ABC'],['num','123'],['math','∑ Maths'],['phys','αβγ Physique'],['chim','⚗️ Chimie']];
 
+  function editElement(){ return refreshWriteTarget() || txt; }
   function insertAtCursor(s){
-    const el=txt, start=el.selectionStart??el.value.length, end=el.selectionEnd??el.value.length;
+    const el=editElement(), start=el.selectionStart??el.value.length, end=el.selectionEnd??el.value.length;
     el.value=el.value.slice(0,start)+s+el.value.slice(end);
     const p=start+s.length; el.selectionStart=el.selectionEnd=p; el.focus();
+    if(el!==txt) txt.value=el.value;
   }
   function backspace(){
-    const el=txt; let start=el.selectionStart, end=el.selectionEnd;
+    const el=editElement(); let start=el.selectionStart, end=el.selectionEnd;
     if(start==null){ el.value=el.value.slice(0,-1); el.focus(); return; }
     if(start!==end){ el.value=el.value.slice(0,start)+el.value.slice(end); el.selectionStart=el.selectionEnd=start; }
     else if(start>0){ el.value=el.value.slice(0,start-1)+el.value.slice(start); el.selectionStart=el.selectionEnd=start-1; }
     el.focus();
+    if(el!==txt) txt.value=el.value;
   }
   // ÉTAT MAJUSCULE : kbShift = majuscule pour la PROCHAINE lettre ; kbCaps = verrou (toutes majuscules).
   let kbShift=false, kbCaps=false, lastShiftTap=0;
@@ -3585,7 +3626,7 @@ async function removeMedia(cid, n, idx){
   }
   function keyAction(k){
     if(k.a==='bs') return backspace();
-    if(k.a==='clr'){ txt.value=''; txt.focus(); return; }
+    if(k.a==='clr'){ const el=editElement(); el.value=''; el.focus(); if(el!==txt) txt.value=''; return; }
     if(k.a==='shift'){                                        // ⇧ : 1 tap = Maj éphémère ; 2 taps rapides = verrou
       const now=Date.now();
       if(now-lastShiftTap<400){ kbCaps=!kbCaps; kbShift=false; }
