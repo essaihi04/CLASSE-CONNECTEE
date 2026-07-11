@@ -2353,17 +2353,29 @@ function render(n){ const e=lecon.etapes[n];
     setTimeout(()=>board.appendChild(b), 400);
     if(nx) prefetchTTS(e.reveal.say);   // précharge aussi l'audio de la réponse
   }
+  // ÉVALUATION INTERMÉDIAIRE : une étape peut proposer l'évaluation AVANT de continuer
+  // (ex. avant la 2ᵉ activité). Bouton DISTINCT du « Suivant ▶ » ; après l'évaluation,
+  // l'élève revient automatiquement à l'étape suivante (quizReturnStep) pour poursuivre.
+  if(e.evalHere && n < lecon.etapes.length-1 && (getQuizSets().length)){
+    const b=mkOpt("📝 Passer l'évaluation maintenant",'primary'); b.style.marginTop='16px';
+    b.style.background='var(--accent2)'; b.style.color='#082f49';
+    b.onclick=()=>{ quizReturnStep=n+1; startQuiz(); };
+    setTimeout(()=>board.appendChild(b), 400);
+  }
   // à la dernière étape : cours terminé (mémorisé) + proposition d'évaluation
   if(n===lecon.etapes.length-1){
     markCourseDone(lecon.id);                              // "cours vu" enregistré
-    if(lecon.quiz && lecon.quiz.length){
+    if(getQuizSets().length){
       const b=mkOpt("📝 Faire l'évaluation",'primary'); b.style.marginTop='16px';
-      b.style.background='var(--accent2)'; b.style.color='#082f49'; b.onclick=startQuiz;
+      b.style.background='var(--accent2)'; b.style.color='#082f49';
+      b.onclick=()=>{ quizReturnStep=null; startQuiz(); };
       setTimeout(()=>board.appendChild(b), 400);
     }
   } }
 // État de l'évaluation : sert au bouton "Suivant ▶" contextuel (voir topNext).
 let inQuiz=false, quizAnswered=false, pendingQuizNext=null;
+// Évaluation intermédiaire (déclenchée avant une activité) : étape à reprendre à la fin.
+let quizReturnStep=null;
 function go(n){ if(n<0||n>=lecon.etapes.length)return; if(typeof resumePlayback==='function') resumePlayback(); inQuiz=false; i=n; render(i); }
 
 /* dévoile la réponse d'une étape "Vérifions" : écrit la ligne réponse + voix + hochement */
@@ -2761,6 +2773,13 @@ function endQuiz(){
   const m=document.createElement('div'); m.className='line def'; m.innerHTML=msg; board.appendChild(m);
   const again=mkOpt('↻ Refaire l\'évaluation'); again.style.marginTop='14px'; again.onclick=startQuiz;
   board.appendChild(again);
+  // ÉVALUATION INTERMÉDIAIRE : proposer de poursuivre le cours (activité suivante).
+  if(quizReturnStep!=null && quizReturnStep<lecon.etapes.length){
+    const cont=mkOpt('➡️ Continuer vers l\'activité suivante','primary'); cont.style.marginTop='10px';
+    cont.style.background='var(--accent)'; cont.style.color='#082f49';
+    const dest=quizReturnStep; cont.onclick=()=>{ quizReturnStep=null; go(dest); };
+    board.appendChild(cont);
+  }
   avatarExpress(pct>=50?'clap':'motivate', pct>=50?'happy':'neutral');   // bon score → applaudit ; sinon encourage
   speak('Tu as obtenu '+qScore+' sur '+qMax+'. '+msg);
 }

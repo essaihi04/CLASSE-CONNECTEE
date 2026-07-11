@@ -938,9 +938,11 @@ window.LECONS = [
         lines:[ {t:"👉 Un seul chemin : <span class='o'>bouche</span> <span class='w'>⟶</span> œsophage <span class='w'>⟶</span> <span class='r'>estomac</span> <span class='w'>⟶</span> <span class='o'>intestin grêle</span> <span class='w'>⟶</span> gros intestin.",cls:"def"} ],
         schema3d:{ title:"L'appareil digestif — les organes", model:MODEL_TUBE_DIGESTIF, autoRotate:false, zoom:0.82, highlight:false, labels:['bouche','oesophage','estomac','grele','gros'] } } },
 
-    /* ── PHASE 6 · BILAN : on répond au problème de départ + ouverture ── */
-    { phase:"bilan",
-      say:"Revenons à Ahmed et Sara. Ahmed n'a mangé que du pain : surtout des glucides. Sara a mangé du pain, un œuf, du lait et une pomme : elle a des glucides, des protides, du calcium et des vitamines. C'est donc Sara qui a le repas le plus équilibré ! Et maintenant, une question : une fois dans la bouche, que deviennent vraiment ces aliments ? C'est notre prochaine activité.",
+    /* ── PHASE 6 · BILAN : on répond au problème de départ + ouverture ──
+       Fin de l'ACTIVITÉ 1 : on propose l'ÉVALUATION (bouton distinct) AVANT de passer à
+       la 2ᵉ activité (evalHere). L'élève peut évaluer ses acquis, puis « Continuer ». */
+    { phase:"bilan", evalHere:true,
+      say:"Revenons à Ahmed et Sara. Ahmed n'a mangé que du pain : surtout des glucides. Sara a mangé du pain, un œuf, du lait et une pomme : elle a des glucides, des protides, du calcium et des vitamines. C'est donc Sara qui a le repas le plus équilibré ! Avant de passer à la suite, tu peux faire une petite évaluation pour vérifier ce que tu as compris. Ensuite, une question : une fois dans la bouche, que deviennent vraiment ces aliments ? Ce sera notre prochaine activité.",
       board:{title:"Bilan : bien manger, c'est varier ✅", lines:[
         {t:"👦 Ahmed (pain seul) → surtout des <span class='o'>glucides</span>.",cls:""},
         {t:"👧 Sara (pain, œuf, lait, pomme) → glucides + <span class='r'>protides</span> + calcium + <span class='g'>vitamines</span> = <span class='g'>équilibré</span> !",cls:"def"},
