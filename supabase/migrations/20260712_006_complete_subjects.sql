@@ -1,0 +1,25 @@
+-- Catalogue étendu des matières — à exécuter après les migrations précédentes.
+insert into public.subjects (code, name, color) values
+  ('arabe', 'Langue arabe', '#22c55e'),
+  ('amazighe', 'Langue amazighe', '#84cc16'),
+  ('francais', 'Français', '#f472b6'),
+  ('anglais', 'Anglais', '#fb7185'),
+  ('espagnol', 'Espagnol', '#ef4444'),
+  ('allemand', 'Allemand', '#eab308'),
+  ('education_islamique', 'Éducation islamique', '#16a34a'),
+  ('education_civique', 'Éducation civique', '#0ea5e9'),
+  ('maths', 'Mathématiques', '#a78bfa'),
+  ('svt', 'Sciences de la vie et de la Terre', '#38bdf8'),
+  ('pc', 'Physique-Chimie', '#f59e0b'),
+  ('sciences_activite', 'Activité scientifique', '#06b6d4'),
+  ('histoire_geo', 'Histoire-Géographie', '#f97316'),
+  ('philosophie', 'Philosophie', '#8b5cf6'),
+  ('informatique', 'Informatique', '#14b8a6'),
+  ('technologie', 'Technologie', '#64748b'),
+  ('economie_gestion', 'Économie et gestion', '#65a30d'),
+  ('comptabilite', 'Comptabilité', '#ca8a04'),
+  ('droit', 'Droit', '#dc2626'),
+  ('education_physique', 'Éducation physique et sportive', '#f43f5e'),
+  ('arts_plastiques', 'Arts plastiques', '#ec4899'),
+  ('education_musicale', 'Éducation musicale', '#c026d3')
+on conflict (code) do update set name = excluded.name, color = excluded.color;

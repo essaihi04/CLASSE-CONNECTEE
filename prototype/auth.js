@@ -4,6 +4,7 @@
     && typeof config.anonKey==='string' && config.anonKey.length>40 && !config.anonKey.startsWith('REMPLACEZ_');
   const isLogin=document.documentElement.dataset.authPage==='login';
   const isProtected=document.documentElement.dataset.requiresTeacher==='true';
+  const isLegacyRequired=document.documentElement.dataset.requiresLegacy==='true';
   const nextPath=()=>{
     const raw=new URLSearchParams(location.search).get('next')||'prof.html';
     return /^[a-z0-9_-]+\.html(?:\?.*)?$/i.test(raw)?raw:'prof.html';
@@ -31,11 +32,15 @@
     const {data:{session},error}=await client.auth.getSession();
     if(error) throw error;
     if(!session){ location.replace('login.html?next='+encodeURIComponent(location.pathname.split('/').pop()||'prof.html')); return new Promise(()=>{}); }
-    const {data:profile,error:profileError}=await client.from('profiles').select('id,first_name,last_name,onboarding_complete').eq('id',session.user.id).maybeSingle();
+    const {data:profile,error:profileError}=await client.from('profiles').select('id,first_name,last_name,onboarding_complete,legacy_access').eq('id',session.user.id).maybeSingle();
     if(profileError) throw profileError;
     if(!profile || !profile.onboarding_complete){
       await client.auth.signOut();
       location.replace('login.html?notice=profile');
+      return new Promise(()=>{});
+    }
+    if(isLegacyRequired && !profile.legacy_access){
+      location.replace('prof.html?notice=private-content');
       return new Promise(()=>{});
     }
     window.currentTeacher={session,profile};
@@ -59,6 +64,9 @@
     const setNotice=(message,kind='')=>{ notice.className='auth-notice '+kind; notice.textContent=message||''; };
     const show=(mode)=>{ const login=mode==='login'; loginForm.hidden=!login; signupForm.hidden=login; loginTab.classList.toggle('active',login); signupTab.classList.toggle('active',!login); setNotice(''); };
     loginTab.onclick=()=>show('login'); signupTab.onclick=()=>show('signup');
+    const levelSelect=signupForm.grade_level_code, streamField=document.getElementById('streamField'), streamSelect=signupForm.stream_code;
+    const syncStream=()=>{ const lycee=['tc','1bac','2bac'].includes(levelSelect.value); streamField.hidden=!lycee; if(!lycee) streamSelect.value='general'; else if(!streamSelect.value) streamSelect.value='sciences_maths'; };
+    levelSelect.onchange=syncStream; syncStream();
     const {data:{session}}=await client.auth.getSession(); if(session){ location.replace(nextPath()); return; }
     if(new URLSearchParams(location.search).get('notice')==='profile') setNotice('Votre profil n’a pas été créé. Réessayez l’inscription ou vérifiez la migration SQL.','error');
     const run=async(form,work)=>{ const submit=form.querySelector('button[type=submit]'); submit.disabled=true; try{ await work(); }catch(error){ setNotice(error.message||'Une erreur est survenue.','error'); }finally{ submit.disabled=false; } };
@@ -75,7 +83,8 @@
         email:signupForm.email.value.trim(), password,
         options:{emailRedirectTo:new URL('login.html',location.origin).toString(),data:{
           first_name:firstName,last_name:lastName,school_name:signupForm.school_name.value.trim(),
-          subject_code:signupForm.subject_code.value,grade_level_code:signupForm.grade_level_code.value
+          subject_code:signupForm.subject_code.value,grade_level_code:signupForm.grade_level_code.value,
+          stream_code:signupForm.stream_code.value||'general'
         }}
       });
       if(error) throw error;

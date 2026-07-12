@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bibliotheque 3D - Classes Connectees</title>
+<script>document.documentElement.classList.add('auth-pending');document.documentElement.dataset.requiresTeacher='true';document.documentElement.dataset.requiresLegacy='true';</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="auth.js"></script>
 <script type="importmap">
 { "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
@@ -14,6 +18,7 @@
   :root{--bg:#0b1220;--panel:#101a2b;--card:#16233a;--line:#26364d;--text:#e2e8f0;--muted:#94a3b8;--accent:#38bdf8;--ok:#22c55e}
   *{box-sizing:border-box}
   html,body{height:100%}
+  .auth-pending body{visibility:hidden}
   body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif}
   header{display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--panel);border-bottom:1px solid var(--line)}
   h1{font-size:18px;margin:0;flex:1}

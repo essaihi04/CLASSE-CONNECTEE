@@ -27,6 +27,8 @@
   header h1{font-size:18px;margin:0;flex:1}
   header .back{background:#334155;color:#e2e8f0;text-decoration:none;padding:8px 13px;border-radius:10px;font-size:14px;font-weight:600}
   header .back:hover{background:#475569}
+  header .logout{background:#7f1d1d;color:#fee2e2;border:1px solid #b91c1c;padding:8px 13px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
+  header .logout:hover{background:#991b1b}
   .auth-pending body{visibility:hidden}
   .wrap{max-width:1100px;margin:0 auto;padding:20px;display:grid;grid-template-columns:320px 1fr;gap:20px}
   @media(max-width:820px){ .wrap{grid-template-columns:1fr} }
@@ -207,8 +209,8 @@
 <header>
   <h1>🗂️ Espace supports pédagogiques</h1>
   <span data-teacher-name style="font-size:13px;color:var(--muted);font-weight:600"></span>
-  <button class="back" id="logoutBtn" type="button">Déconnexion</button>
-  <a class="back" href="schema3d-viewer.html">Bibliothèque 3D</a>
+  <button class="logout" id="logoutBtn" type="button" title="Fermer votre session professeur">↪ Déconnexion</button>
+  <a class="back" id="legacyModelsLink" href="schema3d-viewer.html">Bibliothèque 3D</a>
   <a class="back" href="index.html">← Retour au cours</a>
 </header>
 
@@ -382,7 +384,8 @@ function supportLayoutPreview(m, idx, whole){
   if(m.type==='video' && m.url) return `<div class="layout-support-preview"><span class="tag">${title}</span>${caption}<div class="body"><video src="${esc(m.url)}" muted playsinline></video></div></div>`;
   if(m.type==='link') return `<div class="layout-support-preview"><span class="tag">${title}</span><div class="body" style="color:#a5f3fc">${caption?caption+'<br>':''}${esc(m.url||'Lien')}</div></div>`;
   if(m.type==='quiz') return `<div class="layout-support-preview"><span class="tag">${title}</span><div class="body"><b>❓ ${esc(m.question||'Question')}</b><br>${(m.options||[]).map((o,i)=>'<span style="display:inline-block;margin:4px 4px 0 0;padding:3px 6px;border:1px solid '+(i===m.correct?'#22c55e':'#475569')+';border-radius:6px">'+esc(o)+'</span>').join('')}</div></div>`;
-  return `<div class="layout-support-preview"><span class="tag">${title}</span><div class="body">${caption?caption+'<br>':''}${esc(m.body||m.caption||'Support texte')}</div></div>`;
+  // Le corps d'un support texte est du HTML enrichi produit par notre éditeur (gras, italique, couleur, taille).
+  return `<div class="layout-support-preview"><span class="tag">${title}</span><div class="body">${caption?caption+'<br>':''}${m.body||esc(m.caption||'Support texte')}</div></div>`;
 }
 
 // Aperçu STATIQUE de l'activité interactive pour la « Mise en page du tableau » (bloc positionnable).
@@ -626,6 +629,55 @@ function renderEditor(){
   renderBuiltin();
   renderSupports();
   renderLayoutTools();
+}
+
+// Les cours historiques du prototype restent strictement réservés au compte démo.
+// Un nouveau professeur arrive ici : aucune donnée locale n'est chargée et ses cours sont
+// lus/écrits directement dans Supabase avec les politiques RLS définies par les migrations.
+async function renderPrivateTeacherHome(){
+  const sb=window.classesSupabase, teacher=window.currentTeacher;
+  if(!sb||!teacher) return;
+  const subjectSel=$('subject');
+  subjectSel.disabled=true; subjectSel.innerHTML='<option>Chargement de votre attribution…</option>';
+  chapterSel.disabled=true; chapterSel.innerHTML='<option>Mes cours privés</option>';
+  stepsEl.innerHTML='<div class="empty" style="padding:14px">Vos cours apparaîtront ici. Les cours historiques d’un autre professeur ne sont pas accessibles.</div>';
+  $('addStepBtn').style.display='none'; $('courseBoardsBtn').style.display='none';
+  const legacyLink=$('legacyModelsLink'); if(legacyLink) legacyLink.style.display='none';
+  $('ctxTitle').textContent='Mes cours privés';
+  $('ctxSub').textContent='Votre espace démarre vide et isolé.';
+  $('builtin').style.display='none'; $('builtin').innerHTML=''; $('addZone').style.display='none'; supportsEl.innerHTML='';
+  const panel=document.createElement('div'); panel.className='builtin'; panel.style.display='block';
+  panel.innerHTML='<h3>🎓 Créer votre premier cours</h3><div class="sub">Chaque cours créé ici appartient uniquement à votre compte Supabase. Il ne peut pas être vu par les autres professeurs.</div>';
+  const form=document.createElement('form'); form.style.cssText='display:grid;gap:10px;max-width:560px';
+  const title=document.createElement('input'); title.placeholder='Titre du cours — ex : La digestion'; title.maxLength=180; title.required=true;
+  const description=document.createElement('textarea'); description.placeholder='Description courte (facultatif)'; description.maxLength=1500; description.style.minHeight='72px';
+  const assignment=document.createElement('select'); const submit=document.createElement('button'); submit.className='add-btn'; submit.type='submit'; submit.textContent='Créer mon cours privé';
+  form.append(title,description,assignment,submit); panel.appendChild(form); supportsEl.appendChild(panel);
+  let assignments=[];
+  try{
+    const {data,error}=await sb.from('teacher_assignments').select('id,subject_id,grade_level_id,stream_id,subjects(name),grade_levels(name),study_streams(name)').eq('status','active');
+    if(error) throw error; assignments=data||[];
+    subjectSel.innerHTML='';
+    assignments.forEach(a=>{ const o=document.createElement('option'); o.value=a.id; o.textContent=(a.subjects&&a.subjects.name||'Matière')+' — '+(a.grade_levels&&a.grade_levels.name||'Niveau')+(a.study_streams&&a.study_streams.name&&a.study_streams.name!=='Sans filière'?' · '+a.study_streams.name:''); subjectSel.appendChild(o); });
+    if(!assignments.length){ const o=document.createElement('option'); o.textContent='Aucune matière/niveau attribué'; subjectSel.appendChild(o); }
+    assignment.innerHTML=''; assignments.forEach(a=>{ const o=document.createElement('option'); o.value=a.id; o.textContent=(a.subjects&&a.subjects.name||'Matière')+' — '+(a.grade_levels&&a.grade_levels.name||'Niveau')+(a.study_streams&&a.study_streams.name&&a.study_streams.name!=='Sans filière'?' · '+a.study_streams.name:''); assignment.appendChild(o); });
+    if(!assignments.length){ assignment.disabled=true; submit.disabled=true; const o=document.createElement('option'); o.textContent='Aucune matière/niveau attribué'; assignment.appendChild(o); }
+    const {data:courses,error:courseError}=await sb.from('courses').select('id,title,description,status,created_at,subjects(name),grade_levels(name),study_streams(name)').order('updated_at',{ascending:false});
+    if(courseError) throw courseError;
+    if(courses&&courses.length){
+      const list=document.createElement('div'); list.style.cssText='display:grid;gap:9px;margin-top:14px';
+      const head=document.createElement('b'); head.textContent='Mes cours ('+courses.length+')'; list.appendChild(head);
+      courses.forEach(c=>{ const card=document.createElement('div'); card.style.cssText='padding:11px;border:1px solid #243449;border-radius:9px;background:#111f33';
+        const name=document.createElement('div'); name.style.cssText='font-weight:700;color:#e2e8f0'; name.textContent=c.title;
+        const meta=document.createElement('div'); meta.style.cssText='font-size:12px;color:#94a3b8;margin-top:3px'; meta.textContent=(c.subjects&&c.subjects.name||'')+' · '+(c.grade_levels&&c.grade_levels.name||'')+(c.study_streams&&c.study_streams.name&&c.study_streams.name!=='Sans filière'?' · '+c.study_streams.name:'')+' · '+(c.status==='draft'?'Brouillon':'Publié');
+        card.append(name,meta); if(c.description){ const d=document.createElement('div'); d.style.cssText='font-size:13px;color:#cbd5e1;margin-top:6px'; d.textContent=c.description; card.appendChild(d); } list.appendChild(card); });
+      supportsEl.appendChild(list);
+    }
+  }catch(error){ const msg=document.createElement('div'); msg.className='empty'; msg.textContent='Impossible de charger vos cours Supabase : '+(error.message||error); panel.appendChild(msg); submit.disabled=true; }
+  form.onsubmit=async e=>{ e.preventDefault(); const a=assignments.find(x=>x.id===assignment.value); if(!a||!title.value.trim()) return; submit.disabled=true;
+    try{ const {error}=await sb.from('courses').insert({teacher_id:teacher.session.user.id,assignment_id:a.id,subject_id:a.subject_id,grade_level_id:a.grade_level_id,stream_id:a.stream_id||null,title:title.value.trim(),description:description.value.trim()}); if(error) throw error; toast('Cours privé créé ✓'); await renderPrivateTeacherHome(); }
+    catch(error){ toast('Erreur : '+(error.message||error),true); submit.disabled=false; }
+  };
 }
 
 // ── Éléments INTÉGRÉS de la leçon (schéma / simulation / image créés par l'assistant) ──
@@ -1542,7 +1594,7 @@ async function openLayoutEditor(step){
 
   // AJOUT DIRECT : tout se crée ici, puis la scène se recharge automatiquement sans quitter le mode.
   const quickBar=document.createElement('div'); quickBar.id='layoutQuickBar'; quickBar.style.cssText='display:none;position:absolute;top:54px;right:14px;z-index:56;width:260px;gap:6px;padding:8px;background:#0b1728;border:1px solid #38bdf8;border-radius:10px;box-shadow:0 10px 30px #0008;flex-direction:column';
-  const quickPanel=document.createElement('div'); quickPanel.id='layoutQuickPanel'; quickPanel.style.cssText='display:none;position:absolute;top:54px;right:14px;z-index:57;width:min(440px,calc(100% - 28px));max-height:calc(100% - 110px);overflow:auto;gap:9px;padding:12px;background:#0d1a2c;border:1px solid #38bdf8;border-radius:12px;box-shadow:0 14px 38px #000b;flex-direction:column';
+  const quickPanel=document.createElement('div'); quickPanel.id='layoutQuickPanel'; quickPanel.style.cssText='display:none;position:absolute;top:54px;right:14px;z-index:57;width:min(760px,calc(100% - 28px));max-height:calc(100% - 76px);overflow:auto;gap:12px;padding:18px;background:#0d1a2c;border:1px solid #38bdf8;border-radius:14px;box-shadow:0 14px 38px #000b;flex-direction:column';
   const qb=(label,kind)=>{ const b=document.createElement('button'); b.className='ghost'; b.style.cssText='padding:9px 11px;text-align:left;width:100%'; b.textContent=label; b.onclick=()=>{ quickBar.style.display='none'; showQuickForm(kind); }; quickBar.appendChild(b); };
   if(!isQuiz){ qb('📝 Texte / parole','text'); qb('🎬 Vidéo','video'); qb('🔗 Lien','link'); qb('❓ Quiz','quiz'); qb('🎞️ Carrousel','carousel'); }
   else { qb('❓ Ajouter une question','quiz-question'); }
@@ -1585,18 +1637,41 @@ async function openLayoutEditor(step){
     if(kind==='text'){
       const boardText=existing&&existing.boardText;
       const title=qInput('Titre facultatif'); title.value=boardText?(existing.title||''):(existing&&existing.media.caption||'');
-      const written=qArea('Ce qui sera écrit et visible au tableau'); written.value=boardText?(existing.body||''):(existing&&existing.media.body||'');
+      // Éditeur enrichi : le formatage est enregistré dans le HTML du texte et rendu tel quel au tableau.
+      const richWrap=document.createElement('div'); richWrap.style.cssText='border:1px solid #334155;border-radius:10px;overflow:hidden;background:#0b1220';
+      const richTools=document.createElement('div'); richTools.style.cssText='display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:8px 10px;background:#111f33;border-bottom:1px solid #334155';
+      const written=document.createElement('div'); written.contentEditable='true'; written.setAttribute('role','textbox'); written.setAttribute('aria-multiline','true');
+      written.dataset.placeholder='Ce qui sera écrit et visible au tableau';
+      written.style.cssText='min-height:190px;max-height:42vh;overflow:auto;padding:14px;color:#e2e8f0;font-size:18px;line-height:1.55;outline:none;white-space:pre-wrap';
+      written.innerHTML=boardText?(existing.body||''):(existing&&existing.media.body||'');
+      let savedRange=null;
+      const rememberRange=()=>{ const s=window.getSelection(); if(s&&s.rangeCount&&written.contains(s.anchorNode)) savedRange=s.getRangeAt(0).cloneRange(); };
+      const restoreRange=()=>{ written.focus(); if(!savedRange) return; const s=window.getSelection(); s.removeAllRanges(); s.addRange(savedRange); };
+      written.addEventListener('keyup',rememberRange); written.addEventListener('mouseup',rememberRange); written.addEventListener('input',rememberRange);
+      const richBtn=(html,cmd,titleText)=>{ const b=document.createElement('button'); b.type='button'; b.className='ghost'; b.innerHTML=html; b.title=titleText; b.style.cssText='min-width:38px;padding:7px 10px'; b.onmousedown=e=>{ e.preventDefault(); restoreRange(); document.execCommand(cmd,false,null); rememberRange(); }; return b; };
+      const bold=richBtn('<b>G</b>','bold','Mettre la sélection en gras');
+      const italic=richBtn('<i>I</i>','italic','Mettre la sélection en italique');
+      const fontSize=document.createElement('select'); fontSize.title='Taille du texte sélectionné'; fontSize.style.cssText='width:auto;min-width:112px;padding:7px 9px';
+      [['','Taille'],['16','16 px'],['20','20 px'],['24','24 px'],['28','28 px'],['32','32 px'],['40','40 px'],['48','48 px'],['56','56 px']].forEach(([v,l])=>{ const o=document.createElement('option'); o.value=v; o.textContent=l; fontSize.appendChild(o); });
+      fontSize.onmousedown=rememberRange; fontSize.onchange=()=>{ if(!fontSize.value)return; restoreRange(); document.execCommand('fontSize',false,'7'); written.querySelectorAll('font[size="7"]').forEach(el=>{ const sp=document.createElement('span'); sp.style.fontSize=fontSize.value+'px'; sp.innerHTML=el.innerHTML; el.replaceWith(sp); }); rememberRange(); fontSize.value=''; };
+      const color=document.createElement('input'); color.type='color'; color.value='#e2e8f0'; color.title='Couleur du texte sélectionné'; color.style.cssText='width:42px;height:34px;padding:2px;border-radius:7px;cursor:pointer';
+      color.onmousedown=rememberRange; color.oninput=()=>{ restoreRange(); document.execCommand('foreColor',false,color.value); rememberRange(); };
+      const clear=richBtn('Tx','removeFormat','Effacer le formatage de la sélection');
+      const toolHint=document.createElement('span'); toolHint.textContent='Sélectionnez du texte, puis appliquez le style.'; toolHint.style.cssText='color:#64748b;font-size:11px;flex:1;min-width:190px';
+      richTools.append(bold,italic,fontSize,color,clear,toolHint); richWrap.append(richTools,written);
       const spoken=qArea('Ce que dira l’avatar (facultatif)');
       const originalExtra=boardText?String((stepOverride(sel.chapter,step).sayExtra)||'').trim():''; spoken.value=originalExtra;
-      quickPanel.append(qField('Titre',title),qField('Écrit au tableau',written),qField('Dit par l’avatar',spoken));
-      add.onclick=async()=>{ const boardValue=boardText&&existing.key==='title'?title.value.trim():written.value.trim(); if(!boardValue&&!spoken.value.trim()){ toast('Ajoute un texte écrit ou parlé.',true); return; } add.disabled=true; try{
+      const writtenField=qField('Écrit au tableau',richWrap); const richHtml=()=>written.innerHTML.trim();
+      const richLines=()=>htmlToLines(written);
+      quickPanel.append(qField('Titre',title),writtenField,qField('Dit par l’avatar',spoken));
+      add.onclick=async()=>{ const boardValue=boardText&&existing.key==='title'?title.value.trim():written.textContent.trim(); if(!boardValue&&!spoken.value.trim()){ toast('Ajoute un texte écrit ou parlé.',true); return; } add.disabled=true; try{
         const current=stepOverride(sel.chapter,step); const requestedSpeech=spoken.value.trim();
         const oldFinal=String(Object.prototype.hasOwnProperty.call(current,'say')?(current.say||''):(et.say||'')).trim();
         const baseSpeech=originalExtra?oldFinal.replace(originalExtra,'').trim():oldFinal;
         const newFinal=[baseSpeech,requestedSpeech].filter(Boolean).join('  ');
         const voicePatch=boardText?{say:newFinal,sayExtra:requestedSpeech||null}:(requestedSpeech?{say:[oldFinal,requestedSpeech].filter(Boolean).join('  '),sayExtra:requestedSpeech}:{});
-        if(boardText){ const patch=Object.assign({},voicePatch); if(existing.key==='title') patch.title=title.value.trim(); else if(existing.key==='body') patch.lines=written.value===''?[]:written.value.split('\n').map(t=>({t})); else if(existing.key==='probleme') patch.probleme=written.value.trim(); await persistCurrentLayout(patch); }
-        else { await persistCurrentLayout(voicePatch); if(written.value.trim()) await saveQuickSupport({type:'text',caption:title.value.trim(),body:written.value.trim()},existing); }
+        if(boardText){ const patch=Object.assign({},voicePatch); if(existing.key==='title') patch.title=title.value.trim(); else if(existing.key==='body') patch.lines=written.textContent.trim()===''?[]:richLines().map(t=>({t})); else if(existing.key==='probleme') patch.probleme=richLines().join(' ').trim(); await persistCurrentLayout(patch); }
+        else { await persistCurrentLayout(voicePatch); if(written.textContent.trim()) await saveQuickSupport({type:'text',caption:title.value.trim(),body:richHtml()},existing); }
         await reloadLayoutEditor();
       }catch(e){ toast('Erreur : '+e.message,true); add.disabled=false; } };
     } else if(kind==='link'){
@@ -2333,12 +2408,17 @@ chapterSel.onchange=()=>{ sel.chapter=chapterSel.value; sel.step=null; renderSte
 $('addStepBtn').onclick=addCustomCoursePart;
 $('courseBoardsBtn').onclick=()=>openCourseLayoutOverview();
 
-(window.teacherAuthReady || Promise.resolve()).then(()=>Promise.all([
+(window.teacherAuthReady || Promise.resolve()).then(()=>{
+  if(!window.currentTeacher || !window.currentTeacher.profile.legacy_access) return renderPrivateTeacherHome();
+  return Promise.all([
   fetch('/api/content').then(r=>r.ok?r.json():{}).catch(()=>({})),
   fetch('/api/overrides').then(r=>r.ok?r.json():{}).catch(()=>({})),
   fetch('/api/custom-steps').then(r=>r.ok?r.json():{}).catch(()=>({})),
   fetch('/api/course-structure').then(r=>r.ok?r.json():{}).catch(()=>({}))
-])).then(([c,o,cs,st])=>{
+  ]);
+}).then(result=>{
+  if(!result) return;
+  const [c,o,cs,st]=result;
   content=c||{}; overrides=o||{}; customSteps=cs||{}; structure=st||{}; applyStepPlan();
   fillChapters();
   if(LECONS.length){ sel.chapter=LECONS[0].id; chapterSel.value=sel.chapter; }
