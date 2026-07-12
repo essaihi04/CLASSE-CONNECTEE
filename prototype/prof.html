@@ -1077,12 +1077,13 @@ function renderQuizBuiltin(box, chap){
   const ov=stepOverride(sel.chapter,'quiz');
   const sets=currentQuizSets(chap);
   const edited=Array.isArray(ov.quizSets);
-  const hidden=!!ov.hideQuiz;
+  const isMid=sel.step==='quiz-mid';
+  const hidden=isMid?!!ov.evalDisabled:!!ov.hideQuiz;
   box.style.display=''; box.innerHTML='';
   if(qEdit.set>=sets.length) qEdit.set=Math.max(0,sets.length-1);
 
   const head=document.createElement('div');
-  head.innerHTML=`<h3>📝 Évaluation du chapitre ${hidden?'<span class="qp-hidden-tag">masquée</span>':''}</h3>`
+  head.innerHTML=`<h3>📝 ${isMid?'Évaluation intermédiaire':'Évaluation finale'} ${hidden?'<span class="qp-hidden-tag">masquée</span>':''}</h3>`
     + `<div class="sub">Aperçu tel que l'élève le voit au tableau. Navigue entre les questions, <b>vois les réponses</b>, <b>modifie</b> tout, <b>génère</b> des questions par IA et gère les quiz. Effet immédiat côté élève, réversible.</div>`;
   box.appendChild(head);
 
@@ -1193,9 +1194,11 @@ function renderQuizBuiltin(box, chap){
   // — Outils globaux de l'évaluation —
   const tools=document.createElement('div'); tools.className='builtin-tools';
   const row=document.createElement('div'); row.style.cssText='display:flex;gap:8px;flex-wrap:wrap;align-items:center';
-  row.appendChild(mk(hidden?'👁 Réafficher l\'évaluation':'🚫 Masquer l\'évaluation','ghost',async()=>{
-    await setOverride(sel.chapter,'quiz',{ hideQuiz: hidden?null:true });
-    toast(hidden?'Évaluation réaffichée ✓':'Évaluation masquée côté élève ✓'); }));
+  row.appendChild(mk(hidden?'👁 Réafficher cette évaluation':'🚫 Masquer cette évaluation','ghost',async()=>{
+    const visibilityPatch=isMid?{evalDisabled:hidden?null:true}:{hideQuiz:hidden?null:true};
+    await setOverride(sel.chapter,'quiz',visibilityPatch);
+    renderSteps();
+    toast(hidden?'Évaluation réaffichée ✓':'Cette évaluation est masquée côté élève ✓'); }));
   if(edited) row.appendChild(mk('↩ Rétablir les quiz d\'origine','ghost',async()=>{
     if(!confirm('Abandonner vos modifications et revenir aux quiz d\'origine du chapitre ?')) return;
     await setOverride(sel.chapter,'quiz',{ quizSets:null }); toast('Quiz d\'origine rétablis ✓'); }));
@@ -1975,7 +1978,11 @@ async function openLayoutEditor(step){
         else if(item.key==='media') patch.hideMedia=true;
         else if(item.key==='schema') patch.hideSchema=true;
         else if(item.key==='sim') patch.hideSim=true;
-        else if(item.key==='quiz') patch.hideQuiz=true;
+        else if(item.key==='quiz'){
+          // Les deux emplacements utilisent les mêmes questions mais pas le même état de visibilité.
+          if(step==='quiz-mid') await setOverride(sel.chapter,'quiz',{evalDisabled:true});
+          else await setOverride(sel.chapter,'quiz',{hideQuiz:true});
+        }
         await setOverride(sel.chapter,step,patch);
       }
       toast('Élément supprimé ✓');

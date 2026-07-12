@@ -2387,7 +2387,7 @@ function render(n){ const e=lecon.etapes[n];
   // ÉVALUATION INTERMÉDIAIRE : une étape peut proposer l'évaluation AVANT de continuer
   // (ex. avant la 2ᵉ activité). Bouton DISTINCT du « Suivant ▶ » ; après l'évaluation,
   // l'élève revient automatiquement à l'étape suivante (quizReturnStep) pour poursuivre.
-  if(isIntermediateQuizStep(e) && n < lecon.etapes.length-1 && (getQuizSets().length)){
+  if(isIntermediateQuizStep(e) && n < lecon.etapes.length-1 && (getQuizSets('quiz-mid').length)){
     const b=mkOpt("📝 Passer l'évaluation maintenant",'primary'); b.style.marginTop='16px';
     b.style.background='var(--accent2)'; b.style.color='#082f49';
     b.onclick=()=>{ quizReturnStep=n+1; startQuiz('quiz-mid'); };
@@ -2396,7 +2396,7 @@ function render(n){ const e=lecon.etapes[n];
   // à la dernière étape : cours terminé (mémorisé) + proposition d'évaluation
   if(n===lecon.etapes.length-1){
     markCourseDone(lecon.id);                              // "cours vu" enregistré
-    if(getQuizSets().length){
+    if(getQuizSets('quiz').length){
       const b=mkOpt("📝 Faire l'évaluation",'primary'); b.style.marginTop='16px';
       b.style.background='var(--accent2)'; b.style.color='#082f49';
       b.onclick=()=>{ quizReturnStep=null; startQuiz('quiz'); };
@@ -2638,11 +2638,13 @@ function mkOpt(label, cls){ const b=document.createElement('button');
 /* ÉVALUATION : un chapitre peut proposer PLUSIEURS quiz (lecon.quizSets = [{label,intro?,quiz:[…]}]).
    On en montre UN SEUL à la fois (choisi au hasard), avec un bouton « 🔄 Changer de quiz ». Rétro-
    compatible : si le chapitre n'a qu'un `lecon.quiz`, on le lance directement, sans écran de choix. */
-function getQuizSets(){
+function getQuizSets(layoutKey){
   // Le prof peut MODIFIER / MASQUER l'évaluation depuis l'espace supports (prof.html) :
   // override à la clé 'quiz' → { quizSets:[…] } remplace les quiz de la leçon, hideQuiz la masque.
   const ov=stepOverride(lecon&&lecon.id, 'quiz');
-  if(ov.hideQuiz) return [];
+  // Les deux emplacements partagent les mêmes questions, mais leur visibilité est indépendante.
+  // hideQuiz concerne uniquement l'évaluation finale ; evalDisabled uniquement l'intermédiaire.
+  if(layoutKey==='quiz-mid' ? ov.evalDisabled : ov.hideQuiz) return [];
   const sets = Array.isArray(ov.quizSets) ? ov.quizSets
     : (lecon.quizSets && lecon.quizSets.length) ? lecon.quizSets
     : (lecon.quiz && lecon.quiz.length) ? [{label:'Évaluation', quiz:lecon.quiz}] : [];
@@ -2651,7 +2653,7 @@ function getQuizSets(){
 function startQuiz(layoutKey){
   activeQuizLayoutKey=typeof layoutKey==='string'?layoutKey:'quiz';
   bar.style.width='100%'; renderPhase(-1);
-  const sets=getQuizSets();
+  const sets=getQuizSets(activeQuizLayoutKey);
   if(!sets.length){
     paint({title:"📝 Évaluation", lines:[{t:"Aucune évaluation pour ce chapitre pour l'instant.",cls:"def"}]});
     return;
