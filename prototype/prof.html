@@ -94,6 +94,14 @@
   .qp-btn{background:var(--card);border:1px solid var(--line);color:#e2e8f0;border-radius:9px;padding:7px 12px;cursor:pointer;font-size:12px}
   .qp-btn:hover{border-color:var(--accent);color:#fff}
   .qp-btn.icon{padding:7px 10px}.qp-btn.danger:hover{border-color:#f87171;color:#fecaca}
+  .qp-question-list{display:flex;flex-direction:column;gap:6px;margin:12px 0;padding:10px;background:#0d1a2c;border:1px solid #1e3a5f;border-radius:10px}
+  .qp-question-list-title{font-size:12px;font-weight:700;color:#bae6fd;margin-bottom:2px}
+  .qp-question-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:8px;background:#111f33;border:1px solid #243449;border-radius:9px;padding:7px 8px}
+  .qp-question-row.on{border-color:#38bdf8;background:#122944}
+  .qp-question-num{width:27px;height:27px;display:grid;place-items:center;border-radius:50%;background:#1e3a5f;color:#bae6fd;font-size:11px;font-weight:700}
+  .qp-question-summary{min-width:0;cursor:pointer}.qp-question-summary b{display:block;font-size:12px;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qp-question-summary span{font-size:10px;color:#94a3b8}
+  .qp-question-action{background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:7px;padding:5px 9px;cursor:pointer;font-size:11px;white-space:nowrap}
+  .qp-question-action:hover{border-color:#38bdf8}.qp-question-action.danger:hover{border-color:#f87171;color:#fecaca}
   .qp-addrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;padding:10px;background:#0d1a2c;border:1px dashed #274b6e;border-radius:10px}
   .qp-addlab{font-size:12px;color:#94a3b8}
   .qp-typesel{background:#0b1220;color:#e2e8f0;border:1px solid #243449;border-radius:8px;padding:6px 9px;font-size:12px}
@@ -106,8 +114,13 @@
   .qf-ta{min-height:52px;resize:vertical;line-height:1.4}
   .qf-typebox{background:#0d1a2c;border:1px solid #1e3a5f;border-radius:10px;padding:10px}
   .qf-list{display:flex;flex-direction:column;gap:6px}
-  .qf-optrow,.qf-pairrow{display:flex;align-items:center;gap:7px}
-  .qf-optrow .qf-inp,.qf-pairrow .qf-inp{flex:1}
+  .qf-optrow{display:grid;grid-template-columns:26px minmax(0,1fr) auto 28px;align-items:center;gap:8px}
+  .qf-pairrow{display:flex;align-items:center;gap:7px}
+  .qf-optrow .qf-inp{width:100%;min-width:0}
+  .qf-pairrow .qf-inp{flex:1;min-width:0}
+  .qf-num{width:24px;height:24px;display:grid;place-items:center;border-radius:50%;background:#1e3a5f;color:#bae6fd;font-size:11px;font-weight:700}
+  .qf-good{display:flex;align-items:center;gap:5px;white-space:nowrap;color:#a7f3d0;font-size:11px;cursor:pointer}
+  .qf-good input{width:auto;min-width:0;margin:0;accent-color:#22c55e}
   .qf-rm{background:transparent;border:1px solid #475569;color:#94a3b8;border-radius:7px;width:28px;height:30px;cursor:pointer;flex:0 0 auto}
   .qf-rm:hover{border-color:#f87171;color:#fecaca}
   .qf-add{margin-top:7px;background:transparent;border:1px dashed #274b6e;color:#7dd3fc;border-radius:8px;padding:6px 11px;cursor:pointer;font-size:12px}
@@ -202,6 +215,8 @@
     <label class="field"><span>Cours / chapitre</span>
       <select id="chapter"></select>
     </label>
+    <button class="add-btn" id="courseBoardsBtn" style="width:100%;padding:10px 12px;margin:-2px 0 12px">▦ Tableaux du cours</button>
+    <div class="hint" style="margin:-7px 0 12px">Voir toutes les parties du cours et ouvrir un tableau pour le modifier.</div>
     <div style="font-size:13px;color:var(--muted);margin:4px 0 6px">2. Choisir l'étape à renforcer</div>
     <div class="steps" id="steps"></div>
     <button class="ghost" id="addStepBtn" style="width:100%;margin-top:10px">➕ Ajouter une partie</button>
@@ -359,6 +374,7 @@ function supportLayoutPreview(m, idx, whole){
   if(m.type==='image' && m.url) return `<div class="layout-support-preview"><span class="tag">${title}</span>${caption}<div class="body"><img src="${esc(m.url)}" alt=""></div></div>`;
   if(m.type==='video' && m.url) return `<div class="layout-support-preview"><span class="tag">${title}</span>${caption}<div class="body"><video src="${esc(m.url)}" muted playsinline></video></div></div>`;
   if(m.type==='link') return `<div class="layout-support-preview"><span class="tag">${title}</span><div class="body" style="color:#a5f3fc">${caption?caption+'<br>':''}${esc(m.url||'Lien')}</div></div>`;
+  if(m.type==='quiz') return `<div class="layout-support-preview"><span class="tag">${title}</span><div class="body"><b>❓ ${esc(m.question||'Question')}</b><br>${(m.options||[]).map((o,i)=>'<span style="display:inline-block;margin:4px 4px 0 0;padding:3px 6px;border:1px solid '+(i===m.correct?'#22c55e':'#475569')+';border-radius:6px">'+esc(o)+'</span>').join('')}</div></div>`;
   return `<div class="layout-support-preview"><span class="tag">${title}</span><div class="body">${caption?caption+'<br>':''}${esc(m.body||m.caption||'Support texte')}</div></div>`;
 }
 
@@ -418,8 +434,8 @@ function renderSteps(){
   stepsEl.appendChild(mk('*', null, '<b>Toute la leçon</b> (contexte général)'));
   const etapes = chap.etapes||[];
   const quizOv=stepOverride(sel.chapter,'quiz');
-  let intermediateIdx=etapes.findIndex(e=>e.__id===quizOv.evalAfterId);
-  if(intermediateIdx<0) intermediateIdx=etapes.findIndex(e=>e.evalHere);
+  let intermediateIdx=quizOv.evalDisabled ? -1 : etapes.findIndex(e=>e.__id===quizOv.evalAfterId);
+  if(intermediateIdx<0 && !quizOv.evalDisabled && !Object.prototype.hasOwnProperty.call(quizOv,'evalAfterId')) intermediateIdx=etapes.findIndex(e=>e.evalHere);
   etapes.forEach((e,idx)=>{
     const title=(e.board&&e.board.title)? e.board.title : ('Étape '+(idx+1));
     // Ligne = bouton de sélection + petits outils (monter / descendre / supprimer)
@@ -445,22 +461,36 @@ function renderSteps(){
       qUp.disabled=idx===0; qUp.onclick=ev=>{ ev.stopPropagation(); moveIntermediateQuiz(-1); };
       const qDown=document.createElement('button'); qDown.className='tool'; qDown.title='Déplacer cette évaluation plus bas'; qDown.textContent='▼';
       qDown.disabled=idx>=etapes.length-2; qDown.onclick=ev=>{ ev.stopPropagation(); moveIntermediateQuiz(1); };
-      qTools.append(qUp,qDown); qRow.appendChild(qTools); stepsEl.appendChild(qRow);
+      const qDel=document.createElement('button'); qDel.className='tool danger'; qDel.title='Supprimer cette évaluation intermédiaire'; qDel.textContent='✕';
+      qDel.onclick=ev=>{ ev.stopPropagation(); deleteIntermediateQuiz(); };
+      qTools.append(qUp,qDown,qDel); qRow.appendChild(qTools); stepsEl.appendChild(qRow);
     }
   });
   // Bouton d'insertion + pseudo-étape ÉVALUATION.
   // (l'ajout se fait via #addStepBtn, sous la liste)
-  stepsEl.appendChild(mk('quiz', null, '<b>Évaluation 2</b> (fin du chapitre)'));
+  const finalRow=document.createElement('div'); finalRow.className='step-row quiz-step-row';
+  finalRow.appendChild(mk('quiz', null, '<b>Évaluation 2</b> (fin du chapitre)'+(quizOv.hideQuiz?' <span class="badge-custom">masquée</span>':'')));
+  const finalTools=document.createElement('div'); finalTools.className='step-tools';
+  const finalAction=document.createElement('button'); finalAction.className='tool'+(quizOv.hideQuiz?'':' danger');
+  finalAction.title=quizOv.hideQuiz?'Restaurer l\'évaluation finale':'Masquer l\'évaluation finale'; finalAction.textContent=quizOv.hideQuiz?'↶':'✕';
+  finalAction.onclick=async ev=>{ ev.stopPropagation(); try{ await setOverride(sel.chapter,'quiz',{hideQuiz:quizOv.hideQuiz?null:true}); renderSteps(); renderEditor(); toast(quizOv.hideQuiz?'Évaluation finale restaurée ✓':'Évaluation finale masquée ✓'); }catch(e){ toast('Erreur : '+e.message,true); } };
+  finalTools.appendChild(finalAction); finalRow.appendChild(finalTools); stepsEl.appendChild(finalRow);
 }
 
 async function moveIntermediateQuiz(dir){
   const chap=chapById(sel.chapter); if(!chap) return;
   const steps=chap.etapes||[], quizOv=stepOverride(sel.chapter,'quiz');
-  let idx=steps.findIndex(e=>e.__id===quizOv.evalAfterId);
-  if(idx<0) idx=steps.findIndex(e=>e.evalHere);
+  let idx=quizOv.evalDisabled ? -1 : steps.findIndex(e=>e.__id===quizOv.evalAfterId);
+  if(idx<0 && !quizOv.evalDisabled && !Object.prototype.hasOwnProperty.call(quizOv,'evalAfterId')) idx=steps.findIndex(e=>e.evalHere);
   const next=Math.max(0,Math.min(steps.length-2,idx+dir));
   if(idx<0||next===idx||!steps[next]) return;
   try{ await setOverride(sel.chapter,'quiz',{evalAfterId:steps[next].__id}); renderSteps(); toast('Évaluation intermédiaire déplacée ✓'); }
+  catch(e){ toast('Erreur : '+e.message,true); }
+}
+
+async function deleteIntermediateQuiz(){
+  if(!confirm('Supprimer l\'évaluation intermédiaire de ce cours ? Les questions resteront disponibles pour l\'évaluation finale.')) return;
+  try{ await setOverride(sel.chapter,'quiz',{evalDisabled:true}); renderSteps(); renderEditor(); toast('Évaluation intermédiaire supprimée ✓'); }
   catch(e){ toast('Erreur : '+e.message,true); }
 }
 
@@ -615,6 +645,10 @@ function renderLayoutTools(){
   const layBtn=document.createElement('button'); layBtn.className='add-btn'; layBtn.textContent='🎬 Mise en page du tableau';
   layBtn.onclick=()=>openLayoutEditor(sel.step);
   zone.appendChild(layBtn);
+  const courseBtn=document.createElement('button'); courseBtn.className='ghost'; courseBtn.textContent='▦ Voir les tableaux du cours'; courseBtn.style.padding='7px 12px';
+  courseBtn.title='Voir toutes les parties du cours puis en ouvrir une comme une diapositive';
+  courseBtn.onclick=()=>openCourseLayoutOverview();
+  zone.appendChild(courseBtn);
   const ovL=stepOverride(sel.chapter, sel.step).layout;
   if(ovL){
     const tag=document.createElement('span'); tag.className='state'; tag.textContent='✓ Disposition personnalisée';
@@ -623,6 +657,70 @@ function renderLayoutTools(){
     zone.appendChild(tag); zone.appendChild(rst);
   }
   zone.style.display='';
+}
+
+// Vue d'ensemble du cours : une miniature par tableau, comme un volet de diapositives.
+// La miniature montre le contenu réellement utilisé (overrides et supports compris), puis un clic
+// ouvre exactement cette partie dans le grand éditeur de mise en page.
+function courseLayoutSlides(chap){
+  const slides=[]; if(!chap) return slides;
+  const quizOv=stepOverride(chap.id,'quiz');
+  const steps=chap.etapes||[];
+  let midIndex=quizOv.evalDisabled ? -1 : steps.findIndex(e=>e.__id===quizOv.evalAfterId);
+  if(midIndex<0 && !quizOv.evalDisabled && !Object.prototype.hasOwnProperty.call(quizOv,'evalAfterId')) midIndex=steps.findIndex(e=>e.evalHere);
+  steps.forEach((e,index)=>{
+    slides.push({step:index,name:(e.board&&e.board.title)||('Partie '+(index+1)),phase:PHASES[e.phase]||'Partie'});
+    if(index===midIndex) slides.push({step:'quiz-mid',name:'Évaluation 1 — intermédiaire',phase:'Évaluation'});
+  });
+  if(!quizOv.hideQuiz) slides.push({step:'quiz',name:'Évaluation 2 — fin du chapitre',phase:'Évaluation'});
+  return slides;
+}
+function plainBoardText(value){ return String(value||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim(); }
+function openCourseLayoutOverview(){
+  const chap=chapById(sel.chapter); if(!chap) return;
+  const back=document.createElement('div');
+  back.style.cssText='position:fixed;inset:0;z-index:10000;padding:16px;background:rgba(2,6,23,.9);overflow:auto';
+  const box=document.createElement('section');
+  box.style.cssText='max-width:1500px;margin:auto;min-height:calc(100vh - 32px);display:flex;flex-direction:column;gap:14px';
+  const head=document.createElement('div'); head.style.cssText='display:flex;align-items:center;gap:10px;flex-wrap:wrap';
+  const title=document.createElement('div'); title.style.cssText='flex:1;font-size:18px;font-weight:800;color:#f8fafc'; title.textContent='▦ Tableaux du cours — '+chap.titre;
+  const note=document.createElement('div'); note.style.cssText='width:100%;font-size:13px;color:#94a3b8'; note.textContent='Chaque carte est une partie du cours. Clique sur un tableau pour l’agrandir et le modifier.';
+  const close=document.createElement('button'); close.className='ghost'; close.style.padding='8px 12px'; close.textContent='Fermer'; close.onclick=()=>back.remove();
+  head.append(title,close,note); box.appendChild(head);
+  const grid=document.createElement('div'); grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;align-items:start';
+  courseLayoutSlides(chap).forEach((slide,number)=>{
+    const et=String(slide.step).startsWith('quiz')?{}:(chap.etapes[slide.step]||{});
+    const board=et.board||{}; const ov=stepOverride(sel.chapter,slide.step); const isQuiz=String(slide.step).startsWith('quiz');
+    const card=document.createElement('button'); card.type='button'; card.style.cssText='display:flex;flex-direction:column;gap:8px;text-align:left;padding:10px;background:#0f1b2e;border:1px solid #243449;border-radius:12px;color:#e2e8f0;cursor:pointer;box-shadow:0 6px 16px #0004';
+    card.title='Ouvrir « '+plainBoardText(slide.name)+' » dans le grand tableau';
+    const cardHead=document.createElement('div'); cardHead.style.cssText='display:flex;align-items:flex-start;gap:8px';
+    const num=document.createElement('span'); num.style.cssText='flex:0 0 auto;padding:3px 7px;border-radius:999px;background:#38bdf8;color:#082f49;font-size:11px;font-weight:800'; num.textContent=String(number+1);
+    const name=document.createElement('b'); name.style.cssText='font-size:13px;line-height:1.25;color:#f8fafc'; name.textContent=plainBoardText(slide.name);
+    cardHead.append(num,name); card.appendChild(cardHead);
+    const phase=document.createElement('span'); phase.style.cssText='font-size:11px;color:#7dd3fc'; phase.textContent=slide.phase; card.appendChild(phase);
+    const frame=document.createElement('div'); frame.style.cssText='aspect-ratio:16/9;overflow:hidden;position:relative;padding:7%;border:1px solid #166534;border-radius:8px;background:linear-gradient(160deg,#0f2a24,#0b1a16);font-size:clamp(9px,1vw,13px);line-height:1.3';
+    if(isQuiz){
+      const sets=currentQuizSets(chap); const qs=(sets[0]&&sets[0].quiz)||[];
+      const quizTitle=document.createElement('b'); quizTitle.style.cssText='display:block;color:#f8fafc;font-size:1.15em'; quizTitle.textContent=slide.name; frame.appendChild(quizTitle);
+      const q=document.createElement('div'); q.style.cssText='margin-top:8%;padding:6%;background:#0f172a;border:1px solid #38bdf8;border-radius:6px'; q.textContent=qs.length?(qs[0].q||'Question du quiz'):'Aucune question pour le moment'; frame.appendChild(q);
+    }else{
+      const boardTitle=('title' in ov)?ov.title:board.title; const lines=(('lines' in ov)?ov.lines:board.lines)||[]; const problem=('probleme' in ov)?ov.probleme:board.probleme;
+      if(boardTitle){ const el=document.createElement('b'); el.style.cssText='display:block;color:#fff;font-size:1.15em'; el.textContent=plainBoardText(boardTitle); frame.appendChild(el); }
+      if(problem){ const el=document.createElement('div'); el.style.cssText='margin-top:4%;color:#fde68a;font-weight:700'; el.textContent='🧩 '+plainBoardText(problem); frame.appendChild(el); }
+      if(lines.length){ const el=document.createElement('div'); el.style.cssText='margin-top:4%;color:#e2e8f0;white-space:pre-line'; el.textContent=lines.map(x=>plainBoardText(x&&x.t)).filter(Boolean).join('\n'); frame.appendChild(el); }
+      const labels=[];
+      if(!ov.hideMedia && (board.media||ov.mediaSrc||(ov.mediaSlides||[]).length)) labels.push('Image / carrousel');
+      if(!ov.hideSchema && (ov.schema||board.schema)) labels.push('Schéma');
+      const sim=simLayoutPreview(board,ov); if(sim) labels.push(sim.label);
+      layoutSupportEntries(sel.chapter,slide.step).forEach(item=>labels.push(item.media.type==='quiz'?'Mini-quiz':item.media.caption||('Support '+(item.idx+1))));
+      if(labels.length){ const tags=document.createElement('div'); tags.style.cssText='position:absolute;left:7%;right:7%;bottom:7%;display:flex;gap:4px;flex-wrap:wrap'; labels.slice(0,4).forEach(label=>{ const tag=document.createElement('span'); tag.style.cssText='padding:2px 5px;border-radius:4px;background:#155e75;color:#cffafe;font-size:.8em'; tag.textContent=plainBoardText(label); tags.appendChild(tag); }); if(labels.length>4){ const more=document.createElement('span'); more.style.cssText='color:#94a3b8;font-size:.8em'; more.textContent='+'+(labels.length-4); tags.appendChild(more); } frame.appendChild(tags); }
+    }
+    card.appendChild(frame);
+    const action=document.createElement('span'); action.style.cssText='font-size:12px;color:#38bdf8;font-weight:700'; action.textContent='Cliquer pour agrandir et modifier →'; card.appendChild(action);
+    card.onclick=()=>{ sel.step=slide.step; renderSteps(); renderEditor(); back.remove(); openLayoutEditor(slide.step); };
+    grid.appendChild(card);
+  });
+  box.appendChild(grid); back.appendChild(box); back.onclick=e=>{ if(e.target===back) back.remove(); }; document.body.appendChild(back);
 }
 
 function renderBuiltin(){
@@ -986,6 +1084,23 @@ function renderQuizBuiltin(box, chap){
     const next=document.createElement('button'); next.className='qp-navbtn'; next.textContent='Suivant ▶'; next.disabled=qEdit.q>=qz.length-1;
     next.onclick=()=>{ if(qEdit.q<qz.length-1){ qEdit.q++; renderBuiltin(); } };
     nav.append(prev,dots,next); box.appendChild(nav);
+
+    // Liste explicite : chaque question possède directement ses actions Modifier / Supprimer.
+    const qList=document.createElement('div'); qList.className='qp-question-list';
+    const qListTitle=document.createElement('div'); qListTitle.className='qp-question-list-title'; qListTitle.textContent='Questions de ce quiz'; qList.appendChild(qListTitle);
+    qz.forEach((question,k)=>{
+      const qRow=document.createElement('div'); qRow.className='qp-question-row'+(k===qEdit.q?' on':'');
+      const num=document.createElement('span'); num.className='qp-question-num'; num.textContent=k+1;
+      const summary=document.createElement('div'); summary.className='qp-question-summary';
+      summary.innerHTML='<b>'+esc(String(question.q||'Question sans texte').replace(/<[^>]*>/g,''))+'</b><span>'+(QTYPES[question.type]||question.type||'Question')+'</span>';
+      summary.onclick=()=>{ qEdit.q=k; renderBuiltin(); };
+      const edit=document.createElement('button'); edit.className='qp-question-action'; edit.textContent='✏️ Modifier';
+      edit.onclick=()=>openQuizForm(question,'Modifier la question '+(k+1),async(d)=>{ const s=editSets(); s[qEdit.set].quiz[k]=d; qEdit.q=k; await saveQuizSets(s); toast('Question modifiée ✓'); });
+      const del=document.createElement('button'); del.className='qp-question-action danger'; del.textContent='🗑️ Supprimer';
+      del.onclick=async()=>{ if(!confirm('Supprimer la question '+(k+1)+' ?')) return; try{ const s=editSets(); s[qEdit.set].quiz.splice(k,1); qEdit.q=Math.max(0,Math.min(qEdit.q-(k<qEdit.q?1:0),s[qEdit.set].quiz.length-1)); await saveQuizSets(s); toast('Question supprimée ✓'); }catch(e){ toast('Erreur : '+e.message,true); } };
+      qRow.append(num,summary,edit,del); qList.appendChild(qRow);
+    });
+    box.appendChild(qList);
   }
 
   // — Barre d'outils de la question courante —
@@ -1011,7 +1126,7 @@ function renderQuizBuiltin(box, chap){
   const addBtn=mk('➕ Ajouter une question','add-btn',()=>{
     openQuizForm(emptyQuestion(typeSel.value), 'Nouvelle question ('+QTYPES[typeSel.value]+')', async(d)=>{
       const s=editSets(); const at=(qz.length?qEdit.q+1:0); s[qEdit.set].quiz.splice(at,0,d); qEdit.q=at; await saveQuizSets(s); toast('Question ajoutée ✓'); }); });
-  const genBtn=mk('✨ Générer par IA','gen-btn',()=>aiGenerateQuestion(typeSel.value));
+   const genBtn=mk('✨ Créer avec l’IA','gen-btn',()=>openAiQuizGenerator(typeSel.value));
   const lab=document.createElement('span'); lab.className='qp-addlab'; lab.textContent='Type :';
   add.append(lab, typeSel, addBtn, genBtn);
   box.appendChild(add);
@@ -1038,20 +1153,40 @@ function openQuizMetaForm(set){
     await saveQuizSets(s); toast('Quiz mis à jour ✓'); }catch(e){ toast('Erreur : '+e.message,true); } })();
 }
 
-// Génère une question par IA (type choisi) et l'insère après la question courante.
-async function aiGenerateQuestion(type){
+// Création guidée : l'IA propose directement les questions, réponses correctes et explications.
+function openAiQuizGenerator(initialType){
   const chap=chapById(sel.chapter);
-  const instruction=prompt('Sur quel point porte la question ? (facultatif — précise un thème)', '');
-  if(instruction===null) return;
-  toast('Génération de la question…');
-  try{
-    const r=await fetch('/api/generate-quiz',{ method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ chapterTitle:chap.titre, type, instruction }) });
-    const j=await r.json(); if(!r.ok) throw new Error(j.error||'échec');
-    const s=editSets(); const qz=(s[qEdit.set].quiz||[]); const at=(qz.length?qEdit.q+1:0);
-    s[qEdit.set].quiz.splice(at,0,j.question); qEdit.q=at;
-    await saveQuizSets(s); toast('Question générée ✓ — vérifie-la puis ajuste si besoin.');
-  }catch(e){ toast('Erreur IA : '+e.message,true); }
+  const back=document.createElement('div');
+  back.style.cssText='position:fixed;inset:0;background:rgba(2,6,23,.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  const box=document.createElement('div');
+  box.style.cssText='background:#0f1b2e;border:1px solid #243449;border-radius:14px;padding:18px;max-width:590px;width:100%;display:flex;flex-direction:column;gap:12px';
+  const h=document.createElement('div'); h.style.cssText='font-weight:700;font-size:16px'; h.textContent='✨ Créer des questions avec l’IA'; box.appendChild(h);
+  const help=document.createElement('div'); help.style.cssText='font-size:13px;line-height:1.45;color:#cbd5e1;background:#0d1a2c;border:1px solid #1e3a5f;border-radius:10px;padding:10px';
+  help.innerHTML='<b>Simple :</b> indique le thème et le type. L’IA crée les questions, les réponses justes et une courte correction. Tu peux tout relire et modifier avant ou après l’enregistrement.';
+  box.appendChild(help);
+  const field=(label)=>{ const w=document.createElement('label'); w.style.cssText='display:flex;flex-direction:column;gap:5px;font-size:12px;color:#94a3b8'; const l=document.createElement('span'); l.textContent=label; w.appendChild(l); return w; };
+  const typeField=field('Type de question'); const type=document.createElement('select'); type.className='qf-inp';
+  Object.keys(QTYPES).forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=QTYPES[k]; type.appendChild(o); }); type.value=initialType||'qcm'; typeField.appendChild(type); box.appendChild(typeField);
+  const countField=field('Nombre de questions'); const count=document.createElement('select'); count.className='qf-inp';
+  [1,2,3,4,5].forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n+' question'+(n>1?'s':''); count.appendChild(o); }); count.value='1'; countField.appendChild(count); box.appendChild(countField);
+  const themeField=field('Thème ou objectif (facultatif)'); const theme=document.createElement('textarea'); theme.className='qf-ta'; theme.placeholder='Ex. Vérifier le trajet des aliments et le rôle de la digestion.'; themeField.appendChild(theme); box.appendChild(themeField);
+  const tip=document.createElement('div'); tip.style.cssText='font-size:12px;color:#94a3b8';
+  const tips={qcm:'L’IA proposera 3 à 4 choix et cochera la bonne réponse.',vf:'L’IA écrira une affirmation et indiquera Vrai ou Faux.',libre:'L’IA fournira la réponse attendue et les mots-clés acceptés.',association:'L’IA créera des paires à relier.'};
+  const refreshTip=()=>{ tip.textContent=tips[type.value]; }; type.onchange=refreshTip; refreshTip(); box.appendChild(tip);
+  const row=document.createElement('div'); row.style.cssText='display:flex;gap:10px;justify-content:flex-end;margin-top:4px';
+  const cancel=document.createElement('button'); cancel.className='ghost'; cancel.textContent='Annuler'; cancel.onclick=()=>back.remove();
+  const generate=document.createElement('button'); generate.className='gen-btn'; generate.textContent='✨ Générer les questions';
+  generate.onclick=async()=>{ generate.disabled=true; cancel.disabled=true; generate.textContent='Génération…';
+    try{
+      const context=(chap.etapes||[]).map(e=>{ const b=e.board||{}; return [b.title,(b.lines||[]).map(l=>l.t||'').join(' ')].filter(Boolean).join(' — '); }).filter(Boolean).join('\n').slice(0,1500);
+      const r=await fetch('/api/generate-quiz',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({chapterTitle:chap.titre,type:type.value,count:Number(count.value),instruction:theme.value.trim(),context}) });
+      const j=await r.json(); if(!r.ok) throw new Error(j.error||'échec');
+      const made=(Array.isArray(j.questions)&&j.questions.length)?j.questions:[j.question].filter(Boolean); if(!made.length) throw new Error('aucune question générée');
+      const s=editSets(), qz=(s[qEdit.set].quiz||[]), at=(qz.length?qEdit.q+1:0); qz.splice(at,0,...made); s[qEdit.set].quiz=qz; qEdit.q=at;
+      await saveQuizSets(s); back.remove(); toast(made.length+' question'+(made.length>1?'s générées':' générée')+' ✓ — relis les réponses avant de les proposer.');
+    }catch(e){ toast('Erreur IA : '+e.message,true); generate.disabled=false; cancel.disabled=false; generate.textContent='✨ Générer les questions'; }
+  };
+  row.append(cancel,generate); box.appendChild(row); back.appendChild(box); back.onclick=e=>{ if(e.target===back) back.remove(); }; document.body.appendChild(back); theme.focus();
 }
 
 // FORMULAIRE guidé d'édition d'une question (selon son type). onSave reçoit l'objet question validé.
@@ -1093,17 +1228,21 @@ function openQuizForm(item, title, onSave){
   function renderTypeFields(){
     typeBox.innerHTML='';
     if(d.type==='qcm'){
-      const f=field('Choix (coche la bonne réponse)'); const list=document.createElement('div'); list.className='qf-list';
+      const f=field('Réponses proposées'); const list=document.createElement('div'); list.className='qf-list';
       const draw=()=>{ list.innerHTML='';
         d.options.forEach((o,idx)=>{
           const rowc=document.createElement('div'); rowc.className='qf-optrow';
+          const num=document.createElement('span'); num.className='qf-num'; num.textContent=idx+1;
+          const ti=inp(o,'Écris la réponse '+(idx+1)); ti.oninput=()=>{ d.options[idx]=ti.value; };
+          const good=document.createElement('label'); good.className='qf-good';
           const radio=document.createElement('input'); radio.type='radio'; radio.name='qcmcorrect'; radio.checked=(d.correct===idx);
           radio.onchange=()=>{ d.correct=idx; };
-          const ti=inp(o,'Choix '+(idx+1)); ti.oninput=()=>{ d.options[idx]=ti.value; };
+          good.append(radio,document.createTextNode('Bonne réponse'));
           const rm=document.createElement('button'); rm.type='button'; rm.className='qf-rm'; rm.textContent='✕';
-          rm.onclick=()=>{ if(d.options.length<=2){ toast('Au moins 2 choix.',true); return; } d.options.splice(idx,1);
-            if(d.correct>=d.options.length) d.correct=d.options.length-1; draw(); };
-          rowc.append(radio,ti,rm); list.appendChild(rowc);
+          rm.onclick=()=>{ if(d.options.length<=2){ toast('Au moins 2 choix.',true); return; }
+            if(idx===d.correct) d.correct=0; else if(idx<d.correct) d.correct--;
+            d.options.splice(idx,1); if(d.correct>=d.options.length) d.correct=d.options.length-1; draw(); };
+          rowc.append(num,ti,good,rm); list.appendChild(rowc);
         });
       };
       draw();
@@ -1120,7 +1259,7 @@ function openQuizForm(item, title, onSave){
       if(typeof d.correct!=='boolean') d.correct=true;
       f.appendChild(wrap); typeBox.appendChild(f);
     } else if(d.type==='libre'){
-      const f1=field('Réponses acceptées (un mot-clé par ligne)');
+      const f1=field('Réponses acceptées (un mot-clé ou une variante par ligne)');
       const at=ta((d.attendus||[]).join('\n'),'amidon\nglucide'); at.oninput=()=>{ d.attendus=at.value.split('\n').map(s=>s.trim()).filter(Boolean); };
       f1.appendChild(at); typeBox.appendChild(f1);
       const f2=field('Réponse attendue (affichée à l\'élève)'); const ri=inp(d.reponse,'la réponse en toutes lettres'); ri.oninput=()=>d.reponse=ri.value;
@@ -1342,12 +1481,12 @@ async function openLayoutEditor(step){
   const curTitle=('title' in ov)?ov.title:board.title; if(!isQuiz&&curTitle) present.push({key:'title', label:'Titre', html:curTitle});
   const curLines=(('lines' in ov)?ov.lines:board.lines)||[]; if(!isQuiz&&curLines.length) present.push({key:'body', label:'Texte', html:curLines.map(l=>l.t||'').join('<br>')});
   const curProb=('probleme' in ov)?ov.probleme:board.probleme; if(!isQuiz&&curProb) present.push({key:'probleme', label:'Situation-problème', html:curProb});
-  if(!isQuiz && board.media && !ov.hideMedia){
+  if(!isQuiz && (board.media || (Array.isArray(ov.mediaSlides)&&ov.mediaSlides.length)) && !ov.hideMedia){
     const carS=Array.isArray(ov.mediaSlides)?ov.mediaSlides.filter(s=>s&&(s.src||s.svg)):[];
     const first=carS[0];
     const html = carS.length
       ? (first.svg ? first.svg : '<img src="'+first.src+'" style="width:100%;height:100%;max-height:none;object-fit:contain;border-radius:4px">')
-      : ((ov.mediaSrc||board.media.src) ? '<img src="'+(ov.mediaSrc||board.media.src)+'" style="width:100%;height:100%;max-height:none;object-fit:contain;border-radius:4px">' : '🖼️ '+esc(board.media.desc||'image à générer'));
+      : ((ov.mediaSrc||(board.media&&board.media.src)) ? '<img src="'+(ov.mediaSrc||(board.media&&board.media.src))+'" style="width:100%;height:100%;max-height:none;object-fit:contain;border-radius:4px">' : '🖼️ '+esc((board.media&&board.media.desc)||'image à générer'));
     present.push({key:'media', label:carS.length?('Carrousel ('+carS.length+' diapos)'):'Image / Vidéo', html: html}); }
   const schema=!isQuiz&&(!ov.hideSchema)?(ov.schema||board.schema):null;
   if(schema) present.push({key:'schema', label:'Schéma', html:schema});
@@ -1355,7 +1494,8 @@ async function openLayoutEditor(step){
   const sim=!isQuiz?simLayoutPreview(board, ov):null;
   if(sim) present.push({key:'sim', label:sim.label, html:sim.html});
   (isQuiz?[]:layoutSupportEntries(sel.chapter, step)).forEach((it, n)=>{
-    present.push({ key:it.key, label:(it.whole?'Support toute la leçon ':'Support ')+(n+1), html:supportLayoutPreview(it.media, it.idx, it.whole), support:true });
+    present.push({ key:it.key, label:(it.whole?'Support toute la leçon ':'Support ')+(n+1), html:supportLayoutPreview(it.media, it.idx, it.whole), support:true,
+      supportIndex:it.idx, supportStepKey:it.stepKey, whole:it.whole, media:it.media });
   });
   // l'avatar est affiché avec le VRAI moteur 3D (avatar3d.html) : allure et proportions réelles
   present.push({key:'avatar', label:'👩‍🏫 Avatar', html:'', avatar:true});
@@ -1380,21 +1520,105 @@ async function openLayoutEditor(step){
   const back=document.createElement('div');
   back.style.cssText='position:fixed;inset:0;background:rgba(2,6,23,.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:10px';
   const boxw=document.createElement('div');
-  boxw.style.cssText='background:#0f1b2e;border:1px solid #243449;border-radius:14px;padding:14px;max-width:none;width:99vw;height:97vh;overflow:auto;display:flex;flex-direction:column;gap:8px';
-  const h=document.createElement('div'); h.style.cssText='font-weight:700;font-size:15px;flex:0 0 auto'; h.textContent='🎬 Mise en page du tableau — aperçu plein écran'; boxw.appendChild(h);
-  const hint=document.createElement('div'); hint.style.cssText='font-size:12px;color:#94a3b8;flex:0 0 auto';
+  boxw.style.cssText='position:relative;background:#0f1b2e;border:1px solid #243449;border-radius:14px;padding:12px;max-width:none;width:99vw;height:97vh;overflow:hidden;display:flex;flex-direction:column;gap:8px';
+  const headerRow=document.createElement('div'); headerRow.style.cssText='display:flex;align-items:center;gap:8px;flex:0 0 auto;min-height:34px';
+  const currentSlide=courseLayoutSlides(chap).find(x=>String(x.step)===String(step));
+  const h=document.createElement('div'); h.style.cssText='font-weight:700;font-size:15px;flex:1'; h.textContent='🎬 '+(currentSlide?currentSlide.name:'Mise en page du tableau'); headerRow.appendChild(h);
+  const helpBtn=document.createElement('button'); helpBtn.className='ghost'; helpBtn.style.padding='7px 10px'; helpBtn.textContent='❔ Aide';
+  const allBoardsBtn=document.createElement('button'); allBoardsBtn.className='ghost'; allBoardsBtn.style.padding='7px 10px'; allBoardsBtn.textContent='▦ Toutes les parties'; allBoardsBtn.title='Revenir à la vue de toutes les parties du cours';
+  const addMenuBtn=document.createElement('button'); addMenuBtn.id='layoutAddButton'; addMenuBtn.className='add-btn'; addMenuBtn.style.padding='8px 12px'; addMenuBtn.textContent='＋ Ajouter un contenu';
+  allBoardsBtn.onclick=()=>{ back.remove(); openCourseLayoutOverview(); };
+  headerRow.append(helpBtn,allBoardsBtn,addMenuBtn); boxw.appendChild(headerRow);
+  const hint=document.createElement('div'); hint.style.cssText='display:none;position:absolute;top:54px;left:14px;z-index:55;max-width:650px;padding:10px 12px;background:#0b1728;border:1px solid #38bdf8;border-radius:10px;box-shadow:0 10px 30px #0008;font-size:12px;color:#cbd5e1';
   hint.innerHTML='Ce cadre a la <b>taille et les proportions du PLEIN ÉCRAN</b> : ce que tu places ici tombera EXACTEMENT au même endroit chez l\'élève (mode normal et plein écran). Glisse un bloc pour le placer, tire le coin ◢ pour la taille, « niveau » pour le mettre devant/derrière. <b>Double-clique un texte</b> (titre, texte, situation-problème) pour le réécrire, et change sa <b>couleur</b> avec le sélecteur.';
   boxw.appendChild(hint);
 
+  // AJOUT DIRECT : tout se crée ici, puis la scène se recharge automatiquement sans quitter le mode.
+  const quickBar=document.createElement('div'); quickBar.id='layoutQuickBar'; quickBar.style.cssText='display:none;position:absolute;top:54px;right:14px;z-index:56;width:260px;gap:6px;padding:8px;background:#0b1728;border:1px solid #38bdf8;border-radius:10px;box-shadow:0 10px 30px #0008;flex-direction:column';
+  const quickPanel=document.createElement('div'); quickPanel.id='layoutQuickPanel'; quickPanel.style.cssText='display:none;position:absolute;top:54px;right:14px;z-index:57;width:min(440px,calc(100% - 28px));max-height:calc(100% - 110px);overflow:auto;gap:9px;padding:12px;background:#0d1a2c;border:1px solid #38bdf8;border-radius:12px;box-shadow:0 14px 38px #000b;flex-direction:column';
+  const qb=(label,kind)=>{ const b=document.createElement('button'); b.className='ghost'; b.style.cssText='padding:9px 11px;text-align:left;width:100%'; b.textContent=label; b.onclick=()=>{ quickBar.style.display='none'; showQuickForm(kind); }; quickBar.appendChild(b); };
+  if(!isQuiz){ qb('📝 Texte / parole','text'); qb('🎬 Vidéo','video'); qb('🔗 Lien','link'); qb('❓ Quiz','quiz'); qb('🎞️ Carrousel','carousel'); }
+  else { qb('❓ Ajouter une question','quiz-question'); }
+  boxw.appendChild(quickBar); boxw.appendChild(quickPanel);
+  helpBtn.onclick=()=>{ quickBar.style.display='none'; quickPanel.style.display='none'; hint.style.display=hint.style.display==='none'?'block':'none'; };
+  addMenuBtn.onclick=()=>{ hint.style.display='none'; quickPanel.style.display='none'; quickBar.style.display=quickBar.style.display==='flex'?'none':'flex'; };
+
+  function qField(label,el){ const w=document.createElement('label'); w.style.cssText='display:flex;flex-direction:column;gap:4px;font-size:11px;color:#94a3b8;min-width:0'; const s=document.createElement('span'); s.textContent=label; w.append(s,el); return w; }
+  function qInput(ph){ const e=document.createElement('input'); e.placeholder=ph||''; e.style.padding='7px 9px'; return e; }
+  function qArea(ph){ const e=document.createElement('textarea'); e.placeholder=ph||''; e.style.cssText='min-height:54px;padding:7px 9px'; return e; }
+  async function saveQuickSupport(media, existing){
+    if(!existing){ await saveSupport(media); return; }
+    const r=await fetch('/api/content',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      chapterId:sel.chapter,step:String(existing.supportStepKey),update:true,index:existing.supportIndex,media
+    })});
+    const j=await r.json(); if(!r.ok) throw new Error(j.error||'Mise à jour impossible.');
+    content[sel.chapter]=content[sel.chapter]||{};
+    content[sel.chapter][String(existing.supportStepKey)]=j.list||[];
+    renderSupports(); renderSteps();
+  }
+  function showQuickForm(kind, existing){
+    quickPanel.innerHTML=''; quickPanel.style.display='flex'; quickPanel.style.alignItems='stretch';
+    const editing=!!existing;
+    const names={text:'Texte et parole',video:'Vidéo',link:'Lien',quiz:'Mini-quiz',carousel:'Carrousel','quiz-question':'Question d’évaluation'};
+    const panelHead=document.createElement('div'); panelHead.style.cssText='display:flex;align-items:center;gap:8px;font-weight:700;color:#e2e8f0';
+    const panelTitle=document.createElement('span'); panelTitle.style.flex='1'; panelTitle.textContent=names[kind]||'Ajouter un contenu';
+    const cancel=document.createElement('button'); cancel.className='ghost'; cancel.textContent='✕'; cancel.title='Fermer'; cancel.style.padding='5px 9px'; cancel.onclick=()=>{ quickPanel.style.display='none'; quickPanel.innerHTML=''; };
+    panelHead.append(panelTitle,cancel); quickPanel.appendChild(panelHead);
+    const add=document.createElement('button'); add.className='add-btn'; add.textContent=editing?'💾 Enregistrer les modifications':'＋ Ajouter maintenant'; add.style.padding='8px 11px';
+    if(kind==='carousel'){
+      const desc=document.createElement('span'); desc.style.cssText='color:#cbd5e1;font-size:12px'; desc.textContent='Ajoute au moins deux images ou schémas, avec ce que l’avatar doit dire pour chaque diapo.'; quickPanel.appendChild(desc);
+      add.textContent='🎞️ Ouvrir le carrousel'; add.onclick=async()=>{ try{ await persistCurrentLayout(); openCarouselManager(step,async()=>{ back.remove(); await openLayoutEditor(step); }); }catch(e){ toast('Erreur : '+e.message,true); } };
+      quickPanel.appendChild(add); return;
+    }
+    if(kind==='quiz-question'){
+      const desc=document.createElement('span'); desc.style.cssText='color:#cbd5e1;font-size:12px'; desc.textContent='Crée une question dans l’évaluation, puis retrouve-la immédiatement dans la liste des questions.'; quickPanel.appendChild(desc);
+      add.textContent='❓ Créer la question'; add.onclick=()=>openQuizForm(emptyQuestion('qcm'),'Nouvelle question',async(d)=>{ const s=editSets(); if(!s.length) s.push({label:'Quiz 1',intro:'',quiz:[]}); s[qEdit.set].quiz.push(d); qEdit.q=s[qEdit.set].quiz.length-1; await saveQuizSets(s); quickPanel.style.display='none'; toast('Question ajoutée ✓'); });
+      quickPanel.appendChild(add); return;
+    }
+    if(kind==='text'){
+      const boardText=existing&&existing.boardText;
+      const title=qInput('Titre facultatif'); title.value=boardText?(existing.title||''):(existing&&existing.media.caption||'');
+      const written=qArea('Ce qui sera écrit et visible au tableau'); written.value=boardText?(existing.body||''):(existing&&existing.media.body||'');
+      const spoken=qArea('Ce que dira l’avatar (facultatif)');
+      const originalExtra=boardText?String((stepOverride(sel.chapter,step).sayExtra)||'').trim():''; spoken.value=originalExtra;
+      quickPanel.append(qField('Titre',title),qField('Écrit au tableau',written),qField('Dit par l’avatar',spoken));
+      add.onclick=async()=>{ const boardValue=boardText&&existing.key==='title'?title.value.trim():written.value.trim(); if(!boardValue&&!spoken.value.trim()){ toast('Ajoute un texte écrit ou parlé.',true); return; } add.disabled=true; try{
+        const current=stepOverride(sel.chapter,step); const requestedSpeech=spoken.value.trim();
+        const oldFinal=String(Object.prototype.hasOwnProperty.call(current,'say')?(current.say||''):(et.say||'')).trim();
+        const baseSpeech=originalExtra?oldFinal.replace(originalExtra,'').trim():oldFinal;
+        const newFinal=[baseSpeech,requestedSpeech].filter(Boolean).join('  ');
+        const voicePatch=boardText?{say:newFinal,sayExtra:requestedSpeech||null}:(requestedSpeech?{say:[oldFinal,requestedSpeech].filter(Boolean).join('  '),sayExtra:requestedSpeech}:{});
+        if(boardText){ const patch=Object.assign({},voicePatch); if(existing.key==='title') patch.title=title.value.trim(); else if(existing.key==='body') patch.lines=written.value===''?[]:written.value.split('\n').map(t=>({t})); else if(existing.key==='probleme') patch.probleme=written.value.trim(); await persistCurrentLayout(patch); }
+        else { await persistCurrentLayout(voicePatch); if(written.value.trim()) await saveQuickSupport({type:'text',caption:title.value.trim(),body:written.value.trim()},existing); }
+        await reloadLayoutEditor();
+      }catch(e){ toast('Erreur : '+e.message,true); add.disabled=false; } };
+    } else if(kind==='link'){
+      const url=qInput('https://…'); url.value=existing&&existing.media.url||''; const caption=qInput('Nom du lien'); caption.value=existing&&existing.media.caption||''; quickPanel.append(qField('Adresse du lien',url),qField('Texte affiché',caption));
+      add.onclick=async()=>{ if(!/^https?:\/\//i.test(url.value.trim())){ toast('Entre une adresse http(s) valide.',true); return; } add.disabled=true; try{ await persistCurrentLayout(); await saveQuickSupport({type:'link',url:url.value.trim(),caption:caption.value.trim()},existing); await reloadLayoutEditor(); }catch(e){ toast('Erreur : '+e.message,true); add.disabled=false; } };
+    } else if(kind==='video'){
+      const url=qInput('URL directe de la vidéo (facultatif)'); url.value=existing&&existing.media.url||''; const file=document.createElement('input'); file.type='file'; file.accept='video/*'; const caption=qInput('Légende'); caption.value=existing&&existing.media.caption||'';
+      quickPanel.append(qField('Fichier vidéo',file),qField('Ou adresse vidéo',url),qField('Légende',caption));
+      add.onclick=async()=>{ if(!file.files[0]&&!/^https?:\/\//i.test(url.value.trim())){ toast('Choisis une vidéo ou entre une adresse valide.',true); return; } add.disabled=true; try{ const src=file.files[0]?await uploadFile(file.files[0]):url.value.trim(); await persistCurrentLayout(); await saveQuickSupport({type:'video',url:src,caption:caption.value.trim()},existing); await reloadLayoutEditor(); }catch(e){ toast('Erreur : '+e.message,true); add.disabled=false; } };
+    } else if(kind==='quiz'){
+      const question=qArea('Question posée à l’élève'); question.value=existing&&existing.media.question||''; const options=qArea('Une réponse par ligne'); options.value=existing&&(existing.media.options||[]).join('\n')||''; const correct=qInput('Recopie exactement la bonne réponse'); correct.value=existing&&existing.media.options&&existing.media.options[existing.media.correct]||''; const feedback=qInput('Courte explication après la réponse'); feedback.value=existing&&existing.media.feedback||'';
+      quickPanel.append(qField('Question',question),qField('Réponses proposées',options),qField('Bonne réponse',correct),qField('Correction',feedback));
+      add.onclick=async()=>{ const opts=options.value.split('\n').map(x=>x.trim()).filter(Boolean); const ci=opts.findIndex(x=>x.toLowerCase()===correct.value.trim().toLowerCase()); if(!question.value.trim()||opts.length<2||ci<0){ toast('Écris la question, au moins 2 réponses, puis recopie exactement la bonne réponse.',true); return; } add.disabled=true; try{ await persistCurrentLayout(); await saveQuickSupport({type:'quiz',question:question.value.trim(),options:opts,correct:ci,feedback:feedback.value.trim()},existing); await reloadLayoutEditor(); }catch(e){ toast('Erreur : '+e.message,true); add.disabled=false; } };
+    }
+    quickPanel.appendChild(add);
+  }
+
   // ZONE scène : occupe tout l'espace restant ; la scène est le PLUS GRAND rectangle
   // au ratio du plein écran qui y tient (comme l'élève le verra en présentation)
+  const workspace=document.createElement('div'); workspace.style.cssText='flex:1 1 auto;min-height:0;display:flex;gap:10px;align-items:stretch';
   const stageWrap=document.createElement('div');
-  stageWrap.style.cssText='flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center';
+  stageWrap.style.cssText='flex:1 1 auto;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;background:#09111f;border-radius:10px;padding:6px';
+  const inspector=document.createElement('aside'); inspector.id='layoutInspector'; inspector.style.cssText='flex:0 0 260px;min-width:220px;background:#0b1728;border:1px solid #1e3a5f;border-radius:10px;padding:11px;overflow:auto;display:flex;flex-direction:column;gap:10px';
+  inspector.innerHTML='<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#64748b">Réglages de la sélection</div>';
   const stage=document.createElement('div');
   stage.style.cssText='position:relative;aspect-ratio:'+AR+';max-width:100%;max-height:100%;'
     +'width:calc('+AR+' * min(100%, 100cqh));' // fallback ; recalé par sizeStage()
     +'background:linear-gradient(160deg,#0f2a24,#0b1a16);border:2px solid #14532d;border-radius:10px;overflow:hidden;box-shadow:inset 0 0 60px #0007';
-  stageWrap.appendChild(stage); boxw.appendChild(stageWrap);
+  stageWrap.appendChild(stage); workspace.append(stageWrap,inspector); boxw.appendChild(workspace);
   // dimensionne la scène au max de la zone tout en gardant le ratio (le plus grand possible)
   function sizeStage(){ const r=stageWrap.getBoundingClientRect(); if(!r.width||!r.height) return;
     let w=r.width, hh=w/AR; if(hh>r.height){ hh=r.height; w=hh*AR; }
@@ -1402,7 +1626,7 @@ async function openLayoutEditor(step){
     // la scène a changé de taille → recale la taille de police proportionnelle des textes
     if(typeof present!=='undefined') present.forEach(p=>{ if(canResizeText(p.key) && blocks[p.key]) applyBlockStyle(p.key); }); }
 
-  let selKey=null, txtMinus=null, txtPlus=null, colorInp=null, editBtn=null, editHint=null, fmtBar=null, editingKey=null;
+  let selKey=null, txtMinus=null, txtPlus=null, colorInp=null, editBtn=null, modifyBtn=null, deleteBtn=null, editHint=null, fmtBar=null, editingKey=null, textGroup=null, avRow=null;
   const blocks={};
   const pendingText={};   // textes réécrits ici (title/lines/probleme) → enregistrés avec la disposition
   const DEFCOL={ title:'#ffffff', body:'#e2e8f0', probleme:'#fde68a' };
@@ -1424,6 +1648,8 @@ async function openLayoutEditor(step){
   function restack(){ present.forEach(p=>{ if(blocks[p.key]) blocks[p.key].style.zIndex=state[p.key].z||1; }); }
   function canResizeText(key){ return key==='title' || key==='body' || key==='probleme' || key==='quiz'; }
   function canEditText(key){ return key==='title' || key==='body' || key==='probleme'; }
+  function canDeleteObject(key){ return !!key && key!=='avatar'; }
+  function canModifyObject(key){ return !!key && key!=='avatar' && !canEditText(key); }
   function applyBlockStyle(key){
     const blk=blocks[key], s=state[key]; if(!blk||!s||blk._isAvatar) return;
     if(s.h){ blk.style.height=s.h+'%'; blk.style.overflow='hidden'; }
@@ -1448,11 +1674,15 @@ async function openLayoutEditor(step){
   function updateTextControls(){
     if(!txtMinus||!txtPlus) return;
     const ok=canResizeText(selKey);
+    if(textGroup) textGroup.style.display=ok?'flex':'none';
+    if(avRow) avRow.style.display=selKey==='avatar'?'flex':'none';
+    if(deleteBtn) deleteBtn.style.display=canDeleteObject(selKey)?'block':'none';
+    if(modifyBtn) modifyBtn.style.display=canModifyObject(selKey)?'block':'none';
     txtMinus.disabled=txtPlus.disabled=!ok;
     txtMinus.style.opacity=txtPlus.style.opacity=ok?'1':'.45';
     if(colorInp){ colorInp.disabled=!ok; colorInp.style.opacity=ok?'1':'.45';
       if(ok) colorInp.value=toHex(state[selKey]&&state[selKey].color)||DEFCOL[selKey]||'#ffffff'; }
-    if(editBtn){ const editable=canEditText(selKey); editBtn.disabled=!editable; editBtn.style.opacity=editable?'1':'.45'; }
+    if(editBtn){ const editable=canEditText(selKey); editBtn.style.display=editable?'':'none'; }
   }
   // ── Édition inline du texte (titre / texte / situation-problème) ──
   function startEdit(key){
@@ -1538,24 +1768,40 @@ async function openLayoutEditor(step){
   restack();
 
   // barre d'outils : élément sélectionné + niveau (z) + taille avatar
-  const tools=document.createElement('div'); tools.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:#cbd5e1';
-  const selName=document.createElement('b'); selName.textContent='—'; selName.style.minWidth='90px';
+  const tools=document.createElement('div'); tools.style.cssText='display:flex;flex-direction:column;gap:10px;font-size:12.5px;color:#cbd5e1';
+  const selCard=document.createElement('div'); selCard.style.cssText='padding:9px;background:#111f33;border:1px solid #243449;border-radius:9px';
+  const selLab=document.createElement('div'); selLab.style.cssText='font-size:10px;color:#64748b;margin-bottom:3px'; selLab.textContent='Élément sélectionné';
+  const selName=document.createElement('b'); selName.textContent='—'; selName.style.cssText='display:block;color:#e2e8f0'; selCard.append(selLab,selName);
   const mk=(txt,fn)=>{ const b=document.createElement('button'); b.className='ghost'; b.style.padding='7px 11px'; b.textContent=txt; b.onclick=fn; return b; };
-  const zUp=mk('⬆ Avancer', ()=>{ if(!selKey)return; state[selKey].z=(state[selKey].z||1)+1; restack(); });
-  const zDn=mk('⬇ Reculer', ()=>{ if(!selKey)return; state[selKey].z=Math.max(0,(state[selKey].z||1)-1); restack(); });
+  const zUp=mk('⬆ Mettre devant', ()=>{ if(!selKey)return; state[selKey].z=(state[selKey].z||1)+1; restack(); });
+  const zDn=mk('⬇ Mettre derrière', ()=>{ if(!selKey)return; state[selKey].z=Math.max(0,(state[selKey].z||1)-1); restack(); });
   txtMinus=mk('T-', ()=>{ if(!canResizeText(selKey)) return; state[selKey].fs=Math.max(12,(state[selKey].fs||22)-2); applyBlockStyle(selKey); });
   txtPlus=mk('T+', ()=>{ if(!canResizeText(selKey)) return; state[selKey].fs=Math.min(80,(state[selKey].fs||22)+2); applyBlockStyle(selKey); });
   colorInp=document.createElement('input'); colorInp.type='color'; colorInp.title='Couleur du texte';
   colorInp.style.cssText='width:34px;height:30px;border:1px solid #243449;border-radius:7px;background:#0b1220;cursor:pointer;padding:2px;vertical-align:middle';
   colorInp.oninput=()=>{ if(!canResizeText(selKey)) return; state[selKey].color=colorInp.value; applyBlockStyle(selKey); };
-  editBtn=mk('✏️ Éditer le texte', ()=>{ if(canEditText(selKey)) startEdit(selKey); });
-  tools.appendChild(document.createTextNode('Sélection : ')); tools.appendChild(selName); tools.appendChild(zUp); tools.appendChild(zDn);
-  tools.appendChild(document.createTextNode('Texte : ')); tools.appendChild(txtMinus); tools.appendChild(txtPlus);
-  tools.appendChild(document.createTextNode('Couleur : ')); tools.appendChild(colorInp); tools.appendChild(editBtn);
-  boxw.appendChild(tools);
+  editBtn=mk('✏️ Modifier le texte', ()=>{
+    const item=present.find(p=>p.key===selKey); if(!item||!canEditText(selKey)) return;
+    const textOv=stepOverride(sel.chapter,step);
+    const base={boardText:true,key:item.key,title:Object.prototype.hasOwnProperty.call(textOv,'title')?textOv.title:(board.title||''),body:''};
+    if(item.key==='body') base.body=(Object.prototype.hasOwnProperty.call(textOv,'lines')?textOv.lines:(board.lines||[])).map(x=>x&&x.t||'').join('\n');
+    if(item.key==='probleme') base.body=Object.prototype.hasOwnProperty.call(textOv,'probleme')?textOv.probleme:(board.probleme||'');
+    showQuickForm('text',base);
+  });
+  deleteBtn=mk('🗑️ Supprimer cet élément', ()=>deleteSelectedObject());
+  deleteBtn.style.cssText='display:none;width:100%;padding:8px 10px;background:#4c1d1d;color:#fecaca;border:1px solid #7f1d1d;border-radius:8px';
+  modifyBtn=mk('✏️ Modifier le contenu', ()=>modifySelectedObject());
+  modifyBtn.style.cssText='display:none;width:100%;padding:8px 10px;background:#164e63;color:#cffafe;border:1px solid #155e75;border-radius:8px';
+  const levelGroup=document.createElement('div'); levelGroup.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
+  const levelTitle=document.createElement('div'); levelTitle.style.cssText='width:100%;font-size:10px;color:#64748b'; levelTitle.textContent='Superposition'; levelGroup.append(levelTitle,zUp,zDn);
+  textGroup=document.createElement('div'); textGroup.style.cssText='display:none;gap:6px;align-items:center;flex-wrap:wrap;padding-top:8px;border-top:1px solid #243449';
+  const textTitle=document.createElement('div'); textTitle.style.cssText='width:100%;font-size:10px;color:#64748b'; textTitle.textContent='Texte';
+  const colorLabel=document.createElement('span'); colorLabel.style.cssText='font-size:10px;color:#94a3b8'; colorLabel.textContent='Couleur';
+  textGroup.append(textTitle,txtMinus,txtPlus,colorLabel,colorInp,editBtn);
+  tools.append(selCard,levelGroup,textGroup,modifyBtn,deleteBtn); inspector.appendChild(tools);
   editHint=document.createElement('div'); editHint.style.cssText='display:none;font-size:12px;color:#86efac';
   editHint.textContent='✍️ Tape directement dans le bloc pour réécrire le texte. Sélectionne des mots puis choisis une mise en forme ci-dessous. Clique ailleurs pour terminer.';
-  boxw.appendChild(editHint);
+  inspector.appendChild(editHint);
   // barre de MISE EN FORME (visible seulement pendant l'édition d'un texte)
   fmtBar=document.createElement('div'); fmtBar.style.cssText='display:none;gap:6px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:#cbd5e1';
   const fmt=(label,cmd,tip)=>{ const b=document.createElement('button'); b.type='button'; b.className='ghost';
@@ -1570,10 +1816,10 @@ async function openLayoutEditor(step){
   fmtBar.appendChild(fmt('X<sup>2</sup>','superscript','Exposant (ex : m²)'));
   fmtBar.appendChild(fmt('X<sub>2</sub>','subscript','Indice (ex : CO₂, H₂O)'));
   fmtBar.appendChild(fmt('⨯ Effacer','removeFormat','Effacer la mise en forme'));
-  boxw.appendChild(fmtBar);
+  inspector.appendChild(fmtBar);
 
   // Contrôles AVATAR : forme (corps entier / tête réduite) + agrandir / réduire
-  const avRow=document.createElement('div'); avRow.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:#cbd5e1;padding-top:2px';
+  avRow=document.createElement('div'); avRow.style.cssText='display:none;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:#cbd5e1;padding-top:8px;border-top:1px solid #243449';
   const modeBtn=document.createElement('button'); modeBtn.className='ghost'; modeBtn.style.padding='7px 11px';
   function updateAvatarUI(){ const head=(state.avatar.mode==='head');
     modeBtn.textContent = head ? 'Forme : Tête réduite ⬤' : 'Forme : Corps entier 🧍';
@@ -1596,22 +1842,72 @@ async function openLayoutEditor(step){
     selectBlk('avatar'); };
   const biggr=mk('＋ Agrandir', ()=>setW((state.avatar.w||22)+6));
   const smallr=mk('－ Réduire',  ()=>setW((state.avatar.w||22)-6));
-  avRow.appendChild(document.createTextNode('👩‍🏫 Avatar : ')); avRow.appendChild(modeBtn); avRow.appendChild(biggr); avRow.appendChild(smallr);
-  boxw.appendChild(avRow); updateAvatarUI();
+  const avatarTitle=document.createElement('div'); avatarTitle.style.cssText='width:100%;font-size:10px;color:#64748b'; avatarTitle.textContent='Avatar';
+  avRow.append(avatarTitle,modeBtn,biggr,smallr);
+  inspector.appendChild(avRow); updateAvatarUI();
+
+  async function persistCurrentLayout(extraPatch){
+    if(editingKey) stopEdit();
+    const layout={el:{},avatar:Object.assign({},state.avatar)};
+    present.forEach(p=>{ if(!p.avatar) layout.el[p.key]=Object.assign({},state[p.key]); });
+    const patch=Object.assign({layout},extraPatch||{});
+    if('title' in pendingText) patch.title=pendingText.title;
+    if('lines' in pendingText) patch.lines=pendingText.lines;
+    if('probleme' in pendingText) patch.probleme=pendingText.probleme;
+    await setOverride(sel.chapter,step,patch);
+  }
+  async function reloadLayoutEditor(){ back.remove(); await openLayoutEditor(step); }
+  async function modifySelectedObject(){
+    const item=present.find(p=>p.key===selKey); if(!item||!canModifyObject(item.key)) return;
+    if(item.support){ showQuickForm(item.media.type,item); return; }
+    if(item.key==='schema'){
+      const schema=(!ov.hideSchema)?(ov.schema||board.schema):'';
+      openBuiltinEditor({title:'Modifier le schéma',hint:'Modifie le code SVG affiché au tableau.',value:schema||'',mono:true,onSave:async(v)=>{ if(!/<svg[\s>]/i.test(v)) throw new Error('Le code doit contenir une balise <svg>.'); await setOverride(sel.chapter,step,{schema:v,hideSchema:null}); await reloadLayoutEditor(); }}); return;
+    }
+    if(item.key==='sim'){ openExperienceBuilder(step); return; }
+    if(item.key==='media'){
+      const slides=Array.isArray(ov.mediaSlides)&&ov.mediaSlides.length;
+      if(slides){ openCarouselManager(step,async()=>{ back.remove(); await openLayoutEditor(step); }); return; }
+      const input=document.createElement('input'); input.type='file'; input.accept='image/*,video/*'; input.onchange=async()=>{ const f=input.files[0]; if(!f) return; try{ const src=await uploadFile(f); await setOverride(sel.chapter,step,{mediaSrc:src,mediaType:/^video\//.test(f.type)?'video':'image',hideMedia:null}); await reloadLayoutEditor(); }catch(e){ toast('Erreur : '+e.message,true); } }; input.click(); return;
+    }
+  }
+  async function deleteSelectedObject(){
+    const item=present.find(p=>p.key===selKey); if(!item||!canDeleteObject(item.key)) return;
+    if(!confirm('Supprimer « '+(item.label||'cet élément')+' » du tableau ?')) return;
+    deleteBtn.disabled=true;
+    try{
+      await persistCurrentLayout();
+      const current=stepOverride(sel.chapter,step); const layout=JSON.parse(JSON.stringify(current.layout||{el:{},avatar:state.avatar})); layout.el=layout.el||{};
+      if(item.support){
+        const r=await fetch('/api/content',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chapterId:sel.chapter,step:item.supportStepKey,remove:true,index:item.supportIndex})});
+        const j=await r.json(); if(!r.ok) throw new Error(j.error||'suppression impossible');
+        content[sel.chapter]=content[sel.chapter]||{}; content[sel.chapter][String(item.supportStepKey)]=j.list||[];
+        const prefix=item.whole?'support-all-':'support-'; const re=item.whole?/^support-all-(\d+)$/:/^support-(\d+)$/;
+        const next={}; Object.keys(layout.el).forEach(k=>{ const m=re.exec(k); if(!m){ next[k]=layout.el[k]; return; } const n=Number(m[1]); if(n<item.supportIndex) next[k]=layout.el[k]; else if(n>item.supportIndex) next[prefix+(n-1)]=layout.el[k]; }); layout.el=next;
+        await setOverride(sel.chapter,step,{layout});
+      } else {
+        delete layout.el[item.key]; const patch={layout};
+        if(item.key==='title') patch.title='';
+        else if(item.key==='body') patch.lines=[];
+        else if(item.key==='probleme') patch.probleme='';
+        else if(item.key==='media') patch.hideMedia=true;
+        else if(item.key==='schema') patch.hideSchema=true;
+        else if(item.key==='sim') patch.hideSim=true;
+        else if(item.key==='quiz') patch.hideQuiz=true;
+        await setOverride(sel.chapter,step,patch);
+      }
+      toast('Élément supprimé ✓');
+      if(item.key==='quiz'){ back.remove(); renderEditor(); } else await reloadLayoutEditor();
+    }catch(e){ toast('Erreur : '+e.message,true); deleteBtn.disabled=false; }
+  }
 
   // actions
   const row=document.createElement('div'); row.style.cssText='display:flex;gap:10px;justify-content:flex-end;margin-top:6px;flex-wrap:wrap';
-  const reset=mk('↩ Auto', async()=>{ if(!confirm('Revenir à la disposition automatique ?'))return; try{ await setOverride(sel.chapter, step, { layout:null }); back.remove(); toast('Disposition réinitialisée ✓'); }catch(e){ toast('Erreur : '+e.message,true); } });
+  const reset=mk('↩ Réinitialiser', async()=>{ if(!confirm('Revenir à la disposition automatique ?'))return; try{ await setOverride(sel.chapter, step, { layout:null }); back.remove(); toast('Disposition réinitialisée ✓'); }catch(e){ toast('Erreur : '+e.message,true); } });
   const cancel=document.createElement('button'); cancel.className='ghost'; cancel.textContent='Annuler'; cancel.onclick=()=>back.remove();
   const save=document.createElement('button'); save.className='add-btn'; save.textContent='💾 Enregistrer la disposition';
-  save.onclick=async()=>{ if(editingKey) stopEdit(); save.disabled=true;
-    try{ const layout={ el:{}, avatar:Object.assign({}, state.avatar) };
-      present.forEach(p=>{ if(!p.avatar) layout.el[p.key]=Object.assign({}, state[p.key]); });
-      const patch={ layout };   // + textes réécrits sur place (titre / texte / situation-problème)
-      if('title' in pendingText) patch.title=pendingText.title;
-      if('lines' in pendingText) patch.lines=pendingText.lines;
-      if('probleme' in pendingText) patch.probleme=pendingText.probleme;
-      await setOverride(sel.chapter, step, patch); back.remove(); toast('Disposition enregistrée ✓');
+  save.onclick=async()=>{ save.disabled=true;
+    try{ await persistCurrentLayout(); back.remove(); toast('Disposition enregistrée ✓');
     }catch(e){ toast('Erreur : '+e.message,true); save.disabled=false; } };
   row.appendChild(reset); row.appendChild(cancel); row.appendChild(save); boxw.appendChild(row);
 
@@ -1809,7 +2105,7 @@ async function uploadFile(f){
   const uj=await up.json(); if(!up.ok||!uj.url) throw new Error(uj.error||'échec du téléversement');
   return uj.url;
 }
-function openCarouselManager(step){
+function openCarouselManager(step,onSaved){
   const ov=stepOverride(sel.chapter, step);
   const chap=chapById(sel.chapter); const et=(chap&&chap.etapes&&chap.etapes[step])||{}; const board=et.board||{};
   // On part des images déjà définies (carrousel), sinon on amorce avec l'image simple existante.
@@ -1908,6 +2204,7 @@ function openCarouselManager(step){
       await setOverride(sel.chapter, step, { mediaSlides: clean.length>=2 ? clean : null });
       toast(clean.length>=2 ? 'Carrousel enregistré ✓ ('+clean.length+' diapos)' : 'Carrousel retiré');
       back.remove();
+      if(typeof onSaved==='function') await onSaved(clean);
     }catch(e){ toast('Erreur : '+e.message, true); save.disabled=false; }
   };
   rowB.appendChild(cancel); rowB.appendChild(save); box.appendChild(rowB);
@@ -1921,7 +2218,7 @@ function renderSupports(){
   if(!list.length){ supportsEl.innerHTML='<div class="empty">Aucun support pour l\'instant. Ajoute un texte, un lien ou un média ci-dessus.</div>'; return; }
   list.forEach((m,idx)=>{
     const card=document.createElement('div'); card.className='support';
-    const ico={text:'📝',link:'🔗',image:'🖼️',video:'🎬'}[m.type]||'📎';
+    const ico={text:'📝',link:'🔗',image:'🖼️',video:'🎬',quiz:'❓'}[m.type]||'📎';
     let media='';
     if(m.type==='image') media=`<img src="${m.url}" alt="">`;
     else if(m.type==='video') media=`<video src="${m.url}" controls playsinline></video>`;
@@ -1933,6 +2230,8 @@ function renderSupports(){
       bodyHtml=`<div class="kind">Lien</div>`
              + (m.caption?`<div class="txt">${esc(m.caption)}</div>`:'')
              + `<a href="${encodeURI(m.url)}" target="_blank" rel="noopener">${esc(m.url)}</a>`;
+    } else if(m.type==='quiz'){
+      bodyHtml=`<div class="kind">Mini-quiz</div><div class="txt"><b>${esc(m.question||'')}</b><br>${(m.options||[]).map((o,i)=>`${i===m.correct?'✅':'▫️'} ${esc(o)}`).join('<br>')}</div>`;
     } else {
       bodyHtml=`<div class="kind">${m.type==='video'?'Vidéo':'Image'}</div>`
              + (m.caption?`<div class="txt">${esc(m.caption)}</div>`:'')+media;
@@ -2006,6 +2305,14 @@ async function editSupport(idx, m){
       const url=prompt('Modifier l\'URL :', m.url||''); if(url===null) return;
       if(!/^https?:\/\//i.test(url)){ toast('URL invalide.',true); return; }
       await saveSupport({ type:'link', url:url.trim(), caption:m.caption||'' }, { update:true, index:idx });
+    } else if(m.type==='quiz'){
+      const question=prompt('Modifier la question :',m.question||''); if(question===null) return;
+      const raw=prompt('Réponses proposées (une par ligne) :',(m.options||[]).join('\n')); if(raw===null) return;
+      const options=raw.split('\n').map(x=>x.trim()).filter(Boolean); if(options.length<2){ toast('Il faut au moins deux réponses.',true); return; }
+      const answer=prompt('Recopie exactement la bonne réponse :',options[Number(m.correct)]||options[0]); if(answer===null) return;
+      const correct=options.findIndex(x=>x.toLowerCase()===answer.trim().toLowerCase()); if(correct<0){ toast('La bonne réponse doit correspondre à une réponse proposée.',true); return; }
+      const feedback=prompt('Correction / explication (facultatif) :',m.feedback||''); if(feedback===null) return;
+      await saveSupport({type:'quiz',question:question.trim(),options,correct,feedback:feedback.trim()},{update:true,index:idx});
     } else {
       const caption=prompt('Modifier la légende :', m.caption||''); if(caption===null) return;
       await saveSupport(Object.assign({}, m, { caption:caption.trim() }), { update:true, index:idx });
@@ -2017,6 +2324,7 @@ async function editSupport(idx, m){
 // ── Init ──
 chapterSel.onchange=()=>{ sel.chapter=chapterSel.value; sel.step=null; renderSteps(); renderEditor(); };
 $('addStepBtn').onclick=addCustomCoursePart;
+$('courseBoardsBtn').onclick=()=>openCourseLayoutOverview();
 
 Promise.all([
   fetch('/api/content').then(r=>r.ok?r.json():{}).catch(()=>({})),

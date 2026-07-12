@@ -61,17 +61,13 @@ function sanitizeCustomStep(raw){
   const allowed = new Set(['situation','rappel','probleme','hypothese','concept','structuration','bilan']);
   const phase = allowed.has(raw && raw.phase) ? raw.phase : 'concept';
   const title = cleanText(raw && raw.title, 120) || 'Nouvelle partie du cours';
-  const say = cleanText(raw && raw.say, 1200) ||
-    `Nous ajoutons une nouvelle partie au cours : ${title}. Le professeur pourra la compléter avec ses supports.`;
+  // Une nouvelle partie commence réellement vide : aucun texte pédagogique ni parole automatique.
+  const say = cleanText(raw && raw.say, 1200);
   let lines = Array.isArray(raw && raw.lines) ? raw.lines : [];
   lines = lines.map(l=>{
     const t = cleanText((l && typeof l === 'object') ? l.t : l, 260);
     return t ? { t, cls: cleanText(l && l.cls, 24) } : null;
   }).filter(Boolean).slice(0, 8);
-  if(!lines.length) lines = [
-    { t:`<span class='o'>${title}</span>`, cls:'def' },
-    { t:'Ajoute ici les documents, consignes ou explications de cette partie depuis l’espace professeur.', cls:'sub' }
-  ];
   return { id:newStepId(), phase, say, board:{ title, lines }, custom:true };
 }
 
@@ -274,7 +270,8 @@ function isValidSupport(m){
   return m && (
     ((m.type==='image'||m.type==='video') && m.url) ||
     (m.type==='link' && m.url) ||
-    (m.type==='text' && m.body && String(m.body).trim())
+    (m.type==='text' && m.body && String(m.body).trim()) ||
+    (m.type==='quiz' && m.question && Array.isArray(m.options) && m.options.length>=2)
   );
 }
 // POST /api/content
@@ -322,6 +319,7 @@ function teacherContextFor(chapterId, step){
       const tag = (s==='*' ? 'toute la leçon' : 'étape '+s);
       if(m.type==='text') return `• [${tag}] Note du prof : ${String(m.body).trim().slice(0,600)}`;
       if(m.type==='link') return `• [${tag}] Lien fourni par le prof${m.caption?' ('+m.caption+')':''} : ${m.url}`;
+      if(m.type==='quiz') return `• [${tag}] Mini-quiz du prof : ${String(m.question||'').slice(0,300)} — réponse attendue : ${String((m.options||[])[m.correct]||'').slice(0,150)}`;
       const kind = m.type==='video' ? 'Vidéo' : 'Image';
       return `• [${tag}] ${kind} affichée par le prof${m.caption?` (légende : ${m.caption})`:''}.`;
     };
@@ -964,7 +962,7 @@ function sanitizeQuizQuestion(raw, type){
   return { type:'qcm', enonce, q, options, correct, fb };
 }
 
-// POST /api/generate-quiz { chapterTitle, type, phase?, context?, instruction? } -> une question de quiz.
+// POST /api/generate-quiz { chapterTitle, type, count?, phase?, context?, instruction? } -> une ou plusieurs questions de quiz.
 async function callDeepSeekQuizQuestion(ctx){
   const key = getKey();
   const type = ['qcm','vf','libre','association'].includes(ctx.type) ? ctx.type : 'qcm';
@@ -1004,9 +1002,16 @@ function handleGenerateQuiz(req, res){
   req.on('end', async ()=>{
     try{
       const ctx = JSON.parse(body || '{}');
-      const out = await callDeepSeekQuizQuestion(ctx);
+      const count=Math.max(1,Math.min(5,Number(ctx.count)||1));
+      const questions=[];
+      for(let i=0;i<count;i++){
+        const instruction=(ctx.instruction||'').trim();
+        questions.push(await callDeepSeekQuizQuestion(Object.assign({},ctx,{
+          instruction:count>1 ? `${instruction||'Génère une question pertinente sur ce chapitre.'}\nCrée la question ${i+1} sur ${count}, différente des autres.` : instruction
+        })));
+      }
       res.writeHead(200, { 'Content-Type':'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ ok:true, question: out }));
+      res.end(JSON.stringify({ ok:true, question:questions[0], questions }));
     }catch(e){
       res.writeHead(502, { 'Content-Type':'application/json; charset=utf-8' });
       res.end(JSON.stringify({ error: String(e.message || e) }));

@@ -14,6 +14,30 @@
       }
     },
     "1": {
+      "layout": {
+        "el": {
+          "title": {
+            "x": 5,
+            "y": 4,
+            "w": 66,
+            "z": 3,
+            "fs": 32
+          }
+        },
+        "avatar": {
+          "x": 3,
+          "y": 52,
+          "w": 22,
+          "z": 6,
+          "mode": "full",
+          "h": 52.5
+        }
+      },
+      "say": "Nous ajoutons une nouvelle partie au cours : Nouvelle partie du cours. Le professeur pourra la compléter avec ses supports.  salam ca va niua allons tester cette nouvelle fonctionallité  test",
+      "sayExtra": "salam ca va niua allons tester cette nouvelle fonctionallité\ntest",
+      "lines": []
+    },
+    "2": {
       "mediaSrc": "/uploads/1783538084757-5xmk3c.png",
       "mediaType": "image",
       "title": "Situation : Que mangent Ahmed et Sara ?",
@@ -48,7 +72,7 @@
         }
       }
     },
-    "2": {
+    "3": {
       "mediaSrc": "/uploads/1783645954298-vkaerh.mp4",
       "mediaType": "video",
       "say": "Regarde attentivement cette vidéo. Elle nous montre que les aliments n'apportent pas tous la même chose. Le sucre apporte surtout des glucides : c'est une source d'énergie. Les huiles contiennent des lipides. Les viandes et l'œuf apportent des protides, utiles pour construire le corps. L'eau est aussi indispensable. À la fin, observe les catégories : aliments énergétiques, bâtisseurs et protecteurs. Après la vidéo, tu devras dire dans quelle catégorie placer chaque aliment.",
@@ -87,7 +111,7 @@
         }
       }
     },
-    "3": {
+    "4": {
       "layout": {
         "el": {
           "title": {
@@ -122,7 +146,7 @@
         }
       }
     },
-    "4": {
+    "5": {
       "hideSim": true,
       "layout": {
         "el": {
@@ -158,7 +182,7 @@
         }
       }
     },
-    "5": {
+    "6": {
       "layout": {
         "el": {
           "title": {
@@ -193,7 +217,7 @@
         }
       }
     },
-    "6": {
+    "7": {
       "layout": {
         "el": {
           "title": {
@@ -228,7 +252,7 @@
         }
       }
     },
-    "7": {
+    "8": {
       "layout": {
         "el": {
           "title": {
@@ -263,7 +287,7 @@
         }
       }
     },
-    "8": {
+    "9": {
       "layout": {
         "el": {
           "title": {
@@ -310,7 +334,7 @@
       ],
       "hideSchema": true
     },
-    "9": {
+    "10": {
       "layout": {
         "el": {
           "title": {
@@ -319,13 +343,6 @@
             "w": 66,
             "z": 3,
             "fs": 32
-          },
-          "body": {
-            "x": 4.6,
-            "y": 34,
-            "w": 56,
-            "z": 2,
-            "fs": 25
           },
           "sim": {
             "x": 28.6,
@@ -346,10 +363,10 @@
       },
       "title": "Analyse quantitative : simple ou composé ? 📊",
       "lines": [],
-      "say": "Voici l'analyse quantitative de quelques aliments : pour chacun, on donne le pourcentage de glucides, de protides, de lipides et d'eau. À toi de jouer : si un aliment n'a qu'un seul constituant, c'est un aliment simple ; s'il en a plusieurs, c'est un aliment composé. Complète la dernière colonne !",
-      "sayExtra": "Voici l'analyse quantitative de quelques aliments : pour chacun, on donne le pourcentage de glucides, de protides, de lipides et d'eau. À toi de jouer : si un aliment n'a qu'un seul constituant, c'est un aliment simple ; s'il en a plusieurs, c'est un aliment composé. Complète la dernière colonne !"
+      "say": "Voici l'analyse quantitative de quelques aliments : pour chacun, on donne le pourcentage de glucides, de protides, de lipides et d'eau. À toi de jouer : si un aliment n'a qu'un seul constituant, c'est un aliment simple ; s'il en a plusieurs, c'est un aliment composé. Complète la dernière colonne !  test",
+      "sayExtra": "Voici l'analyse quantitative de quelques aliments : pour chacun, on donne le pourcentage de glucides, de protides, de lipides et d'eau. À toi de jouer : si un aliment n'a qu'un seul constituant, c'est un aliment simple ; s'il en a plusieurs, c'est un aliment composé. Complète la dernière colonne !\ntest"
     },
-    "10": {
+    "11": {
       "layout": {
         "el": {
           "title": {
@@ -385,7 +402,7 @@
         }
       }
     },
-    "12": {
+    "13": {
       "title": "Bilan : bien manger, c'est varier ✅",
       "lines": [],
       "say": "Revenons à Ahmed et Sara. Ahmed n'a mangé que du pain : surtout des glucides. Sara a mangé du pain, un œuf, du lait et une pomme : elle a des glucides, des protides, du calcium et des vitamines. C'est donc Sara qui a le repas le plus équilibré ! Et maintenant, une question : une fois dans la bouche, que deviennent vraiment ces aliments ? C'est notre prochaine activité.",
@@ -410,7 +427,7 @@
         }
       }
     },
-    "14": {
+    "15": {
       "layout": {
         "el": {
           "title": {
@@ -464,7 +481,221 @@
           "mode": "full",
           "h": 52.5
         }
-      }
+      },
+      "hideQuiz": true,
+      "quizSets": [
+        {
+          "label": "Quiz 1 · Aliments simples ou composés",
+          "intro": "Un document et des étiquettes d'aliments : sauras-tu distinguer un aliment simple d'un aliment composé ?",
+          "quiz": [
+            {
+              "type": "qcm",
+              "enonce": "Le document ci-dessous compare la composition de trois aliments : le sucre, le pain et le lait.",
+              "svg": "<svg viewBox='0 0 520 210' xmlns='http://www.w3.org/2000/svg' font-family='Segoe UI,sans-serif'><style>.n{fill:#e2e8f0;font-size:15px;font-weight:700}.k{fill:#94a3b8;font-size:12px}</style><rect x='14' y='20' width='150' height='170' rx='12' fill='#0f172a' stroke='#334155'/><rect x='185' y='20' width='150' height='170' rx='12' fill='#0f172a' stroke='#334155'/><rect x='356' y='20' width='150' height='170' rx='12' fill='#0f172a' stroke='#334155'/><text x='89' y='45' text-anchor='middle' class='n'>🍬 Sucre</text><text x='260' y='45' text-anchor='middle' class='n'>🍞 Pain</text><text x='431' y='45' text-anchor='middle' class='n'>🥛 Lait</text><rect x='34' y='70' width='110' height='26' rx='6' fill='#38bdf8'/><text x='89' y='88' text-anchor='middle' class='k' fill='#082f49'>Glucides 100%</text><rect x='205' y='70' width='55' height='26' rx='6' fill='#38bdf8'/><rect x='262' y='70' width='30' height='26' rx='6' fill='#f472b6'/><rect x='294' y='70' width='26' height='26' rx='6' fill='#60a5fa'/><text x='260' y='118' text-anchor='middle' class='k'>Glucides + protides + eau</text><rect x='376' y='70' width='40' height='26' rx='6' fill='#38bdf8'/><rect x='418' y='70' width='30' height='26' rx='6' fill='#f472b6'/><rect x='450' y='70' width='24' height='26' rx='6' fill='#fbbf24'/><rect x='476' y='70' width='20' height='26' rx='6' fill='#60a5fa'/><text x='431' y='118' text-anchor='middle' class='k'>Glucides + protides +</text><text x='431' y='134' text-anchor='middle' class='k'>lipides + eau + calcium</text><text x='89' y='150' text-anchor='middle' class='k'>1 seul constituant</text><text x='260' y='160' text-anchor='middle' class='k'>plusieurs constituants</text><text x='431' y='160' text-anchor='middle' class='k'>plusieurs constituants</text></svg>",
+              "imgCaption": "Composition comparée de trois aliments.",
+              "q": "D'après le document, quel est le seul <b>aliment simple</b> ?",
+              "options": [
+                "Le sucre",
+                "Le pain",
+                "Le lait"
+              ],
+              "correct": 0,
+              "fb": "Le sucre n'a qu'un seul constituant (les glucides) : c'est un aliment simple. Le pain et le lait en ont plusieurs : ce sont des aliments composés."
+            },
+            {
+              "type": "vf",
+              "enonce": "Un élève affirme : « Puisque le lait contient des glucides, des protides, des lipides, de l'eau et du calcium, c'est un aliment composé. »",
+              "q": "Cette affirmation est-elle correcte ?",
+              "correct": true,
+              "fb": "Vrai : un aliment qui réunit plusieurs constituants est un aliment composé, comme le lait."
+            },
+            {
+              "type": "libre",
+              "enonce": "On lit sur un paquet de biscuits : « Pour 100 g : glucides 62 g, lipides 20 g, protides 7 g. »",
+              "q": "Cet aliment est-il simple ou composé ? Écris ta réponse en un mot.",
+              "attendus": [
+                "composé",
+                "compose",
+                "composee"
+              ],
+              "reponse": "un aliment composé",
+              "fb": "Il a plusieurs constituants (glucides, lipides, protides) : c'est un aliment composé."
+            },
+            {
+              "type": "qcm",
+              "enonce": "On dit qu'un aliment est « simple » quand il ne contient qu'un seul constituant.",
+              "q": "Parmi ces aliments, lequel est le plus proche d'un aliment simple ?",
+              "options": [
+                "L'huile (≈ 100 % lipides)",
+                "Le pain",
+                "Le lait"
+              ],
+              "correct": 0,
+              "fb": "L'huile est presque uniquement composée de lipides : c'est un aliment simple."
+            }
+          ]
+        },
+        {
+          "label": "Quiz 2 · Les nutriments et leurs rôles",
+          "intro": "À partir de situations de la vie courante, retrouve le rôle de chaque nutriment.",
+          "quiz": [
+            {
+              "type": "qcm",
+              "enonce": "Un sportif mange un grand bol de pâtes (riche en glucides) juste avant sa course.",
+              "q": "Pourquoi choisit-il surtout des glucides ?",
+              "options": [
+                "Pour avoir de l'énergie rapidement",
+                "Pour construire ses muscles",
+                "Pour se protéger des maladies"
+              ],
+              "correct": 0,
+              "fb": "Les glucides sont la principale source d'énergie du corps."
+            },
+            {
+              "type": "qcm",
+              "enonce": "Un enfant en pleine croissance doit manger des aliments riches en protides (viande, œuf, lait).",
+              "q": "À quoi servent surtout les protides ?",
+              "options": [
+                "À construire et réparer le corps",
+                "À donner uniquement de l'énergie",
+                "À protéger contre le froid"
+              ],
+              "correct": 0,
+              "fb": "Les protides servent à construire le corps (muscles, croissance) et à le réparer."
+            },
+            {
+              "type": "association",
+              "enonce": "Chaque nutriment a un rôle principal dans l'organisme.",
+              "q": "Associe chaque nutriment à son rôle :",
+              "pairs": [
+                {
+                  "l": "Glucides",
+                  "r": "donner de l'énergie"
+                },
+                {
+                  "l": "Protides",
+                  "r": "construire le corps"
+                },
+                {
+                  "l": "Lipides",
+                  "r": "réserve d'énergie"
+                },
+                {
+                  "l": "Vitamines",
+                  "r": "protéger l'organisme"
+                }
+              ],
+              "fb": "Glucides = énergie, protides = construction, lipides = réserve, vitamines = protection."
+            },
+            {
+              "type": "libre",
+              "enonce": "Les aliments sont formés de substances plus petites qui nourrissent le corps.",
+              "q": "Comment appelle-t-on ces substances qui composent les aliments ? (un mot)",
+              "attendus": [
+                "nutriment",
+                "nutriments"
+              ],
+              "reponse": "les nutriments",
+              "fb": "Ce sont les nutriments."
+            }
+          ]
+        },
+        {
+          "label": "Quiz 3 · La digestion dans la bouche",
+          "intro": "Une expérience simple avec une mie de pain va te faire découvrir ce qui se passe dans la bouche.",
+          "quiz": [
+            {
+              "type": "qcm",
+              "enonce": "Dans la bouche, l'aliment est coupé, broyé puis mélangé à la salive avant d'être avalé.",
+              "q": "La mastication est assurée surtout par…",
+              "options": [
+                "les dents et la langue",
+                "l'estomac",
+                "le pharynx"
+              ],
+              "correct": 0,
+              "fb": "Les dents coupent et broient l'aliment, la langue le mélange à la salive."
+            },
+            {
+              "type": "qcm",
+              "enonce": "Tu mâches longuement une mie de pain sans l'avaler : au bout d'un moment, elle prend un goût sucré.",
+              "q": "Que s'est-il passé dans ta bouche ?",
+              "options": [
+                "La salive a transformé l'amidon en maltose",
+                "Les protéines sont devenues de l'amidon",
+                "Les lipides se sont transformés en eau"
+              ],
+              "correct": 0,
+              "fb": "La salive change une partie de l'amidon en maltose, un sucre : c'est la digestion chimique."
+            },
+            {
+              "type": "vf",
+              "enonce": "Dans la bouche, deux types de transformations agissent en même temps sur l'aliment.",
+              "q": "L'aliment subit à la fois une transformation mécanique et une transformation chimique.",
+              "correct": true,
+              "fb": "Oui : la mastication (mécanique) et l'action de la salive sur l'amidon (chimique)."
+            },
+            {
+              "type": "libre",
+              "enonce": "Après la mastication, l'aliment forme une boulette molle et humide, prête à être avalée.",
+              "q": "Comment appelle-t-on cette boulette ? (deux mots)",
+              "attendus": [
+                "bol alimentaire",
+                "bol"
+              ],
+              "reponse": "le bol alimentaire",
+              "fb": "C'est le bol alimentaire, ensuite conduit vers l'estomac par la déglutition."
+            }
+          ]
+        },
+        {
+          "label": "Quiz 4",
+          "intro": "",
+          "quiz": [
+            {
+              "type": "qcm",
+              "q": "Nouvelle question ?",
+              "options": [
+                "Réponse g",
+                "Réponse B",
+                "Réponse C"
+              ],
+              "correct": 0,
+              "fb": "",
+              "enonce": ""
+            },
+            {
+              "type": "qcm",
+              "q": "Nouvelle question ?",
+              "options": [
+                "hytRéponse A",
+                "Réponse B",
+                "Réponse C"
+              ],
+              "correct": 2,
+              "fb": "",
+              "enonce": "test"
+            }
+          ]
+        },
+        {
+          "label": "Quiz 5",
+          "intro": "",
+          "quiz": [
+            {
+              "type": "qcm",
+              "q": "Nouvelle question ?",
+              "options": [
+                "Réponse A",
+                "Réponse B",
+                "Réponse C"
+              ],
+              "correct": 0,
+              "fb": ""
+            }
+          ]
+        }
+      ]
     }
   }
 }

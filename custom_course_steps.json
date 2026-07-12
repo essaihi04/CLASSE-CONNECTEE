@@ -1,3 +1,23 @@
 {
-  "les-aliments": []
+  "les-aliments": [
+    {
+      "id": "cmrhmj4fx9oub",
+      "phase": "concept",
+      "say": "Nous ajoutons une nouvelle partie au cours : Nouvelle partie du cours. Le professeur pourra la compléter avec ses supports.",
+      "board": {
+        "title": "Nouvelle partie du cours",
+        "lines": [
+          {
+            "t": "<span class='o'>Nouvelle partie du cours</span>",
+            "cls": "def"
+          },
+          {
+            "t": "Ajoute ici les documents, consignes ou explications de cette partie depuis l’espace professeur.",
+            "cls": "sub"
+          }
+        ]
+      },
+      "custom": true
+    }
+  ]
 }

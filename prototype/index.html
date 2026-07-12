@@ -384,6 +384,9 @@
   .media-card .mc-link{display:block;padding:9px 11px;font-size:13px;color:#a5f3fc;
     text-decoration:none;word-break:break-word;line-height:1.4}
   .media-card .mc-link:hover{text-decoration:underline}
+  .media-card .mc-quiz{padding:10px 11px}.media-card .mc-quiz-q{font-size:14px;font-weight:700;color:#f1f5f9;margin-bottom:8px}
+  .media-card .mc-quiz-options{display:flex;flex-direction:column;gap:6px}.media-card .mc-quiz-opt{text-align:left;background:#0f213b;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:7px 9px;cursor:pointer;font-size:12px}
+  .media-card .mc-quiz-opt.good{background:#14532d;border-color:#22c55e}.media-card .mc-quiz-opt.bad{background:#4c1d1d;border-color:#ef4444}.media-card .mc-quiz-fb{font-size:11px;color:#a5b4fc;margin-top:7px}
   .media-card.mc-whole{border-color:var(--accent2)}
   .media-card.mc-whole::before{content:"🔁 toute la leçon";display:block;font-size:9px;font-weight:700;
     color:#082f49;background:var(--accent2);padding:1px 7px;letter-spacing:.02em}
@@ -2407,7 +2410,8 @@ let quizReturnStep=null;
 let activeQuizLayoutKey='quiz';
 function isIntermediateQuizStep(step){
   const ov=stepOverride(lecon&&lecon.id,'quiz');
-  return ov.evalAfterId ? step.__id===ov.evalAfterId : !!step.evalHere;
+  if(ov.evalDisabled) return false;
+  return Object.prototype.hasOwnProperty.call(ov,'evalAfterId') ? step.__id===ov.evalAfterId : !!step.evalHere;
 }
 function go(n){ if(n<0||n>=lecon.etapes.length)return; if(typeof resumePlayback==='function') resumePlayback(); inQuiz=false; i=n; render(i); }
 
@@ -3353,6 +3357,15 @@ function buildSupportCard(cid, stepKey, idx, m, layoutKey){
   else if(m.type==='link'){
     const a=document.createElement('a'); a.className='mc-link'; a.href=m.url; a.target='_blank'; a.rel='noopener';
     a.textContent='🔗 '+(m.caption||m.url); card.appendChild(a);
+  }
+  else if(m.type==='quiz'){
+    const wrap=document.createElement('div'); wrap.className='mc-quiz';
+    const q=document.createElement('div'); q.className='mc-quiz-q'; q.textContent=m.question||'Question'; wrap.appendChild(q);
+    const opts=document.createElement('div'); opts.className='mc-quiz-options';
+    (m.options||[]).forEach((label,k)=>{ const b=document.createElement('button'); b.className='mc-quiz-opt'; b.textContent=label;
+      b.onclick=()=>{ if(opts.dataset.done) return; opts.dataset.done='1'; [...opts.children].forEach((x,j)=>{ x.disabled=true; if(j===Number(m.correct)) x.classList.add('good'); }); if(k!==Number(m.correct)) b.classList.add('bad'); if(m.feedback){ const fb=document.createElement('div'); fb.className='mc-quiz-fb'; fb.textContent=m.feedback; wrap.appendChild(fb); } };
+      opts.appendChild(b); });
+    wrap.appendChild(opts); card.appendChild(wrap);
   }
   else { const im=document.createElement('img'); im.src=m.url; im.alt=m.caption||'image'; im.onclick=()=>lightbox(m.url); card.appendChild(im);
     if(m.caption){ const cap=document.createElement('div'); cap.className='cap'; cap.textContent=m.caption; card.appendChild(cap); } }
