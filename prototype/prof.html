@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Espace supports — Classes Connectées</title>
+<script>document.documentElement.classList.add('auth-pending');document.documentElement.dataset.requiresTeacher='true';</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="auth.js"></script>
 <script type="importmap">
 {
   "imports": {
@@ -23,6 +27,7 @@
   header h1{font-size:18px;margin:0;flex:1}
   header .back{background:#334155;color:#e2e8f0;text-decoration:none;padding:8px 13px;border-radius:10px;font-size:14px;font-weight:600}
   header .back:hover{background:#475569}
+  .auth-pending body{visibility:hidden}
   .wrap{max-width:1100px;margin:0 auto;padding:20px;display:grid;grid-template-columns:320px 1fr;gap:20px}
   @media(max-width:820px){ .wrap{grid-template-columns:1fr} }
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
@@ -201,6 +206,8 @@
 <body>
 <header>
   <h1>🗂️ Espace supports pédagogiques</h1>
+  <span data-teacher-name style="font-size:13px;color:var(--muted);font-weight:600"></span>
+  <button class="back" id="logoutBtn" type="button">Déconnexion</button>
   <a class="back" href="schema3d-viewer.html">Bibliothèque 3D</a>
   <a class="back" href="index.html">← Retour au cours</a>
 </header>
@@ -2326,17 +2333,21 @@ chapterSel.onchange=()=>{ sel.chapter=chapterSel.value; sel.step=null; renderSte
 $('addStepBtn').onclick=addCustomCoursePart;
 $('courseBoardsBtn').onclick=()=>openCourseLayoutOverview();
 
-Promise.all([
+(window.teacherAuthReady || Promise.resolve()).then(()=>Promise.all([
   fetch('/api/content').then(r=>r.ok?r.json():{}).catch(()=>({})),
   fetch('/api/overrides').then(r=>r.ok?r.json():{}).catch(()=>({})),
   fetch('/api/custom-steps').then(r=>r.ok?r.json():{}).catch(()=>({})),
   fetch('/api/course-structure').then(r=>r.ok?r.json():{}).catch(()=>({}))
-]).then(([c,o,cs,st])=>{
+])).then(([c,o,cs,st])=>{
   content=c||{}; overrides=o||{}; customSteps=cs||{}; structure=st||{}; applyStepPlan();
   fillChapters();
   if(LECONS.length){ sel.chapter=LECONS[0].id; chapterSel.value=sel.chapter; }
   renderSteps(); renderEditor();
-}).catch(()=>{ fillChapters(); if(LECONS.length){ sel.chapter=LECONS[0].id; } renderSteps(); renderEditor(); });
+}).catch(()=>{
+  // Une erreur d'authentification ne doit jamais lancer l'ancien espace local en secours.
+  if(document.documentElement.dataset.requiresTeacher==='true' && !window.currentTeacher) return;
+  fillChapters(); if(LECONS.length){ sel.chapter=LECONS[0].id; } renderSteps(); renderEditor();
+});
 </script>
 </body>
 </html>
