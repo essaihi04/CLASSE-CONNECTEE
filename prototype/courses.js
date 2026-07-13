@@ -11,7 +11,7 @@
     if(!courses.length)grid.innerHTML='<div class="empty">Aucun cours ne correspond à cette recherche.</div>';
   }
   async function init(){
-    try{await window.teacherAuthReady;const {data,error}=await window.classesSupabase.from('courses').select('id,subject_id,title,description,settings,subjects(name,color),grade_levels(name),course_blocks(count)').eq('status','published').order('updated_at',{ascending:false});if(error)throw error;state.courses=data||[];
+    try{await window.teacherAuthReady;const sb=window.classesSupabase,{data:{session}}=await sb.auth.getSession();let query=sb.from('courses').select('id,subject_id,title,description,settings,subjects(name,color),grade_levels(name),course_blocks(count)').eq('status','published');if(session&&session.user)query=query.eq('teacher_id',session.user.id);const {data,error}=await query.order('updated_at',{ascending:false});if(error)throw error;state.courses=data||[];
       const subjects=[...new Map(state.courses.filter(x=>x.subjects).map(x=>[x.subject_id,x.subjects.name])).entries()];subjects.forEach(([id,name])=>{const option=document.createElement('option');option.value=id;option.textContent=name;$('subjectFilter').appendChild(option)});$('search').oninput=render;$('subjectFilter').onchange=render;render();
     }catch(error){$('resultCount').textContent='Indisponible';$('courseGrid').innerHTML='<div class="empty">Impossible de charger les cours publiés. Vérifiez la connexion puis réessayez.</div>'}
   }

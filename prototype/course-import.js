@@ -5,7 +5,7 @@
     text:{label:'Texte',icon:'T'},image:{label:'Image',icon:'IM'},video:{label:'Vidéo',icon:'▶'},simulation:{label:'Simulation',icon:'SIM'},
     activity:{label:'Activité',icon:'A'},question:{label:'Question',icon:'?'},summary:{label:'Synthèse',icon:'Σ'},evaluation:{label:'Évaluation',icon:'✓'},schema:{label:'Schéma',icon:'SC'}
   };
-  const state={stage:1,pdf:null,resources:[],assignments:[],plan:null,selected:null,saving:false,courseId:'',importId:'',persistedBlocks:[]};
+  const state={stage:1,pdf:null,resources:[],removedSources:[],assignments:[],plan:null,selected:null,saving:false,courseId:'',importId:'',persistedBlocks:[]};
 
   function toast(message,error){const el=$('toast');el.textContent=message;el.className='toast show'+(error?' error':'');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.className='toast',2800)}
   function bytes(size){if(size<1024)return size+' o';if(size<1048576)return (size/1024).toFixed(1)+' Ko';return (size/1048576).toFixed(1)+' Mo'}
@@ -58,13 +58,13 @@
     renderResources();updateSourceSummary();
   }
   function renderResources(){
-    const list=$('resourceList');list.innerHTML='';
-    state.resources.forEach(resource=>{
+    const lists=[$('resourceList'),$('studioResourceList')].filter(Boolean);lists.forEach(list=>list.innerHTML='');
+    lists.forEach(list=>state.resources.forEach(resource=>{
       const card=document.createElement('div');card.className='resource-card';
       card.innerHTML=`<span class="resource-kind">${iconLabel(resource.kind)}</span><span class="resource-info"><b>${escapeHtml(resourceName(resource))}</b><small>${bytes(resourceSize(resource))} · ${escapeHtml(resource.kind)}</small></span><select class="resource-objective" aria-label="Objectif pédagogique"><option>Observer ou identifier</option><option>Comprendre un mouvement ou un processus</option><option>Manipuler et expérimenter</option><option>Comprendre une organisation</option><option>Vérifier la compréhension</option><option>Écouter et reconnaître</option><option>Soutenir l’activité</option></select><button class="remove-file" type="button" aria-label="Retirer">×</button>`;
       const select=card.querySelector('select');select.value=resource.objective;select.onchange=()=>resource.objective=select.value;
-      card.querySelector('button').onclick=()=>{state.resources=state.resources.filter(x=>x.id!==resource.id);renderResources();updateSourceSummary()};list.appendChild(card);
-    });
+      card.querySelector('button').onclick=()=>{if(resource.dbId&&!confirm('Retirer ce support du cours ?'))return;if(resource.dbId&&!state.removedSources.some(x=>x.id===resource.dbId))state.removedSources.push({id:resource.dbId,storagePath:resource.storagePath||''});const removedName=resourceName(resource);state.resources=state.resources.filter(x=>x.id!==resource.id);if(state.plan)(state.plan.sessions||[]).flatMap(s=>s.blocks||[]).forEach(block=>{if(block.resourceName===removedName)block.resourceName=''});renderResources();updateSourceSummary();if(state.plan)renderPlan()};list.appendChild(card);
+    }));
   }
   function updateSourceSummary(){
     const ready=!!state.pdf&&!!$('assignment').value;
@@ -72,6 +72,7 @@
     $('sourceSummary').textContent=state.pdf?`${state.resources.length} ressource${state.resources.length>1?'s':''} ajoutée${state.resources.length>1?'s':''} · PDF prêt`:'Ajoutez le PDF pour commencer';
   }
   bindDropzone($('pdfDropzone'),$('pdfInput'),setPdf);bindDropzone($('resourceDropzone'),$('resourceInput'),addResources);
+  $('addExistingResourcesBtn').onclick=()=>$('resourceInput').click();
 
   function adjustDuration(delta){const input=$('durationHours');input.value=Math.min(12,Math.max(1,(Number(input.value)||1)+delta));}
   $('durationMinus').onclick=()=>adjustDuration(-.5);$('durationPlus').onclick=()=>adjustDuration(.5);
@@ -167,12 +168,21 @@
     return rows;
   }
   async function saveExistingCourse(sb,publish){
-    const sourceMap={};state.resources.forEach(resource=>sourceMap[resourceName(resource)]=resource.dbId||resource.id);
+    const sourceMap={};
+    for(const resource of state.resources){
+      if(!resource.dbId&&resource.file){
+        const storagePath=await uploadSource(sb,window.currentTeacher.session.user.id,state.courseId,resource.file,'resources');
+        const {data:source,error}=await sb.from('course_sources').insert({course_id:state.courseId,import_id:state.importId,kind:resource.kind,file_name:resource.file.name,mime_type:resource.file.type||'application/octet-stream',storage_path:storagePath,pedagogical_objective:resource.objective,ai_metadata:{size:resource.file.size}}).select('id').single();
+        if(error)throw error;resource.dbId=source.id;resource.storagePath=storagePath;
+      }
+      if(resource.dbId)sourceMap[resourceName(resource)]=resource.dbId;
+    }
     const backup=state.persistedBlocks.map(row=>({id:row.id,course_id:state.courseId,import_id:state.importId,session_position:row.session_position,position:row.position,block_type:row.block_type,title:row.title,duration_minutes:row.duration_minutes,objective:row.objective,content:row.content||{},source_id:row.source_id||null,status:row.status,teacher_notes:row.teacher_notes||''}));
     const {error:courseError}=await sb.from('courses').update({title:state.plan.courseTitle,description:state.plan.summary,status:'draft',settings:{source:'teacher_pdf_ai',duration_minutes:state.plan.totalDurationMinutes,explanation_minutes_per_hour:'15-20'}}).eq('id',state.courseId);if(courseError)throw courseError;
     const {error:importError}=await sb.from('course_imports').update({status:'ready',duration_minutes:state.plan.totalDurationMinutes,analysis:state.plan,error_message:null}).eq('id',state.importId);if(importError)throw importError;
     const {error:deleteError}=await sb.from('course_blocks').delete().eq('course_id',state.courseId);if(deleteError)throw deleteError;
     const rows=courseBlockRows(state.courseId,state.importId,sourceMap);if(rows.length){const {error}=await sb.from('course_blocks').insert(rows);if(error){if(backup.length)await sb.from('course_blocks').insert(backup);throw error}}
+    if(state.removedSources.length){const ids=state.removedSources.map(x=>x.id),paths=state.removedSources.map(x=>x.storagePath).filter(Boolean);const {error}=await sb.from('course_sources').delete().in('id',ids);if(error)throw error;if(paths.length)await sb.storage.from('course-media').remove(paths);state.removedSources=[]}
     if(publish){const {error}=await sb.from('courses').update({status:'published'}).eq('id',state.courseId);if(error)throw error}
   }
   async function saveCourse(publish){
@@ -198,7 +208,7 @@
   async function loadExistingCourse(sb,courseId){
     if(!/^[0-9a-f-]{36}$/i.test(courseId))throw new Error('Identifiant de cours invalide.');
     const [{data:course,error:courseError},{data:imports,error:importError},{data:sources,error:sourceError},{data:blocks,error:blockError}]=await Promise.all([
-      sb.from('courses').select('id,title,description,status,assignment_id,settings').eq('id',courseId).single(),
+      sb.from('courses').select('id,title,description,status,assignment_id,settings').eq('id',courseId).eq('teacher_id',window.currentTeacher.session.user.id).single(),
       sb.from('course_imports').select('id,duration_minutes,analysis,created_at').eq('course_id',courseId).order('created_at',{ascending:false}).limit(1),
       sb.from('course_sources').select('id,kind,file_name,mime_type,storage_path,pedagogical_objective,ai_metadata').eq('course_id',courseId).order('created_at',{ascending:true}),
       sb.from('course_blocks').select('id,session_position,position,block_type,title,duration_minutes,objective,content,source_id,status,teacher_notes').eq('course_id',courseId).order('session_position',{ascending:true}).order('position',{ascending:true})
@@ -217,7 +227,7 @@
         return {id:template.id||'session-'+(newIndex+1),title:content.session_title||template.title||`Séance ${newIndex+1}`,durationMinutes:Number(content.session_duration_minutes)||Number(template.durationMinutes)||rows.reduce((n,row)=>n+Number(row.duration_minutes||0),0),explanationMinutes:Number(content.explanation_minutes)||Number(template.explanationMinutes)||0,objective:template.objective||'',blocks:rows.map(row=>({id:row.id,dbId:row.id,type:row.block_type,title:row.title,durationMinutes:Number(row.duration_minutes)||5,objective:row.objective||'',content:row.content&&row.content.text||'',resourceName:sourceNames[row.source_id]||'',teacherNote:row.teacher_notes||'',validated:row.status==='validated'}))};
       });
     }
-    state.plan=plan;enablePlanStages();document.querySelector('[data-go-stage="1"]').disabled=true;$('backToSources').textContent='← Mes cours';renderPlan();setStage(2);
+    state.plan=plan;enablePlanStages();document.querySelector('[data-go-stage="1"]').disabled=true;$('backToSources').textContent='← Mes cours';$('studioTools').hidden=false;$('avatarPreviewLink').href='course-preview.html?course='+encodeURIComponent(course.id);renderResources();renderPlan();setStage(2);
     if(course.status==='published')toast('Cours publié chargé. Toute modification sera enregistrée en brouillon.');
   }
 
