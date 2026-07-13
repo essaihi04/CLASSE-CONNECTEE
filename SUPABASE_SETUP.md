@@ -9,6 +9,8 @@
    - [20260712_004_complete_grade_levels.sql](supabase/migrations/20260712_004_complete_grade_levels.sql)
    - [20260712_005_high_school_streams.sql](supabase/migrations/20260712_005_high_school_streams.sql)
    - [20260712_006_complete_subjects.sql](supabase/migrations/20260712_006_complete_subjects.sql)
+   - [20260713_007_ai_course_imports.sql](supabase/migrations/20260713_007_ai_course_imports.sql)
+   - [20260713_008_published_course_access.sql](supabase/migrations/20260713_008_published_course_access.sql)
 2. Dans **Authentication > URL Configuration**, ajoutez les URL de redirection :
    - `http://localhost:3000/login.html`
    - l’URL HTTPS de production suivie de `/login.html`
@@ -33,6 +35,7 @@ update public.profiles set role = 'admin' where id = '<UUID_DU_COMPTE_ADMIN>';
 - `subjects` et `grade_levels` : catalogue matière/niveau.
 - `teacher_assignments` : matière et niveau attribués à un professeur.
 - `courses`, `course_sections`, `course_assets`, `course_quizzes` : contenu entièrement isolé par professeur.
+- `course_imports`, `course_sources`, `course_blocks` : PDF source, ressources associées et cours IA en blocs standardisés, toujours isolés par professeur.
 - Le bucket privé `course-media` : chaque fichier est rangé sous `<uuid-professeur>/...`.
 
 ## Migration de l’ancien prototype

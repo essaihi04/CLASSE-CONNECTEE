@@ -31,7 +31,7 @@
   async function requireTeacher(){
     const {data:{session},error}=await client.auth.getSession();
     if(error) throw error;
-    if(!session){ location.replace('login.html?next='+encodeURIComponent(location.pathname.split('/').pop()||'prof.html')); return new Promise(()=>{}); }
+    if(!session){ const page=location.pathname.split('/').pop()||'prof.html'; location.replace('login.html?next='+encodeURIComponent(page+location.search)); return new Promise(()=>{}); }
     const {data:profile,error:profileError}=await client.from('profiles').select('id,first_name,last_name,onboarding_complete,legacy_access').eq('id',session.user.id).maybeSingle();
     if(profileError) throw profileError;
     if(!profile || !profile.onboarding_complete){

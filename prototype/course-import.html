@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="fr" data-requires-teacher="true">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Studio de cours IA — Classes Connectées</title>
+  <script>document.documentElement.classList.add('auth-pending');</script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="course-import.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="prof.html" aria-label="Retour à l’espace professeur">
+      <span class="brand-mark">CC</span>
+      <span>Classes Connectées</span>
+    </a>
+    <div class="topbar-center">
+      <span class="status-dot"></span>
+      Studio de création IA
+    </div>
+    <div class="teacher-menu">
+      <span class="teacher-avatar" aria-hidden="true">P</span>
+      <span data-teacher-name>Professeur</span>
+      <button id="logoutBtn" class="link-button" type="button">Déconnexion</button>
+    </div>
+  </header>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="back-link" href="prof.html">← Espace professeur</a>
+      <p class="eyebrow">Nouveau cours</p>
+      <h1>Transformer vos ressources en cours</h1>
+      <p class="side-copy">L’IA prépare. Vous gardez la décision pédagogique.</p>
+
+      <nav class="steps-nav" aria-label="Étapes de création">
+        <button class="nav-step active" data-go-stage="1" type="button">
+          <span class="nav-number">1</span><span><b>Importer</b><small>PDF et ressources</small></span>
+        </button>
+        <button class="nav-step" data-go-stage="2" type="button" disabled>
+          <span class="nav-number">2</span><span><b>Superviser</b><small>Relire et ajuster</small></span>
+        </button>
+        <button class="nav-step" data-go-stage="3" type="button" disabled>
+          <span class="nav-number">3</span><span><b>Publier</b><small>Validation finale</small></span>
+        </button>
+      </nav>
+
+      <div class="privacy-note">
+        <span class="privacy-icon">✓</span>
+        <div><b>Espace privé</b><br>Vos documents et vos cours restent liés à votre compte.</div>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <section class="stage active" data-stage="1">
+        <div class="stage-heading">
+          <div>
+            <p class="eyebrow accent">Étape 1 · Sources</p>
+            <h2>Importez votre préparation</h2>
+            <p>Le PDF décrit le cours. Les fichiers pédagogiques sont ajoutés séparément.</p>
+          </div>
+          <span class="draft-badge">Brouillon automatique</span>
+        </div>
+
+        <div class="form-grid">
+          <label class="field span-2"><span>Titre du cours <em>facultatif</em></span>
+            <input id="courseTitle" maxlength="180" placeholder="Ex. La digestion et l’absorption intestinale">
+          </label>
+          <label class="field"><span>Matière et niveau</span>
+            <select id="assignment"><option>Chargement…</option></select>
+          </label>
+          <label class="field"><span>Durée totale demandée</span>
+            <div class="duration-control"><button id="durationMinus" type="button">−</button><input id="durationHours" type="number" min="1" max="12" step="0.5" value="2"><span>heures</span><button id="durationPlus" type="button">+</button></div>
+          </label>
+        </div>
+
+        <div class="source-section">
+          <div class="section-title-row">
+            <div><span class="section-kicker">01</span><h3>PDF préparé par le professeur</h3></div>
+            <span class="required-tag">Obligatoire</span>
+          </div>
+          <label class="dropzone pdf-dropzone" id="pdfDropzone">
+            <input id="pdfInput" type="file" accept="application/pdf,.pdf" hidden>
+            <span class="drop-icon">PDF</span>
+            <span class="drop-copy"><b>Déposez le PDF du cours ici</b><small>Plan, notions, consignes, durée et noms des médias attendus</small></span>
+            <span class="choose-button">Choisir le PDF</span>
+          </label>
+          <div id="pdfFileCard" class="file-card" hidden></div>
+        </div>
+
+        <div class="source-section">
+          <div class="section-title-row">
+            <div><span class="section-kicker">02</span><h3>Ressources pédagogiques</h3></div>
+            <span class="optional-tag">Import séparé</span>
+          </div>
+          <label class="dropzone resource-dropzone" id="resourceDropzone">
+            <input id="resourceInput" type="file" multiple accept="image/*,video/*,audio/*,.html,.htm,.zip,.json,.gltf,.glb,.fbx" hidden>
+            <span class="plus-icon">+</span>
+            <span class="drop-copy"><b>Ajoutez images, vidéos, schémas ou simulations</b><small>L’IA les associera aux noms et aux objectifs décrits dans le PDF</small></span>
+            <span class="choose-button secondary">Ajouter des fichiers</span>
+          </label>
+          <div id="resourceList" class="resource-list"></div>
+          <div class="media-rules">
+            <span><i class="rule-dot image"></i>Image · observer / identifier</span>
+            <span><i class="rule-dot video"></i>Vidéo · comprendre un processus</span>
+            <span><i class="rule-dot simulation"></i>Simulation · manipuler / expérimenter</span>
+            <span><i class="rule-dot quiz"></i>Quiz · vérifier la compréhension</span>
+          </div>
+        </div>
+
+        <div class="analysis-note">
+          <div class="sparkle">✦</div>
+          <div><b>Ce que l’IA va préparer</b><p>Un déroulé en blocs réutilisables, une association précise des médias et 15 à 20 minutes d’explication par heure de cours.</p></div>
+        </div>
+
+        <div class="stage-actions">
+          <span id="sourceSummary" class="action-summary">Ajoutez le PDF pour commencer</span>
+          <button id="analyzeBtn" class="primary-button" type="button" disabled>Analyser et structurer <span>→</span></button>
+        </div>
+      </section>
+
+      <section class="stage" data-stage="2">
+        <div class="supervision-header">
+          <div>
+            <p class="eyebrow accent">Étape 2 · Supervision</p>
+            <h2 id="planTitle">Cours généré</h2>
+            <p id="planMeta">Vérifiez uniquement les décisions importantes.</p>
+          </div>
+          <div class="header-actions">
+            <button id="backToSources" class="quiet-button" type="button">← Sources</button>
+            <button id="editCourseInfoBtn" class="quiet-button" type="button">✎ Titre et résumé</button>
+            <button id="validateAllBtn" class="outline-button" type="button">✓ Tout valider</button>
+          </div>
+        </div>
+
+        <div id="planWarnings" class="warnings" hidden></div>
+        <div class="supervision-layout">
+          <div>
+            <div class="legend-bar">
+              <span><i class="legend-check"></i> Validé</span>
+              <span><i class="legend-review"></i> À vérifier</span>
+              <span class="legend-help">Cliquez sur un bloc pour le modifier</span>
+            </div>
+            <div id="sessionsList" class="sessions-list"></div>
+          </div>
+          <aside class="quality-panel">
+            <p class="eyebrow">Contrôle rapide</p>
+            <h3>Prêt à publier ?</h3>
+            <div class="score-ring" id="scoreRing"><strong id="qualityScore">0%</strong><span>validé</span></div>
+            <ul class="quality-list">
+              <li id="checkDuration"><span>○</span> Durée respectée</li>
+              <li id="checkExplanation"><span>○</span> 15–20 min d’explication / h</li>
+              <li id="checkResources"><span>○</span> Ressources associées</li>
+              <li id="checkBlocks"><span>○</span> Blocs relus</li>
+            </ul>
+            <button id="goPublishBtn" class="primary-button full" type="button">Passer à la publication →</button>
+          </aside>
+        </div>
+      </section>
+
+      <section class="stage" data-stage="3">
+        <div class="publish-wrap">
+          <div class="publish-hero">
+            <span class="publish-icon">✓</span>
+            <p class="eyebrow accent">Étape 3 · Publication</p>
+            <h2>Le cours est prêt pour vos élèves</h2>
+            <p>L’IA a structuré les sources. Vous avez gardé le contrôle sur chaque bloc.</p>
+          </div>
+          <div class="publish-card">
+            <div class="publish-course-head">
+              <div><small>COURS</small><h3 id="publishTitle">Cours généré</h3><p id="publishMeta"></p></div>
+              <span class="ready-badge">Prêt</span>
+            </div>
+            <div id="publishStats" class="publish-stats"></div>
+            <label class="confirm-row"><input id="publishConfirm" type="checkbox"><span>J’ai relu les points importants et je valide ce cours.</span></label>
+            <div class="publish-actions">
+              <button id="saveDraftBtn" class="outline-button" type="button">Enregistrer en brouillon</button>
+              <button id="publishBtn" class="primary-button" type="button" disabled>Publier le cours</button>
+            </div>
+            <p class="save-note">Le PDF, les ressources et les blocs seront enregistrés dans votre espace privé.</p>
+          </div>
+          <button id="returnSupervision" class="text-button" type="button">← Revenir à la supervision</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="loadingOverlay" class="loading-overlay" hidden>
+    <div class="loading-card">
+      <div class="ai-orbit"><span>IA</span></div>
+      <h2>Construction du cours…</h2>
+      <p id="loadingMessage">Lecture du PDF et repérage des ressources</p>
+      <div class="loading-track"><i id="loadingProgress"></i></div>
+      <small>Le document reste modifiable avant publication.</small>
+    </div>
+  </div>
+
+  <div id="blockDrawer" class="drawer-backdrop" hidden>
+    <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+      <div class="drawer-head"><div><p class="eyebrow accent">Modifier le bloc</p><h2 id="drawerTitle">Bloc</h2></div><button id="closeDrawer" class="icon-button" type="button" aria-label="Fermer">×</button></div>
+      <div class="drawer-body">
+        <label class="field"><span>Type de bloc</span><select id="editBlockType"></select></label>
+        <label class="field"><span>Titre</span><input id="editBlockTitle" maxlength="220"></label>
+        <label class="field"><span>Objectif pédagogique</span><input id="editBlockObjective" maxlength="300"></label>
+        <label class="field"><span>Durée</span><div class="minutes-input"><input id="editBlockDuration" type="number" min="1" max="120"><span>minutes</span></div></label>
+        <label class="field"><span>Contenu / consigne</span><textarea id="editBlockContent" rows="9"></textarea></label>
+        <label class="field"><span>Ressource associée</span><select id="editBlockResource"></select></label>
+        <label class="field"><span>Note du professeur <em>privée</em></span><textarea id="editTeacherNote" rows="3" placeholder="Point à corriger, adaptation à prévoir…"></textarea></label>
+      </div>
+      <div class="drawer-actions"><button id="deleteBlock" class="danger-button" type="button">Supprimer</button><button id="saveBlock" class="primary-button" type="button">Enregistrer les modifications</button></div>
+    </aside>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="course-import.js"></script>
+</body>
+</html>
