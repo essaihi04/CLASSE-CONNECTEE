@@ -353,7 +353,18 @@ function getGeminiKey(){
 // ============ IMPORT PDF -> COURS STRUCTURE (espace professeur) ============
 // Le PDF est envoyé directement à Gemini : le modèle conserve ainsi les tableaux,
 // schémas et relations visuelles que perdrait une simple extraction de texte.
-const COURSE_IMPORT_MODEL = (process.env.GEMINI_COURSE_MODEL || 'gemini-2.5-flash').trim();
+// Plusieurs modèles sont gardés en repli : Google peut retirer un ancien modèle
+// pour les nouveaux comptes ou saturer temporairement le modèle le plus récent.
+// GEMINI_COURSE_MODEL accepte aussi une liste séparée par des virgules.
+const DEFAULT_COURSE_IMPORT_MODELS = [
+  'gemini-3.1-flash-lite',
+  'gemini-3.5-flash',
+  'gemini-flash-latest'
+];
+const COURSE_IMPORT_MODELS = [
+  ...(process.env.GEMINI_COURSE_MODEL || '').split(',').map(s=>s.trim()).filter(Boolean),
+  ...DEFAULT_COURSE_IMPORT_MODELS
+].filter((model,index,models)=>model && models.indexOf(model)===index);
 const COURSE_BLOCK_TYPES = new Set(['text','image','video','simulation','activity','question','summary','evaluation','schema']);
 
 function geminiHeaders(){
@@ -446,10 +457,25 @@ Réponds en français avec un unique objet JSON :
     contents:[{role:'user',parts}],
     generationConfig:{temperature:.2,responseMimeType:'application/json',maxOutputTokens:24000}
   };
-  const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(COURSE_IMPORT_MODEL)}:generateContent`;
-  const response=await fetch(url,{method:'POST',headers:geminiHeaders(),body:JSON.stringify(payload)});
-  if(!response.ok) throw new Error('Gemini HTTP '+response.status+' : '+(await response.text()).slice(0,320));
-  const data=await response.json();
+  const requestBody=JSON.stringify(payload);
+  let data=null, lastError=null;
+  for(let index=0;index<COURSE_IMPORT_MODELS.length;index++){
+    const model=COURSE_IMPORT_MODELS[index];
+    const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+    const response=await fetch(url,{method:'POST',headers:geminiHeaders(),body:requestBody});
+    if(response.ok){
+      data=await response.json();
+      if(index>0) console.warn(`[import cours] analyse réussie avec le modèle de repli ${model}`);
+      break;
+    }
+    const details=(await response.text()).slice(0,500);
+    lastError=new Error('Gemini HTTP '+response.status+' ('+model+') : '+details.slice(0,320));
+    const modelUnavailable=response.status===404 || response.status===429 || response.status>=500 ||
+      /not found|no longer available|high demand|unavailable|overloaded/i.test(details);
+    if(!modelUnavailable || index===COURSE_IMPORT_MODELS.length-1) throw lastError;
+    console.warn(`[import cours] modèle ${model} indisponible (HTTP ${response.status}), essai du suivant`);
+  }
+  if(!data) throw lastError||new Error('Analyse Gemini indisponible');
   const raw=(data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts||[]).map(p=>p.text||'').join('').trim();
   let parsed;
   try{parsed=JSON.parse(raw.replace(/^```json\s*/i,'').replace(/```$/,''));}
