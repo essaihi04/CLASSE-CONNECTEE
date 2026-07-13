@@ -191,7 +191,7 @@
     state.saving=true;$('saveDraftBtn').disabled=true;$('publishBtn').disabled=true;startLoading();$('loadingMessage').textContent='Enregistrement du cours et des ressources';
     let courseId='';
     try{
-      if(state.courseId){await saveExistingCourse(sb,publish);stopLoading();toast(publish?'Cours publié avec succès.':'Modifications enregistrées.');return setTimeout(()=>location.href=publish?`course-preview.html?course=${encodeURIComponent(state.courseId)}`:'prof.html',900)}
+      if(state.courseId){await saveExistingCourse(sb,publish);stopLoading();toast(publish?'Cours publié avec succès.':'Modifications enregistrées.');return setTimeout(()=>location.href=publish?`index.html?course=${encodeURIComponent(state.courseId)}`:'prof.html?view=private',900)}
       const {data:course,error:courseError}=await sb.from('courses').insert({teacher_id:teacher.session.user.id,assignment_id:assignment.id,subject_id:assignment.subject_id,grade_level_id:assignment.grade_level_id,stream_id:assignment.stream_id||null,title:state.plan.courseTitle,description:state.plan.summary,status:'draft',settings:{source:'teacher_pdf_ai',duration_minutes:state.plan.totalDurationMinutes,explanation_minutes_per_hour:'15-20'}}).select('id').single();if(courseError)throw courseError;courseId=course.id;
       const pdfPath=await uploadSource(sb,teacher.session.user.id,courseId,state.pdf,'sources');
       const {data:job,error:jobError}=await sb.from('course_imports').insert({course_id:courseId,status:'ready',source_pdf_path:pdfPath,duration_minutes:state.plan.totalDurationMinutes,analysis:state.plan}).select('id').single();if(jobError)throw new Error('Migration 007 requise : '+jobError.message);
@@ -200,7 +200,7 @@
       const rows=courseBlockRows(courseId,job.id,sourceMap);
       if(rows.length){const {error}=await sb.from('course_blocks').insert(rows);if(error)throw error}
       if(publish){const {error}=await sb.from('courses').update({status:'published'}).eq('id',courseId);if(error)throw error}
-      stopLoading();toast(publish?'Cours publié avec succès.':'Brouillon enregistré.');setTimeout(()=>location.href=publish?`course-preview.html?course=${encodeURIComponent(courseId)}`:'prof.html',900);
+      stopLoading();toast(publish?'Cours publié avec succès.':'Brouillon enregistré.');setTimeout(()=>location.href=publish?`index.html?course=${encodeURIComponent(courseId)}`:'prof.html?view=private',900);
     }catch(error){stopLoading();if(courseId)await sb.from('courses').delete().eq('id',courseId);toast(error.message||'Enregistrement impossible.',true);state.saving=false;$('saveDraftBtn').disabled=false;$('publishBtn').disabled=!$('publishConfirm').checked}
   }
   $('saveDraftBtn').onclick=()=>saveCourse(false);$('publishBtn').onclick=()=>saveCourse(true);
@@ -227,7 +227,7 @@
         return {id:template.id||'session-'+(newIndex+1),title:content.session_title||template.title||`Séance ${newIndex+1}`,durationMinutes:Number(content.session_duration_minutes)||Number(template.durationMinutes)||rows.reduce((n,row)=>n+Number(row.duration_minutes||0),0),explanationMinutes:Number(content.explanation_minutes)||Number(template.explanationMinutes)||0,objective:template.objective||'',blocks:rows.map(row=>({id:row.id,dbId:row.id,type:row.block_type,title:row.title,durationMinutes:Number(row.duration_minutes)||5,objective:row.objective||'',content:row.content&&row.content.text||'',resourceName:sourceNames[row.source_id]||'',teacherNote:row.teacher_notes||'',validated:row.status==='validated'}))};
       });
     }
-    state.plan=plan;enablePlanStages();document.querySelector('[data-go-stage="1"]').disabled=true;$('backToSources').textContent='← Mes cours';$('studioTools').hidden=false;$('avatarPreviewLink').href='course-preview.html?course='+encodeURIComponent(course.id);renderResources();renderPlan();setStage(2);
+    state.plan=plan;enablePlanStages();document.querySelector('[data-go-stage="1"]').disabled=true;$('backToSources').textContent='← Mes cours';$('studioTools').hidden=false;$('avatarPreviewLink').href='index.html?course='+encodeURIComponent(course.id);$('avatarPreviewLink').textContent='▶ Expliquer tout le cours avec l’avatar';renderResources();renderPlan();setStage(2);
     if(course.status==='published')toast('Cours publié chargé. Toute modification sera enregistrée en brouillon.');
   }
 

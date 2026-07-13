@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Classes Connectées — Le prof IA</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
 <script type="importmap">
 { "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
@@ -805,6 +807,7 @@
 <div class="presentHint" id="presentHint">Clique sur le tableau pour avancer · ← Précédent · Échap pour quitter</div>
 
 <script src="lecons.js"></script>
+<script src="published-course-loader.js"></script>
 <script>
 /* ============ CONTENU DES LEÇONS ============ */
 /* Les chapitres jouables sont définis dans lecons.js -> window.LECONS.
@@ -812,6 +815,9 @@
 let lecon = window.LECONS[0];
 let customSteps = {};      // { chapId: [partie personnalisée…] } (fournies par l'espace prof)
 let structure = {};        // { chapId: { order:[id…], hidden:[id…] } } (déplacement/suppression d'étapes)
+const REQUESTED_PUBLISHED_COURSE=new URLSearchParams(location.search).get('course')||'';
+const publishedCoursePromise=/^[0-9a-f-]{36}$/i.test(REQUESTED_PUBLISHED_COURSE)&&window.loadPublishedCourseLesson
+  ? window.loadPublishedCourseLesson(REQUESTED_PUBLISHED_COURSE) : Promise.resolve(null);
 
 /* PLAN D'ÉTAPES : l'ordre affiché d'un chapitre = étapes d'origine (lecons.js) + parties
    personnalisées, RÉORGANISÉES et éventuellement MASQUÉES selon `structure` (édité côté prof).
@@ -2920,15 +2926,21 @@ chapSelect.onchange=()=>{
 
 Promise.all([
   fetch('/api/custom-steps').then(r=>r.ok?r.json():{}).catch(()=>({})),
-  fetch('/api/course-structure').then(r=>r.ok?r.json():{}).catch(()=>({}))
-]).then(([cs, st])=>{
+  fetch('/api/course-structure').then(r=>r.ok?r.json():{}).catch(()=>({})),
+  publishedCoursePromise
+]).then(([cs, st, publishedLesson])=>{
+    if(publishedLesson) window.LECONS=[publishedLesson];
     customSteps = cs||{}; structure = st||{};
     applyStepPlan();
     fillChapterSelect();
-    lecon = window.LECONS[+chapSelect.value] || window.LECONS[0];
+    chapSelect.value='0';lecon = window.LECONS[0];
     if(i<0) showChapterHome();
   })
-  .catch(()=>{});
+  .catch(error=>{
+    if(!REQUESTED_PUBLISHED_COURSE)return;
+    stopAudio();title.textContent='Cours indisponible';board.innerHTML='<div class="line def">Ce cours est privé, introuvable ou sa publication n’est pas terminée.</div>';
+    speech.textContent=error&&error.message||'Impossible de charger le cours publié.';
+  });
 
 /* ---- questions suggérées (chips) propres à CHAQUE chapitre ---- */
 const CHIP_QUESTIONS = {
@@ -2943,7 +2955,7 @@ const CHIP_QUESTIONS = {
 const CHIP_FALLBACK = ["Dessine le trajet d'un acte réflexe","C'est quoi un microbe ?","Dessine un schéma de la phagocytose","Différence entre vaccin et sérum ?"];
 function renderChips(){
   const boxc=document.getElementById('chips');
-  const qs=CHIP_QUESTIONS[lecon.id] || CHIP_FALLBACK;
+  const qs=(lecon&&Array.isArray(lecon.suggestedQuestions)&&lecon.suggestedQuestions.length?lecon.suggestedQuestions:null)||CHIP_QUESTIONS[lecon.id]||CHIP_FALLBACK;
   boxc.innerHTML='';
   qs.forEach(q=>{ const c=document.createElement('div'); c.className='chip'; c.textContent=q;
     c.onclick=()=>ask(q); boxc.appendChild(c); });
@@ -3134,7 +3146,8 @@ function answer(q){
   avatarCenterStage();
   fetch('/api/ask',{ method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ question:q, lessonTitle:lecon.titre,
-                             chapterId:(lecon&&lecon.id)||null, step:(typeof i==='number'?i:null) }) })
+                             chapterId:(lecon&&lecon.id)||null, step:(typeof i==='number'?i:null),
+                             courseContext:(lecon&&lecon.imported)?String(lecon.aiContext||'').slice(0,6500):'' }) })
     .then(r=>r.json())
     .then(d=>{
       thinking.style.display='none';

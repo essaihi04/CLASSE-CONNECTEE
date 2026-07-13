@@ -676,7 +676,7 @@ async function renderPrivateTeacherHome(){
         card.append(name,meta); if(c.description){ const d=document.createElement('div'); d.style.cssText='font-size:13px;color:#cbd5e1;margin-top:6px'; d.textContent=c.description; card.appendChild(d); }
         if(c.settings&&c.settings.source==='teacher_pdf_ai'){ const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:7px;flex-wrap:wrap;margin-top:10px';
           const supervise=document.createElement('a'); supervise.href='course-import.html?course='+encodeURIComponent(c.id); supervise.className='add-btn'; supervise.style.cssText='padding:7px 11px;text-decoration:none;font-size:12px'; supervise.textContent='✎ Supports et blocs'; actions.appendChild(supervise);
-          const preview=document.createElement('a'); preview.href='course-preview.html?course='+encodeURIComponent(c.id); preview.className='ghost'; preview.style.cssText='padding:7px 11px;text-decoration:none;font-size:12px'; preview.textContent='▶ Expliquer avec l’avatar IA'; actions.appendChild(preview); card.appendChild(actions); }
+          const preview=document.createElement('a'); preview.href='index.html?course='+encodeURIComponent(c.id); preview.className='ghost'; preview.style.cssText='padding:7px 11px;text-decoration:none;font-size:12px'; preview.textContent='▶ Expliquer tout le cours avec l’avatar'; actions.appendChild(preview); card.appendChild(actions); }
         list.appendChild(card); });
       supportsEl.appendChild(list);
     }
