@@ -85,7 +85,7 @@
     return out;
   }
   function startLoading(){
-    $('loadingOverlay').hidden=false;let progress=10,index=0;const messages=['Lecture du PDF et repérage des ressources','Identification des objectifs pédagogiques','Découpage en blocs standardisés','Calcul du rythme et des temps d’explication','Préparation de votre interface de supervision'];
+    $('loadingOverlay').hidden=false;let progress=10,index=0;const messages=['Lecture du PDF et repérage des ressources','Identification des objectifs pédagogiques','Découpage en blocs standardisés','Scénarisation avatar, tableau, médias et activités','Calcul du rythme et préparation de la supervision'];
     $('loadingMessage').textContent=messages[0];$('loadingProgress').style.width='10%';
     startLoading.timer=setInterval(()=>{progress=Math.min(90,progress+Math.random()*13);index=Math.min(messages.length-1,Math.floor(progress/20));$('loadingProgress').style.width=progress+'%';$('loadingMessage').textContent=messages[index]},850);
   }
@@ -93,7 +93,7 @@
   function normalizePlan(raw){
     const requestedMinutes=Math.round(Math.min(12,Math.max(1,Number($('durationHours').value)||1))*60);
     const plan=raw&&typeof raw==='object'?raw:{};plan.courseTitle=String(plan.courseTitle||$('courseTitle').value||(state.pdf&&state.pdf.name||'Cours').replace(/\.pdf$/i,''));plan.totalDurationMinutes=state.courseId?(Number(plan.totalDurationMinutes)||requestedMinutes):requestedMinutes;plan.summary=String(plan.summary||'Cours structuré à partir de la préparation du professeur.');plan.warnings=Array.isArray(plan.warnings)?plan.warnings:[];
-    plan.sessions=Array.isArray(plan.sessions)?plan.sessions:[];plan.sessions.forEach((session,si)=>{session.id=session.id||uid('session');session.title=String(session.title||`Séance ${si+1}`);session.durationMinutes=Math.max(1,Number(session.durationMinutes)||60);session.explanationMinutes=Math.max(0,Number(session.explanationMinutes)||Math.round(session.durationMinutes*.3));session.objective=String(session.objective||'');session.blocks=Array.isArray(session.blocks)?session.blocks:[];session.blocks.forEach(block=>{block.id=block.id||uid('block');block.type=BLOCK_TYPES[block.type]?block.type:'text';block.title=String(block.title||BLOCK_TYPES[block.type].label);block.durationMinutes=Math.max(1,Number(block.durationMinutes)||5);block.objective=String(block.objective||'');block.content=typeof block.content==='string'?block.content:JSON.stringify(block.content||'');block.resourceName=String(block.resourceName||'');block.teacherNote=String(block.teacherNote||'');block.validated=!!block.validated})});
+    plan.sessions=Array.isArray(plan.sessions)?plan.sessions:[];plan.sessions.forEach((session,si)=>{session.id=session.id||uid('session');session.title=String(session.title||`Séance ${si+1}`);session.durationMinutes=Math.max(1,Number(session.durationMinutes)||60);session.explanationMinutes=Math.max(0,Number(session.explanationMinutes)||Math.round(session.durationMinutes*.3));session.objective=String(session.objective||'');session.blocks=Array.isArray(session.blocks)?session.blocks:[];session.blocks.forEach(block=>{block.id=block.id||uid('block');block.type=BLOCK_TYPES[block.type]?block.type:'text';block.title=String(block.title||BLOCK_TYPES[block.type].label);block.durationMinutes=Math.max(1,Number(block.durationMinutes)||5);block.objective=String(block.objective||'');block.content=typeof block.content==='string'?block.content:JSON.stringify(block.content||'');block.resourceName=String(block.resourceName||'');block.presentation=block.presentation&&typeof block.presentation==='object'?block.presentation:null;block.activity=block.activity&&typeof block.activity==='object'?block.activity:null;block.teacherNote=String(block.teacherNote||'');block.validated=!!block.validated})});
     return plan;
   }
   async function analyze(){
@@ -104,7 +104,9 @@
       for(const resource of state.resources)resources.push(await resourceForAnalysis(resource,budget));
       const token=window.currentTeacher&&window.currentTeacher.session&&window.currentTeacher.session.access_token;
       const response=await fetch('/api/analyze-course-import',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({pdf:{name:state.pdf.name,mimeType:'application/pdf',data:pdfData},resources,request:{title:$('courseTitle').value.trim(),durationHours:Number($('durationHours').value),subject:assignment.subjects&&assignment.subjects.name,gradeLevel:assignment.grade_levels&&assignment.grade_levels.name,stream:assignment.study_streams&&assignment.study_streams.name}})});
-      const body=await response.json();if(!response.ok)throw new Error(body.error||'Analyse impossible');state.plan=normalizePlan(body);enablePlanStages();renderPlan();setStage(2);toast('Cours structuré. À vous de valider les points importants.');
+      const body=await response.json();if(!response.ok)throw new Error(body.error||'Analyse impossible');state.plan=normalizePlan(body);enablePlanStages();renderPlan();
+      stopLoading();toast('Cours structuré. Ouverture directe des tableaux…');
+      await saveCourse(false,{openBoards:true});
     }catch(error){toast(error.message||'Analyse impossible.',true)}finally{stopLoading();updateSourceSummary()}
   }
   $('analyzeBtn').onclick=analyze;
@@ -164,7 +166,7 @@
   async function uploadSource(sb,teacherId,courseId,file,folder){const path=`${teacherId}/courses/${courseId}/${folder}/${Date.now()}-${safeFileName(file.name)}`;const {error}=await sb.storage.from('course-media').upload(path,file,{contentType:file.type||'application/octet-stream',upsert:false});if(error)throw error;return path}
   function courseBlockRows(courseId,importId,sourceMap){
     const rows=[];
-    state.plan.sessions.forEach((session,si)=>session.blocks.forEach((b,bi)=>rows.push({course_id:courseId,import_id:importId,session_position:si,position:bi,block_type:b.type,title:b.title,duration_minutes:b.durationMinutes,objective:b.objective,content:{text:b.content,session_title:session.title,session_duration_minutes:session.durationMinutes,explanation_minutes:session.explanationMinutes},source_id:sourceMap[b.resourceName]||null,status:b.validated?'validated':'draft',teacher_notes:b.teacherNote||''})));
+    state.plan.sessions.forEach((session,si)=>session.blocks.forEach((b,bi)=>rows.push({course_id:courseId,import_id:importId,session_position:si,position:bi,block_type:b.type,title:b.title,duration_minutes:b.durationMinutes,objective:b.objective,content:{text:b.content,session_title:session.title,session_duration_minutes:session.durationMinutes,explanation_minutes:session.explanationMinutes,presentation:b.presentation||null,activity:b.activity||null},source_id:sourceMap[b.resourceName]||null,status:b.validated?'validated':'draft',teacher_notes:b.teacherNote||''})));
     return rows;
   }
   async function saveExistingCourse(sb,publish){
@@ -185,13 +187,15 @@
     if(state.removedSources.length){const ids=state.removedSources.map(x=>x.id),paths=state.removedSources.map(x=>x.storagePath).filter(Boolean);const {error}=await sb.from('course_sources').delete().in('id',ids);if(error)throw error;if(paths.length)await sb.storage.from('course-media').remove(paths);state.removedSources=[]}
     if(publish){const {error}=await sb.from('courses').update({status:'published'}).eq('id',state.courseId);if(error)throw error}
   }
-  async function saveCourse(publish){
+  function courseBoardsUrl(courseId){return `prof.html?course=${encodeURIComponent(courseId)}&boards=1`}
+  async function saveCourse(publish,options){
+    options=options||{};
     if(state.saving)return;const sb=window.classesSupabase,teacher=window.currentTeacher,assignment=state.assignments.find(x=>x.id===$('assignment').value);if(!sb||!teacher||(!state.courseId&&!assignment))return toast('Session professeur indisponible.',true);
     if(publish&&allBlocks().some(block=>!block.validated)){setStage(2);return toast('Validez tous les blocs avant de publier.',true)}
     state.saving=true;$('saveDraftBtn').disabled=true;$('publishBtn').disabled=true;startLoading();$('loadingMessage').textContent='Enregistrement du cours et des ressources';
     let courseId='';
     try{
-      if(state.courseId){await saveExistingCourse(sb,publish);stopLoading();toast(publish?'Cours publié avec succès.':'Modifications enregistrées.');return setTimeout(()=>location.href=publish?`index.html?course=${encodeURIComponent(state.courseId)}`:'prof.html?view=private',900)}
+      if(state.courseId){await saveExistingCourse(sb,publish);stopLoading();toast(publish?'Cours publié avec succès.':'Modifications enregistrées.');const target=options.openBoards?courseBoardsUrl(state.courseId):(publish?`index.html?course=${encodeURIComponent(state.courseId)}`:'prof.html?view=private');return setTimeout(()=>location.href=target,500)}
       const {data:course,error:courseError}=await sb.from('courses').insert({teacher_id:teacher.session.user.id,assignment_id:assignment.id,subject_id:assignment.subject_id,grade_level_id:assignment.grade_level_id,stream_id:assignment.stream_id||null,title:state.plan.courseTitle,description:state.plan.summary,status:'draft',settings:{source:'teacher_pdf_ai',duration_minutes:state.plan.totalDurationMinutes,explanation_minutes_per_hour:'15-20'}}).select('id').single();if(courseError)throw courseError;courseId=course.id;
       const pdfPath=await uploadSource(sb,teacher.session.user.id,courseId,state.pdf,'sources');
       const {data:job,error:jobError}=await sb.from('course_imports').insert({course_id:courseId,status:'ready',source_pdf_path:pdfPath,duration_minutes:state.plan.totalDurationMinutes,analysis:state.plan}).select('id').single();if(jobError)throw new Error('Migration 007 requise : '+jobError.message);
@@ -200,7 +204,7 @@
       const rows=courseBlockRows(courseId,job.id,sourceMap);
       if(rows.length){const {error}=await sb.from('course_blocks').insert(rows);if(error)throw error}
       if(publish){const {error}=await sb.from('courses').update({status:'published'}).eq('id',courseId);if(error)throw error}
-      stopLoading();toast(publish?'Cours publié avec succès.':'Brouillon enregistré.');setTimeout(()=>location.href=publish?`index.html?course=${encodeURIComponent(courseId)}`:'prof.html?view=private',900);
+      state.courseId=courseId;stopLoading();toast(options.openBoards?'Tableaux du cours prêts.':(publish?'Cours publié avec succès.':'Brouillon enregistré.'));const target=options.openBoards?courseBoardsUrl(courseId):(publish?`index.html?course=${encodeURIComponent(courseId)}`:'prof.html?view=private');setTimeout(()=>location.href=target,500);
     }catch(error){stopLoading();if(courseId)await sb.from('courses').delete().eq('id',courseId);toast(error.message||'Enregistrement impossible.',true);state.saving=false;$('saveDraftBtn').disabled=false;$('publishBtn').disabled=!$('publishConfirm').checked}
   }
   $('saveDraftBtn').onclick=()=>saveCourse(false);$('publishBtn').onclick=()=>saveCourse(true);
@@ -224,7 +228,7 @@
       const grouped={};blocks.forEach(row=>(grouped[row.session_position]||(grouped[row.session_position]=[])).push(row));
       plan.sessions=Object.keys(grouped).map(Number).sort((a,b)=>a-b).map((sessionIndex,newIndex)=>{
         const template=(plan.sessions&&plan.sessions[sessionIndex])||{};const rows=grouped[sessionIndex];const content=rows[0]&&rows[0].content||{};
-        return {id:template.id||'session-'+(newIndex+1),title:content.session_title||template.title||`Séance ${newIndex+1}`,durationMinutes:Number(content.session_duration_minutes)||Number(template.durationMinutes)||rows.reduce((n,row)=>n+Number(row.duration_minutes||0),0),explanationMinutes:Number(content.explanation_minutes)||Number(template.explanationMinutes)||0,objective:template.objective||'',blocks:rows.map(row=>({id:row.id,dbId:row.id,type:row.block_type,title:row.title,durationMinutes:Number(row.duration_minutes)||5,objective:row.objective||'',content:row.content&&row.content.text||'',resourceName:sourceNames[row.source_id]||'',teacherNote:row.teacher_notes||'',validated:row.status==='validated'}))};
+        return {id:template.id||'session-'+(newIndex+1),title:content.session_title||template.title||`Séance ${newIndex+1}`,durationMinutes:Number(content.session_duration_minutes)||Number(template.durationMinutes)||rows.reduce((n,row)=>n+Number(row.duration_minutes||0),0),explanationMinutes:Number(content.explanation_minutes)||Number(template.explanationMinutes)||0,objective:template.objective||'',blocks:rows.map(row=>({id:row.id,dbId:row.id,type:row.block_type,title:row.title,durationMinutes:Number(row.duration_minutes)||5,objective:row.objective||'',content:row.content&&row.content.text||'',presentation:row.content&&row.content.presentation||null,activity:row.content&&row.content.activity||null,resourceName:sourceNames[row.source_id]||'',teacherNote:row.teacher_notes||'',validated:row.status==='validated'}))};
       });
     }
     state.plan=plan;enablePlanStages();document.querySelector('[data-go-stage="1"]').disabled=true;$('backToSources').textContent='← Mes cours';$('studioTools').hidden=false;$('avatarPreviewLink').href='index.html?course='+encodeURIComponent(course.id);$('avatarPreviewLink').textContent='▶ Expliquer tout le cours avec l’avatar';renderResources();renderPlan();setStage(2);
@@ -236,7 +240,7 @@
       const teacher=await window.teacherAuthReady,sb=window.classesSupabase;if(!teacher||!sb)return;
       const {data,error}=await sb.from('teacher_assignments').select('id,subject_id,grade_level_id,stream_id,subjects(name),grade_levels(name),study_streams(name)').eq('status','active');if(error)throw error;state.assignments=data||[];
       const select=$('assignment');select.innerHTML='';state.assignments.forEach(a=>{const option=document.createElement('option');option.value=a.id;option.textContent=`${a.subjects&&a.subjects.name||'Matière'} — ${a.grade_levels&&a.grade_levels.name||'Niveau'}${a.study_streams&&a.study_streams.name&&a.study_streams.name!=='Sans filière'?' · '+a.study_streams.name:''}`;select.appendChild(option)});if(!state.assignments.length){select.innerHTML='<option value="">Aucune matière attribuée</option>';select.disabled=true}select.onchange=updateSourceSummary;updateSourceSummary();
-      const courseId=new URLSearchParams(location.search).get('course');if(courseId)await loadExistingCourse(sb,courseId);
+      const courseId=new URLSearchParams(location.search).get('course');if(courseId){location.replace(courseBoardsUrl(courseId));return}
     }catch(error){toast('Impossible de charger votre attribution : '+(error.message||error),true)}
   }
   init();

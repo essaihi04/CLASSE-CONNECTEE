@@ -285,8 +285,13 @@
 <div class="toast" id="toast"></div>
 
 <script src="lecons.js"></script>
+<script src="published-course-loader.js"></script>
 <script>
 const LECONS = window.LECONS || [];
+const PAGE_PARAMS=new URLSearchParams(location.search);
+const REQUESTED_IMPORTED_COURSE=PAGE_PARAMS.get('course')||'';
+let activeImportedCourseId='';
+let activeImportedCourseStatus='';
 const PHASES = {
   situation:'Situation', rappel:'Rappel', probleme:'Problème', hypothese:'Hypothèse',
   concept:'Concept', structuration:'Structuration', bilan:'Bilan', reveal:'Quiz'
@@ -388,6 +393,15 @@ function supportLayoutPreview(m, idx, whole){
   if(m.type==='quiz') return `<div class="layout-support-preview"><span class="tag">${title}</span><div class="body"><b>❓ ${esc(m.question||'Question')}</b><br>${(m.options||[]).map((o,i)=>'<span style="display:inline-block;margin:4px 4px 0 0;padding:3px 6px;border:1px solid '+(i===m.correct?'#22c55e':'#475569')+';border-radius:6px">'+esc(o)+'</span>').join('')}</div></div>`;
   // Le corps d'un support texte est du HTML enrichi produit par notre éditeur (gras, italique, couleur, taille).
   return `<div class="layout-support-preview"><span class="tag">${title}</span><div class="body">${caption?caption+'<br>':''}${m.body||esc(m.caption||'Support texte')}</div></div>`;
+}
+function builtinMediaLayoutPreview(media,src){
+  media=media||{};src=src||media.src||'';const safe=esc(src),label=esc(media.desc||media.objective||'Ressource pédagogique');
+  if(!src)return '🖼️ '+label;
+  if(media.type==='video')return '<video src="'+safe+'" muted controls playsinline style="width:100%;height:100%;object-fit:contain;border-radius:4px"></video>';
+  if(media.type==='simulation')return '<iframe src="'+safe+'" sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock" style="width:100%;height:100%;border:0;border-radius:4px;background:#fff"></iframe>';
+  if(media.type==='audio')return '<div style="height:100%;display:grid;place-items:center"><audio src="'+safe+'" controls style="width:90%"></audio></div>';
+  if(media.type==='link')return '<div style="height:100%;display:grid;place-items:center;text-align:center;color:#a5f3fc;padding:10px">📎<br>'+label+'<br><small>Ressource à ouvrir</small></div>';
+  return '<img src="'+safe+'" style="width:100%;height:100%;max-height:none;object-fit:contain;border-radius:4px">';
 }
 
 // Aperçu STATIQUE de l'activité interactive pour la « Mise en page du tableau » (bloc positionnable).
@@ -675,7 +689,7 @@ async function renderPrivateTeacherHome(){
         const meta=document.createElement('div'); meta.style.cssText='font-size:12px;color:#94a3b8;margin-top:3px'; meta.textContent=(c.subjects&&c.subjects.name||'')+' · '+(c.grade_levels&&c.grade_levels.name||'')+(c.study_streams&&c.study_streams.name&&c.study_streams.name!=='Sans filière'?' · '+c.study_streams.name:'')+' · '+(c.status==='draft'?'Brouillon':'Publié');
         card.append(name,meta); if(c.description){ const d=document.createElement('div'); d.style.cssText='font-size:13px;color:#cbd5e1;margin-top:6px'; d.textContent=c.description; card.appendChild(d); }
         if(c.settings&&c.settings.source==='teacher_pdf_ai'){ const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:7px;flex-wrap:wrap;margin-top:10px';
-          const supervise=document.createElement('a'); supervise.href='course-import.html?course='+encodeURIComponent(c.id); supervise.className='add-btn'; supervise.style.cssText='padding:7px 11px;text-decoration:none;font-size:12px'; supervise.textContent='✎ Supports et blocs'; actions.appendChild(supervise);
+          const supervise=document.createElement('a'); supervise.href='prof.html?course='+encodeURIComponent(c.id)+'&boards=1'; supervise.className='add-btn'; supervise.style.cssText='padding:7px 11px;text-decoration:none;font-size:12px'; supervise.textContent='▦ Voir les tableaux du cours'; actions.appendChild(supervise);
           const preview=document.createElement('a'); preview.href='index.html?course='+encodeURIComponent(c.id); preview.className='ghost'; preview.style.cssText='padding:7px 11px;text-decoration:none;font-size:12px'; preview.textContent='▶ Expliquer tout le cours avec l’avatar'; actions.appendChild(preview); card.appendChild(actions); }
         list.appendChild(card); });
       supportsEl.appendChild(list);
@@ -752,7 +766,15 @@ function openCourseLayoutOverview(){
   const title=document.createElement('div'); title.style.cssText='flex:1;font-size:18px;font-weight:800;color:#f8fafc'; title.textContent='▦ Tableaux du cours — '+chap.titre;
   const note=document.createElement('div'); note.style.cssText='width:100%;font-size:13px;color:#94a3b8'; note.textContent='Chaque carte est une partie du cours. Clique sur un tableau pour l’agrandir et le modifier.';
   const close=document.createElement('button'); close.className='ghost'; close.style.padding='8px 12px'; close.textContent='Fermer'; close.onclick=()=>back.remove();
-  head.append(title,close,note); box.appendChild(head);
+  head.appendChild(title);
+  if(activeImportedCourseId){
+    const courses=document.createElement('a');courses.className='ghost';courses.style.cssText='padding:8px 12px;text-decoration:none';courses.href='prof.html?view=private';courses.textContent='← Mes cours';head.appendChild(courses);
+    const preview=document.createElement('a');preview.className='ghost';preview.style.cssText='padding:8px 12px;text-decoration:none';preview.href='index.html?course='+encodeURIComponent(activeImportedCourseId);preview.textContent='▶ Tester avec l’avatar';head.appendChild(preview);
+    const publish=document.createElement('button');publish.className='add-btn';publish.style.padding='8px 12px';publish.textContent=activeImportedCourseStatus==='published'?'✓ Cours publié':'Publier le cours';publish.disabled=activeImportedCourseStatus==='published';
+    publish.onclick=async()=>{if(!confirm('Publier ce cours pour le rendre disponible dans la vue élève ?'))return;publish.disabled=true;publish.textContent='Publication…';try{const sb=window.classesSupabase,teacher=window.currentTeacher;if(!sb||!teacher)throw new Error('Session professeur indisponible');const {error}=await sb.from('courses').update({status:'published'}).eq('id',activeImportedCourseId).eq('teacher_id',teacher.session.user.id);if(error)throw error;activeImportedCourseStatus='published';publish.textContent='✓ Cours publié';toast('Cours publié ✓')}catch(e){publish.disabled=false;publish.textContent='Publier le cours';toast('Erreur : '+(e.message||e),true)}};head.appendChild(publish);
+    note.textContent='Le brouillon est enregistré. Clique sur un tableau pour modifier son texte, ses ressources, sa mise en page et l’avatar, puis publie ici.';
+  }
+  head.append(close,note); box.appendChild(head);
   const grid=document.createElement('div'); grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;align-items:start';
   courseLayoutSlides(chap).forEach((slide,number)=>{
     const et=String(slide.step).startsWith('quiz')?{}:(chap.etapes[slide.step]||{});
@@ -1553,10 +1575,11 @@ async function openLayoutEditor(step){
   if(!isQuiz && (board.media || (Array.isArray(ov.mediaSlides)&&ov.mediaSlides.length)) && !ov.hideMedia){
     const carS=Array.isArray(ov.mediaSlides)?ov.mediaSlides.filter(s=>s&&(s.src||s.svg)):[];
     const first=carS[0];
+    const media=Object.assign({},board.media||{},ov.mediaType?{type:ov.mediaType}:{});
     const html = carS.length
       ? (first.svg ? first.svg : '<img src="'+first.src+'" style="width:100%;height:100%;max-height:none;object-fit:contain;border-radius:4px">')
-      : ((ov.mediaSrc||(board.media&&board.media.src)) ? '<img src="'+(ov.mediaSrc||(board.media&&board.media.src))+'" style="width:100%;height:100%;max-height:none;object-fit:contain;border-radius:4px">' : '🖼️ '+esc((board.media&&board.media.desc)||'image à générer'));
-    present.push({key:'media', label:carS.length?('Carrousel ('+carS.length+' diapos)'):'Image / Vidéo', html: html}); }
+      : builtinMediaLayoutPreview(media,ov.mediaSrc||media.src);
+    present.push({key:'media', label:carS.length?('Carrousel ('+carS.length+' diapos)'):'Ressource pédagogique', html: html}); }
   const schema=!isQuiz&&(!ov.hideSchema)?(ov.schema||board.schema):null;
   if(schema) present.push({key:'schema', label:'Schéma', html:schema});
   // Activité interactive (tableau à compléter / tri / expérience) : positionnable comme les autres blocs
@@ -2423,11 +2446,26 @@ $('addStepBtn').onclick=addCustomCoursePart;
 $('courseBoardsBtn').onclick=()=>openCourseLayoutOverview();
 
 (window.teacherAuthReady || Promise.resolve()).then(()=>{
-  const forcePrivate=new URLSearchParams(location.search).get('view')==='private';
+  const forcePrivate=PAGE_PARAMS.get('view')==='private';
+  const openImported=/^[0-9a-f-]{36}$/i.test(REQUESTED_IMPORTED_COURSE)&&window.loadPublishedCourseLesson;
   const privateLink=$('privateCoursesLink');
   if(privateLink){
-    if(!window.currentTeacher || !window.currentTeacher.profile.legacy_access) privateLink.style.display='none';
+    if(openImported){privateLink.style.display='';privateLink.href='prof.html?view=private';privateLink.textContent='Mes cours PDF + IA';}
+    else if(!window.currentTeacher || !window.currentTeacher.profile.legacy_access) privateLink.style.display='none';
     else if(forcePrivate){privateLink.href='prof.html';privateLink.textContent='Cours prototype';}
+  }
+  if(openImported){
+    const legacyLink=$('legacyModelsLink');if(legacyLink&&!window.currentTeacher.profile.legacy_access)legacyLink.style.display='none';
+    return Promise.all([
+      window.loadPublishedCourseLesson(REQUESTED_IMPORTED_COURSE),
+      fetch('/api/content').then(r=>r.ok?r.json():{}).catch(()=>({})),
+      fetch('/api/overrides').then(r=>r.ok?r.json():{}).catch(()=>({})),
+      fetch('/api/custom-steps').then(r=>r.ok?r.json():{}).catch(()=>({})),
+      fetch('/api/course-structure').then(r=>r.ok?r.json():{}).catch(()=>({}))
+    ]).then(([lesson,c,o,cs,st])=>{
+      activeImportedCourseId=lesson.publishedCourseId;activeImportedCourseStatus=lesson.courseStatus||'draft';
+      LECONS.splice(0,LECONS.length,lesson);return [c,o,cs,st];
+    });
   }
   if(!window.currentTeacher || !window.currentTeacher.profile.legacy_access || forcePrivate) return renderPrivateTeacherHome();
   return Promise.all([
@@ -2443,9 +2481,11 @@ $('courseBoardsBtn').onclick=()=>openCourseLayoutOverview();
   fillChapters();
   if(LECONS.length){ sel.chapter=LECONS[0].id; chapterSel.value=sel.chapter; }
   renderSteps(); renderEditor();
-}).catch(()=>{
+  if(activeImportedCourseId&&PAGE_PARAMS.get('boards')==='1')setTimeout(()=>openCourseLayoutOverview(),80);
+}).catch(error=>{
   // Une erreur d'authentification ne doit jamais lancer l'ancien espace local en secours.
   if(document.documentElement.dataset.requiresTeacher==='true' && !window.currentTeacher) return;
+  if(REQUESTED_IMPORTED_COURSE){toast('Impossible d’ouvrir les tableaux : '+(error&&error.message||error),true);return renderPrivateTeacherHome();}
   fillChapters(); if(LECONS.length){ sel.chapter=LECONS[0].id; } renderSteps(); renderEditor();
 });
 </script>

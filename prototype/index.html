@@ -66,6 +66,18 @@
   .line.ex::before{content:"🌱 "}
   .line.imp{color:#fdba74;font-weight:800}
   .line.imp::before{content:"⚠ ";color:#fbbf24}
+  /* COURS IMPORTÉS : palette éditoriale stable. Les couleurs ont une fonction fixe et ne
+     changent jamais d'une diapositive à l'autre : blanc = contenu, cyan = définition,
+     jaune = repère important, vert = réussite. */
+  body.imported-course{--chalk:#f8fafc;--accent:#38bdf8;--accent2:#fbbf24}
+  body.imported-course .line{color:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;font-weight:500;letter-spacing:.01em}
+  body.imported-course .line.def{color:#e0f2fe;border-left-color:#38bdf8}
+  body.imported-course .line.imp{color:#fde68a}
+  body.imported-course .board h2{color:#fff;text-decoration-color:#fbbf24}
+  body.imported-course .probleme-card .pc-q{color:#fff}
+  body.imported-course .lesson-media{box-sizing:border-box;background:rgba(2,6,23,.3);border-radius:14px;padding:8px;box-shadow:0 12px 28px rgba(0,0,0,.22)}
+  body.imported-course .board[data-scene]{transition:background .45s ease,box-shadow .45s ease}
+  body.imported-course .board[data-scene="activity_focus"]{box-shadow:inset 0 0 80px rgba(14,116,144,.18),0 10px 30px rgba(0,0,0,.4)}
   /* ===== couleurs « craie » : un vrai tableau de prof ===== */
   .line .r{color:#fca5a5}.line .b{color:#93c5fd}.line .g{color:#86efac}
   .line .o{color:#fdba74}.line .p{color:#f9a8d4}.line .w{color:#fff}.line .y{color:#fde68a}
@@ -226,8 +238,8 @@
     background:radial-gradient(circle at 50% 42%, rgba(30,41,59,.65), rgba(2,6,23,.25));box-shadow:0 8px 24px rgba(0,0,0,.45)}
   .board.has-layout .content{position:static;padding:0;max-height:none;overflow:visible;-webkit-mask-image:none}
   .board.has-layout #boardTitle{display:block!important}
-  .board.has-layout .lesson-media{margin:0;max-width:none}
-  .board.has-layout .lesson-media img,.board.has-layout .lesson-media video{
+  .board.has-layout .lesson-media{margin:0;max-width:none;display:flex;flex-direction:column;box-sizing:border-box}
+  .board.has-layout .lesson-media img,.board.has-layout .lesson-media video,.board.has-layout .lesson-media iframe{
     width:100%;height:100%;max-height:none;object-fit:contain}
   .board.has-layout .lesson-media img{
     background:transparent;border:0;box-shadow:none}
@@ -405,7 +417,20 @@
   .lesson-media{margin:16px 0;max-width:560px}
   .lesson-media img,.lesson-media video{display:block;width:100%;max-height:340px;object-fit:contain;
     border-radius:12px;border:1px solid #334155;background:#000}
+  .lesson-media iframe{display:block;width:100%;height:330px;border:1px solid #334155;border-radius:12px;background:#fff}
+  .lesson-media audio{display:block;width:min(100%,560px);margin:28px auto}
   .lesson-media .lm-cap{font-size:13px;color:#94a3b8;margin-top:6px}
+  .lesson-media .lm-open{display:inline-flex;align-items:center;justify-content:center;gap:8px;margin-top:9px;
+    padding:9px 14px;border-radius:9px;background:#0e7490;color:#ecfeff;text-decoration:none;font-size:13px;font-weight:800}
+  .lesson-media.resource-link{height:100%;min-height:180px;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;border:1px solid rgba(56,189,248,.45);background:rgba(8,47,73,.46)}
+  .lesson-media .lm-resource-icon{font-size:48px;margin-bottom:10px}
+  .lesson-media .lm-resource-title{font-size:20px;font-weight:800;color:#f8fafc;overflow-wrap:anywhere}
+  .lesson-media .lm-resource-objective{font-size:14px;line-height:1.45;color:#bae6fd;margin-top:7px;max-width:90%}
+  .board.has-layout .lesson-media.resource-link{box-sizing:border-box}
+  .board.has-layout .lesson-media img,.board.has-layout .lesson-media video,.board.has-layout .lesson-media iframe{height:auto;flex:1;min-height:0}
+  .board.has-layout .lesson-media iframe{min-height:0}
+  .board.has-layout .lesson-media audio{margin:auto;width:92%}
   .lesson-media.placeholder{border:2px dashed #475569;border-radius:14px;padding:18px;text-align:center;
     background:rgba(2,6,23,.4)}
   .lesson-media .lm-emoji{font-size:44px;letter-spacing:6px;margin-bottom:8px}
@@ -1504,6 +1529,26 @@ function renderLessonMedia(m){
   // L'avatar peut piloter le défilement (voir speakStepNarration) ; sinon défilement auto.
   if(Array.isArray(m.slides) && m.slides.filter(s=>s&&(s.src||s.svg)).length){ return renderCarousel(m); }
   const box=document.createElement('div'); box.className='lesson-media';
+  if(m.src && m.type==='simulation'){
+    const frame=document.createElement('iframe');frame.src=m.src;frame.title=m.desc||'Simulation pédagogique';
+    frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-pointer-lock');frame.setAttribute('allowfullscreen','');
+    box.appendChild(frame);
+    const open=document.createElement('a');open.className='lm-open';open.href=m.src;open.target='_blank';open.rel='noopener';open.textContent='↗ Ouvrir la simulation en grand';box.appendChild(open);
+    return box;
+  }
+  if(m.src && m.type==='audio'){
+    const audio=document.createElement('audio');audio.src=m.src;audio.controls=true;audio.preload='metadata';box.appendChild(audio);
+    if(m.desc){const c=document.createElement('div');c.className='lm-cap';c.textContent=m.desc;box.appendChild(c)}
+    return box;
+  }
+  if(m.src && m.type==='link'){
+    box.classList.add('resource-link');
+    const icon=document.createElement('div');icon.className='lm-resource-icon';icon.textContent=m.kind==='simulation'?'🧪':'📎';box.appendChild(icon);
+    const name=document.createElement('div');name.className='lm-resource-title';name.textContent=m.desc||'Ressource pédagogique';box.appendChild(name);
+    if(m.objective){const objective=document.createElement('div');objective.className='lm-resource-objective';objective.textContent=m.objective;box.appendChild(objective)}
+    const open=document.createElement('a');open.className='lm-open';open.href=m.src;open.target='_blank';open.rel='noopener';open.textContent=m.kind==='simulation'?'▶ Lancer la simulation':'↗ Ouvrir la ressource';box.appendChild(open);
+    return box;
+  }
   if(m.src && m.type==='video'){
     // VIDÉO d'expérience : UNE seule vidéo (la grande), en LECTURE AUTOMATIQUE (muette pour être
     // autorisée par le navigateur). On NE dévoile PAS la réponse : la conclusion (texte) n'apparaît
@@ -2151,11 +2196,12 @@ function renderProfEditBar(n, board){
   const old=document.getElementById('profEditBar'); if(old) old.remove();
   if(!profMode || !board) return;
   const ov=stepOverride(lecon.id, n); const items=[];
-  if(board.media) items.push({ icon:(board.media.type==='video'?'🎬':'🖼️'), label:'Média',
+  if(board.media){ const mediaIcon=({video:'🎬',simulation:'🧪',audio:'🔊',link:'📎',image:'🖼️'})[board.media.type]||'📎';
+    const canReplace=board.media.type==='image'||board.media.type==='video';items.push({ icon:mediaIcon, label:'Média',
       hidden:!!ov.hideMedia, note:(ov.mediaSrc?'remplacé':(ov.hideMedia?'masqué':'')),
       toggle:()=>setOverride(lecon.id,n,{ hideMedia: ov.hideMedia?null:true }),
-      replace:()=>replaceBuiltinMedia(n),
-      restore: ov.mediaSrc?(()=>setOverride(lecon.id,n,{ mediaSrc:null, mediaType:null })):null });
+      replace:canReplace?(()=>replaceBuiltinMedia(n)):null,
+      restore: ov.mediaSrc?(()=>setOverride(lecon.id,n,{ mediaSrc:null, mediaType:null })):null }); }
   if(board.experiment||board.experiment3d||board.labExperiment||board.match||board.fillTable) items.push({ icon:'🧪', label:'Simulation',
       hidden:!!ov.hideSim, note:(ov.hideSim?'masquée':''),
       toggle:()=>setOverride(lecon.id,n,{ hideSim: ov.hideSim?null:true }) });
@@ -2216,7 +2262,10 @@ function applyLayout(cid, n){
       el.querySelectorAll('.mc-body,.mc-link,.mc-title,.cap').forEach(ch=>{ ch.style.fontSize=''; ch.style.lineHeight=''; });
     });
   }
-  const lay=(stepOverride(cid,n)||{}).layout;
+  const explicit=(stepOverride(cid,n)||{}).layout;
+  const directed=(!explicit && lecon && lecon.id===cid && Number.isInteger(Number(n)) && lecon.etapes[Number(n)] && lecon.etapes[Number(n)].presentation)
+    ? lecon.etapes[Number(n)].presentation.layout : null;
+  const lay=explicit||directed;
   boardEl.classList.toggle('has-layout', !!lay);
   if(!lay){ if(box){ box.style.left=''; box.style.top=''; box.style.right=''; box.style.bottom=''; box.style.width=''; box.style.height=''; box.style.aspectRatio=''; box.classList.remove('manual-head'); } return; }
   const F=layoutFrame(boardEl);
@@ -2300,6 +2349,8 @@ function render(n){ const e=lecon.etapes[n];
   cancelAutoNext(); cancelAutoResume();  // nouvelle étape → on repart de zéro (avance auto)
   const eb=effectiveBoard(e.board, lecon.id, n);   // applique les réglages prof (masquer/remplacer)
   const say=effSay(e.say, lecon.id, n);            // texte parlé effectif (réécrit/vidé par le prof)
+  const scene=e.presentation&&e.presentation.scene||'';
+  document.querySelector('.board').dataset.scene=scene;
   paint(eb, say); renderPhase(n);
   renderMedia(lecon.id, n);            // médias ajoutés par le prof pour cette étape
   renderProfEditBar(n, e.board);       // barre prof : masquer/afficher/remplacer les éléments intégrés
@@ -2316,6 +2367,9 @@ function render(n){ const e=lecon.etapes[n];
   else if(/1️⃣|étapes|d'abord|ensuite|puis/i.test(t)) { gesture='count'; emotion='neutral'; }
   else if(/\?|réfléchis|question/i.test(t))  { gesture='think'; emotion='curious'; }
   else if(nBodyLines>=2)                     { gesture='write'; emotion='neutral'; }   // il écrit la leçon au tableau
+  if(scene==='media_focus'||scene==='activity_focus') gesture='point';
+  if(scene==='question_focus') { gesture='think'; emotion='curious'; }
+  if(scene==='summary_focus') { gesture='nod'; emotion='happy'; }
   if(e.reveal){ gesture='think'; emotion='curious'; }   // question : on réfléchit (réponse cachée)
   // CONTRÔLE MANUEL du prof (espace prof → 🎭 Avatar de cette étape) : prioritaire sur l'auto
   const avOv=stepOverride(lecon.id,n).av||{};
@@ -2332,7 +2386,8 @@ function render(n){ const e=lecon.etapes[n];
   const isPresentation = (n===0) || (!hasSchema && !e.reveal && nLines<=2 && txt.length < 200);
   // MISE EN PAGE MANUELLE : si le prof a fixé une disposition avec un avatar placé,
   // on DÉSACTIVE la marche/redimension automatique et on laisse applyLayout le positionner.
-  const manualAvatar = !!((stepOverride(lecon.id,n).layout||{}).avatar);
+  const activeLayout=(stepOverride(lecon.id,n).layout)||(e.presentation&&e.presentation.layout);
+  const manualAvatar = !!(activeLayout&&activeLayout.avatar);
   // SITUATION DE DÉPART (e.intro) : pas d'écriture au tableau, avatar en grand et centré.
   const isIntro = !!e.intro;
   const avBox=document.getElementById('avatarBox');
@@ -2367,7 +2422,11 @@ function render(n){ const e=lecon.etapes[n];
   const substantive = e.phase ? ASK_PHASES.includes(e.phase) : !!(e.board&&e.board.schema);
   // pas de question de contrôle sur une étape d'ACTIVITÉ interactive (l'élève y est déjà actif)
   const interactive = e.board && (e.board.match || e.board.fillTable || e.board.experiment || e.board.experiment3d || e.board.labExperiment);
-  const isCheckStep = !e.reveal && n < lecon.etapes.length-1 && substantive && !interactive;
+  // Les cours PDF possèdent leurs propres pauses-question espacées par le réalisateur
+  // pédagogique : ne pas répéter « As-tu compris ? » après chaque bloc, ce qui recréerait
+  // précisément la monotonie que la mise en scène cherche à éviter.
+  const allowAutomaticCheck = !lecon.imported || !!e.checkUnderstanding;
+  const isCheckStep = !e.reveal && n < lecon.etapes.length-1 && substantive && !interactive && allowAutomaticCheck;
   compClear();
   // Si l'étape a un CARROUSEL, l'avatar peut parler de chaque image en la faisant défiler.
   const carousel = (eb.media && eb.media.type==='carousel') ? window.__currentCarousel : null;
@@ -2378,7 +2437,7 @@ function render(n){ const e=lecon.etapes[n];
     speakStepNarration(say, carousel, ()=>{ revealLines(); if(i===n) askComprehension(n); });   // à la fin : la question compris
   } else {
     // pas de point de contrôle : fin de la parole → petite pause (question possible) → diapo suivant
-    const autoOk = !e.reveal && !interactive && n < lecon.etapes.length-1;
+    const autoOk = !e.reveal && !interactive && !e.pauseForAnswer && n < lecon.etapes.length-1;
     speakStepNarration(say, carousel, ()=>{ revealLines(); if(autoOk && i===n) scheduleAutoNext(n, AUTO_NEXT_MS); });
   }
   bar.style.width=((n+1)/lecon.etapes.length*100)+'%';
@@ -2914,6 +2973,8 @@ function showChapterHome(){
   title.textContent=lecon.titre;
   board.innerHTML='<div class="line">Clique sur <b>▶ Démarrer le cours</b> pour commencer ce chapitre.</div>';
   clearBoardFloatingBlocks();
+  document.querySelector('.board').dataset.scene='';
+  applyLayout(lecon.id,-1);                                  // retire la composition de la dernière étape
   speech.textContent='Nouveau chapitre : '+lecon.titre+'. Prêt ? 😊';
   avatarExpress('welcome','happy');   // accueil du chapitre : bras ouverts
 
@@ -2930,6 +2991,7 @@ Promise.all([
   publishedCoursePromise
 ]).then(([cs, st, publishedLesson])=>{
     if(publishedLesson) window.LECONS=[publishedLesson];
+    document.body.classList.toggle('imported-course',!!publishedLesson);
     customSteps = cs||{}; structure = st||{};
     applyStepPlan();
     fillChapterSelect();
