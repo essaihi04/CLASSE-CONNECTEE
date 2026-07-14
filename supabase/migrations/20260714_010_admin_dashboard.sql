@@ -7,6 +7,21 @@
 -- (pour ouvrir n'importe quel cours avec l'avatar) et l'annuaire des professeurs avec
 -- leur e-mail (auth.users n'est pas lisible depuis le navigateur).
 
+-- Le déclencheur de la migration 001 interdisait tout changement de rôle, même depuis
+-- le SQL Editor, ce qui rendait la promotion d'un administrateur impossible. On ne bloque
+-- désormais que les requêtes du navigateur (auth.uid() renseigné, hors service_role) :
+-- un professeur connecté ne peut toujours pas modifier son propre rôle.
+create or replace function public.protect_profile_privileges()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is not null and auth.role() <> 'service_role'
+     and (new.id <> old.id or new.role <> old.role) then
+    raise exception 'Le rôle et l''identifiant du profil ne peuvent pas être modifiés.';
+  end if;
+  return new;
+end;
+$$;
+
 drop policy if exists "Admins read all course media" on storage.objects;
 create policy "Admins read all course media" on storage.objects
 for select to authenticated
