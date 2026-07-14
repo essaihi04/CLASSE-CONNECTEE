@@ -3227,8 +3227,15 @@ let activeSimulationContext=null;
 window.addEventListener('message',event=>{
   const data=event.data||{};if(data.type!=='cc-sim-state'||!data.capabilities)return;
   const variables=Array.isArray(data.capabilities.variables)?data.capabilities.variables.slice(0,3).map(v=>({name:String(v&&v.name||'').slice(0,80),min:Number(v&&v.min),max:Number(v&&v.max),step:Number(v&&v.step),unit:String(v&&v.unit||'').slice(0,24)})).filter(v=>v.name&&Number.isFinite(v.min)&&Number.isFinite(v.max)):[];
-  const state={};variables.forEach(v=>{const n=Number(data.state&&data.state[v.name]);if(Number.isFinite(n))state[v.name]=n});
-  activeSimulationContext={state,capabilities:{actions:['demo','reset','set'],variables}};
+  // Valeur courante : soit dans data.state, soit portée par la variable elle-même (value).
+  const raw=Array.isArray(data.capabilities.variables)?data.capabilities.variables:[];
+  const state={};variables.forEach((v,index)=>{
+    const fromState=Number(data.state&&data.state[v.name]);
+    const fromVariable=Number(raw[index]&&raw[index].value);
+    const n=Number.isFinite(fromState)?fromState:fromVariable;
+    if(Number.isFinite(n))state[v.name]=n;
+  });
+  activeSimulationContext={state,observation:String(data.observation||'').slice(0,300),capabilities:{actions:['demo','reset','set'],variables}};
 });
 function sendSimAction(action){
   if(!action || typeof action!=='object' || !action.action) return;
