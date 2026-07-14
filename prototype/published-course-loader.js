@@ -158,7 +158,7 @@
     if(!/^[0-9a-f-]{36}$/i.test(courseId||''))throw new Error('Identifiant de cours invalide.');
     const sb=client(),{data:{session}}=await sb.auth.getSession();
     const [{data:course,error:courseError},{data:imports,error:importError},{data:blocks,error:blockError},{data:sources,error:sourceError}]=await Promise.all([
-      sb.from('courses').select('id,teacher_id,title,description,status,settings').eq('id',courseId).single(),
+      sb.from('courses').select('id,teacher_id,title,description,status,settings,subjects(name),grade_levels(name),study_streams(name)').eq('id',courseId).single(),
       sb.from('course_imports').select('analysis,duration_minutes,created_at').eq('course_id',courseId).order('created_at',{ascending:false}).limit(1),
       sb.from('course_blocks').select('id,session_position,position,block_type,title,duration_minutes,objective,content,source_id,status').eq('course_id',courseId).order('session_position',{ascending:true}).order('position',{ascending:true}),
       sb.from('course_sources').select('id,kind,file_name,mime_type,storage_path,pedagogical_objective').eq('course_id',courseId)
@@ -198,10 +198,13 @@
     const unusedSources=allSources.filter(source=>source.url&&!usedSourceIds.has(source.id));
     unusedSources.forEach(source=>etapes.push(standaloneResourceStep(source,mediaIndex++)));
     if(etapes.length===1)throw new Error('Ce cours ne contient aucun bloc publié.');
-    const context=(blocks||[]).map(row=>`${plain(row.title,180)} : ${plain(row.content&&row.content.text||row.objective,800)}`).join('\n').slice(0,6500);
+    const target=analysis.targetContext||(course.settings&&course.settings.target_context)||{subjectName:course.subjects&&course.subjects.name,gradeLevelName:course.grade_levels&&course.grade_levels.name,streamName:course.study_streams&&course.study_streams.name};
+    const targetLabel=[plain(target.subjectName,160),plain(target.gradeLevelName,160),plain(target.streamName,120)].filter(value=>value&&value!=='Sans filière').join(' · ');
+    const targetContext=targetLabel?`CIBLE EXACTE DU COURS : ${targetLabel}. Répondre uniquement pour cette matière et cette année scolaire, avec le vocabulaire, les prérequis et les méthodes correspondants.\n`:'';
+    const context=(targetContext+(blocks||[]).map(row=>`${plain(row.title,180)} : ${plain(row.content&&row.content.text||row.objective,800)}`).join('\n')).slice(0,6500);
     const suggestedQuestions=(blocks||[]).filter(row=>row.block_type==='question'||row.block_type==='evaluation').map(row=>plain(row.title,90)).filter(Boolean).slice(0,4);
     if(!suggestedQuestions.length)suggestedQuestions.push('Résume ce cours','Réexplique la notion principale','Quel est le point le plus important ?','Propose-moi une question de révision');
-    return {id:'published-'+course.id,imported:true,publishedCourseId:course.id,courseStatus:course.status,sem:'PDF',titre:plain(course.title,180),description:plain(course.description||analysis.summary,1500),aiContext:context,suggestedQuestions,theme:{name:'cours-importé',text:'#f8fafc',key:'#fde68a',accent:'#38bdf8'},etapes};
+    return {id:'published-'+course.id,imported:true,publishedCourseId:course.id,courseStatus:course.status,sem:'PDF',titre:plain(course.title,180),description:plain(course.description||analysis.summary,1500),targetLabel,aiContext:context,suggestedQuestions,theme:{name:'cours-importé',text:'#f8fafc',key:'#fde68a',accent:'#38bdf8'},etapes};
   }
   window.loadPublishedCourseLesson=loadPublishedCourseLesson;
 })();

@@ -67,9 +67,11 @@
     }));
   }
   function updateSourceSummary(){
-    const ready=!!state.pdf&&!!$('assignment').value;
+    const assignment=state.assignments.find(x=>x.id===$('assignment').value),ready=!!state.pdf&&!!assignment;
     $('analyzeBtn').disabled=!ready;
-    $('sourceSummary').textContent=state.pdf?`${state.resources.length} ressource${state.resources.length>1?'s':''} ajoutée${state.resources.length>1?'s':''} · PDF prêt`:'Ajoutez le PDF pour commencer';
+    const target=assignment?`${assignment.subjects&&assignment.subjects.name||'Matière'} · ${assignment.grade_levels&&assignment.grade_levels.name||'Niveau'}`:'';
+    $('assignmentGuard').innerHTML=assignment?`Cible verrouillée : <strong>${escapeHtml(target)}</strong>. Un PDF d’une autre matière ou année sera bloqué.`:'Choisissez la matière et l’année exactes du cours.';
+    $('sourceSummary').textContent=state.pdf?`${state.resources.length} ressource${state.resources.length>1?'s':''} ajoutée${state.resources.length>1?'s':''} · ${target||'PDF prêt'}`:'Ajoutez le PDF pour commencer';
   }
   bindDropzone($('pdfDropzone'),$('pdfInput'),setPdf);bindDropzone($('resourceDropzone'),$('resourceInput'),addResources);
   $('addExistingResourcesBtn').onclick=()=>$('resourceInput').click();
@@ -103,7 +105,7 @@
       const pdfData=await fileAsBase64(state.pdf),budget={remaining:Math.max(0,15*1024*1024-state.pdf.size)},resources=[];
       for(const resource of state.resources)resources.push(await resourceForAnalysis(resource,budget));
       const token=window.currentTeacher&&window.currentTeacher.session&&window.currentTeacher.session.access_token;
-      const response=await fetch('/api/analyze-course-import',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({pdf:{name:state.pdf.name,mimeType:'application/pdf',data:pdfData},resources,request:{title:$('courseTitle').value.trim(),durationHours:Number($('durationHours').value),subject:assignment.subjects&&assignment.subjects.name,gradeLevel:assignment.grade_levels&&assignment.grade_levels.name,stream:assignment.study_streams&&assignment.study_streams.name}})});
+      const response=await fetch('/api/analyze-course-import',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({pdf:{name:state.pdf.name,mimeType:'application/pdf',data:pdfData},resources,request:{assignmentId:assignment.id,title:$('courseTitle').value.trim(),durationHours:Number($('durationHours').value)}})});
       const body=await response.json();if(!response.ok)throw new Error(body.error||'Analyse impossible');state.plan=normalizePlan(body);enablePlanStages();renderPlan();
       stopLoading();toast('Cours structuré. Ouverture directe des tableaux…');
       await saveCourse(false,{openBoards:true});
@@ -118,7 +120,8 @@
     const plan=state.plan;if(!plan)return;
     $('planTitle').textContent=plan.courseTitle;
     const stats=planStats();
-    $('planMeta').textContent=`${plan.sessions.length} séance${plan.sessions.length>1?'s':''} · ${Math.round(plan.totalDurationMinutes/60*10)/10} h demandées · ${stats.blocks.length} blocs`;
+    const target=plan.targetContext?`${plan.targetContext.subjectName} · ${plan.targetContext.gradeLevelName}`:'';
+    $('planMeta').textContent=`${target?target+' · ':''}${plan.sessions.length} séance${plan.sessions.length>1?'s':''} · ${Math.round(plan.totalDurationMinutes/60*10)/10} h demandées · ${stats.blocks.length} blocs`;
     const warnings=$('planWarnings');warnings.hidden=!plan.warnings.length;warnings.innerHTML=plan.warnings.map(w=>'• '+escapeHtml(w)).join('<br>');
     const list=$('sessionsList');list.innerHTML='';
     plan.sessions.forEach((session,index)=>{
@@ -158,7 +161,7 @@
   $('deleteBlock').onclick=()=>{if(!state.selected||!confirm('Supprimer ce bloc du cours ?'))return;state.selected.session.blocks=state.selected.session.blocks.filter(b=>b!==state.selected.block);closeDrawer();renderPlan();toast('Bloc supprimé.')};
 
   function renderPublish(){
-    if(!state.plan)return;const s=planStats(),hours=Math.round(state.plan.totalDurationMinutes/6)/10;$('publishTitle').textContent=state.plan.courseTitle;$('publishMeta').textContent=`${state.plan.sessions.length} séance${state.plan.sessions.length>1?'s':''} · ${hours} h · ${s.blocks.length} blocs`;
+    if(!state.plan)return;const s=planStats(),hours=Math.round(state.plan.totalDurationMinutes/6)/10,target=state.plan.targetContext?`${state.plan.targetContext.subjectName} · ${state.plan.targetContext.gradeLevelName}`:'';$('publishTitle').textContent=state.plan.courseTitle;$('publishMeta').textContent=`${target?target+' · ':''}${state.plan.sessions.length} séance${state.plan.sessions.length>1?'s':''} · ${hours} h · ${s.blocks.length} blocs`;
     $('publishStats').innerHTML=`<div class="publish-stat"><strong>${hours} h</strong><span>Durée totale</span></div><div class="publish-stat"><strong>${s.blocks.length}</strong><span>Blocs pédagogiques</span></div><div class="publish-stat"><strong>${state.resources.length}</strong><span>Ressources associées</span></div>`;
   }
   $('publishConfirm').onchange=()=>{$('publishBtn').disabled=!$('publishConfirm').checked};
@@ -180,7 +183,7 @@
       if(resource.dbId)sourceMap[resourceName(resource)]=resource.dbId;
     }
     const backup=state.persistedBlocks.map(row=>({id:row.id,course_id:state.courseId,import_id:state.importId,session_position:row.session_position,position:row.position,block_type:row.block_type,title:row.title,duration_minutes:row.duration_minutes,objective:row.objective,content:row.content||{},source_id:row.source_id||null,status:row.status,teacher_notes:row.teacher_notes||''}));
-    const {error:courseError}=await sb.from('courses').update({title:state.plan.courseTitle,description:state.plan.summary,status:'draft',settings:{source:'teacher_pdf_ai',duration_minutes:state.plan.totalDurationMinutes,explanation_minutes_per_hour:'15-20'}}).eq('id',state.courseId);if(courseError)throw courseError;
+    const {error:courseError}=await sb.from('courses').update({title:state.plan.courseTitle,description:state.plan.summary,status:'draft',settings:{source:'teacher_pdf_ai',duration_minutes:state.plan.totalDurationMinutes,explanation_minutes_per_hour:'15-20',target_context:state.plan.targetContext||null,source_assessment:state.plan.sourceAssessment||null}}).eq('id',state.courseId);if(courseError)throw courseError;
     const {error:importError}=await sb.from('course_imports').update({status:'ready',duration_minutes:state.plan.totalDurationMinutes,analysis:state.plan,error_message:null}).eq('id',state.importId);if(importError)throw importError;
     const {error:deleteError}=await sb.from('course_blocks').delete().eq('course_id',state.courseId);if(deleteError)throw deleteError;
     const rows=courseBlockRows(state.courseId,state.importId,sourceMap);if(rows.length){const {error}=await sb.from('course_blocks').insert(rows);if(error){if(backup.length)await sb.from('course_blocks').insert(backup);throw error}}
@@ -196,7 +199,7 @@
     let courseId='';
     try{
       if(state.courseId){await saveExistingCourse(sb,publish);stopLoading();toast(publish?'Cours publié avec succès.':'Modifications enregistrées.');const target=options.openBoards?courseBoardsUrl(state.courseId):(publish?`index.html?course=${encodeURIComponent(state.courseId)}`:'prof.html?view=private');return setTimeout(()=>location.href=target,500)}
-      const {data:course,error:courseError}=await sb.from('courses').insert({teacher_id:teacher.session.user.id,assignment_id:assignment.id,subject_id:assignment.subject_id,grade_level_id:assignment.grade_level_id,stream_id:assignment.stream_id||null,title:state.plan.courseTitle,description:state.plan.summary,status:'draft',settings:{source:'teacher_pdf_ai',duration_minutes:state.plan.totalDurationMinutes,explanation_minutes_per_hour:'15-20'}}).select('id').single();if(courseError)throw courseError;courseId=course.id;
+      const {data:course,error:courseError}=await sb.from('courses').insert({teacher_id:teacher.session.user.id,assignment_id:assignment.id,subject_id:assignment.subject_id,grade_level_id:assignment.grade_level_id,stream_id:assignment.stream_id||null,title:state.plan.courseTitle,description:state.plan.summary,status:'draft',settings:{source:'teacher_pdf_ai',duration_minutes:state.plan.totalDurationMinutes,explanation_minutes_per_hour:'15-20',target_context:state.plan.targetContext||null,source_assessment:state.plan.sourceAssessment||null}}).select('id').single();if(courseError)throw courseError;courseId=course.id;
       const pdfPath=await uploadSource(sb,teacher.session.user.id,courseId,state.pdf,'sources');
       const {data:job,error:jobError}=await sb.from('course_imports').insert({course_id:courseId,status:'ready',source_pdf_path:pdfPath,duration_minutes:state.plan.totalDurationMinutes,analysis:state.plan}).select('id').single();if(jobError)throw new Error('Migration 007 requise : '+jobError.message);
       const sourceMap={};
@@ -238,7 +241,7 @@
   async function init(){
     try{
       const teacher=await window.teacherAuthReady,sb=window.classesSupabase;if(!teacher||!sb)return;
-      const {data,error}=await sb.from('teacher_assignments').select('id,subject_id,grade_level_id,stream_id,subjects(name),grade_levels(name),study_streams(name)').eq('status','active');if(error)throw error;state.assignments=data||[];
+      const {data,error}=await sb.from('teacher_assignments').select('id,subject_id,grade_level_id,stream_id,subjects(code,name),grade_levels(code,name),study_streams(code,name)').eq('status','active');if(error)throw error;state.assignments=data||[];
       const select=$('assignment');select.innerHTML='';state.assignments.forEach(a=>{const option=document.createElement('option');option.value=a.id;option.textContent=`${a.subjects&&a.subjects.name||'Matière'} — ${a.grade_levels&&a.grade_levels.name||'Niveau'}${a.study_streams&&a.study_streams.name&&a.study_streams.name!=='Sans filière'?' · '+a.study_streams.name:''}`;select.appendChild(option)});if(!state.assignments.length){select.innerHTML='<option value="">Aucune matière attribuée</option>';select.disabled=true}select.onchange=updateSourceSummary;updateSourceSummary();
       const courseId=new URLSearchParams(location.search).get('course');if(courseId){location.replace(courseBoardsUrl(courseId));return}
     }catch(error){toast('Impossible de charger votre attribution : '+(error.message||error),true)}

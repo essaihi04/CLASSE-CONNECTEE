@@ -72,6 +72,7 @@
           </label>
           <label class="field"><span>Matière et niveau</span>
             <select id="assignment"><option>Chargement…</option></select>
+            <small id="assignmentGuard" class="assignment-guard">Le PDF sera contrôlé pour cette matière et cette année exactes.</small>
           </label>
           <label class="field"><span>Durée totale demandée</span>
             <div class="duration-control"><button id="durationMinus" type="button">−</button><input id="durationHours" type="number" min="1" max="12" step="0.5" value="2"><span>heures</span><button id="durationPlus" type="button">+</button></div>
@@ -189,7 +190,7 @@
               <span class="ready-badge">Prêt</span>
             </div>
             <div id="publishStats" class="publish-stats"></div>
-            <label class="confirm-row"><input id="publishConfirm" type="checkbox"><span>J’ai relu les points importants et je valide ce cours.</span></label>
+            <label class="confirm-row"><input id="publishConfirm" type="checkbox"><span>J’ai vérifié la matière, l’année scolaire exacte et les points importants de ce cours.</span></label>
             <div class="publish-actions">
               <button id="saveDraftBtn" class="outline-button" type="button">Enregistrer en brouillon</button>
               <button id="publishBtn" class="primary-button" type="button" disabled>Publier le cours</button>

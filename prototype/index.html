@@ -801,7 +801,7 @@
   </div>
 </div>
 
-<footer>Prototype « Classes Connectées » · Programme marocain · SVT 3ème année collège</footer>
+<footer id="courseFooter">Prototype « Classes Connectées » · Programme marocain · SVT 3ème année collège</footer>
 
 <!-- ====== PAVÉ D'ÉCRITURE MANUSCRITE (bouton flottant + panneau) ====== -->
 <button id="writeFab" title="Écrire à la main et convertir en texte">⌨️<span class="lbl">Écrire à la main</span></button>
@@ -2992,6 +2992,7 @@ Promise.all([
 ]).then(([cs, st, publishedLesson])=>{
     if(publishedLesson) window.LECONS=[publishedLesson];
     document.body.classList.toggle('imported-course',!!publishedLesson);
+    if(publishedLesson&&document.getElementById('courseFooter'))document.getElementById('courseFooter').textContent=`Classes Connectées · Programme marocain${publishedLesson.targetLabel?' · '+publishedLesson.targetLabel:''}`;
     customSteps = cs||{}; structure = st||{};
     applyStepPlan();
     fillChapterSelect();

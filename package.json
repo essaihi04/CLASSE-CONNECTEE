@@ -4,7 +4,8 @@
   "description": "Prototype - prof IA (SVT college, programme marocain)",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "test": "node --test"
   },
   "license": "UNLICENSED"
 }
