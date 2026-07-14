@@ -6,6 +6,26 @@
 <title>Classes Connectées — Le prof IA</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
+<script>
+/* Confidentialité des comptes : les chapitres de démonstration (lecons.js) sont le contenu
+   historique du prototype, réservé au compte démo (profiles.legacy_access). Un professeur
+   connecté sans cet accès est renvoyé vers sa propre bibliothèque (courses.html, filtrée par
+   compte). Les visiteurs non connectés (élèves) gardent la démo publique, et l'ouverture d'un
+   cours précis (?course=<id>) reste vérifiée par published-course-loader.js (propriétaire ou publié). */
+(async function(){
+  try{
+    if(/^[0-9a-f-]{36}$/i.test(new URLSearchParams(location.search).get('course')||''))return;
+    const config=window.CLASSES_SUPABASE||{};
+    if(!window.supabase||!/^https:\/\//.test(config.url||'')||!config.anonKey)return;
+    const sb=window.classesSupabase||(window.classesSupabase=window.supabase.createClient(config.url,config.anonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}));
+    const {data:{session}}=await sb.auth.getSession();
+    if(!session||!session.user)return;
+    const {data:profile}=await sb.from('profiles').select('legacy_access').eq('id',session.user.id).maybeSingle();
+    if(profile&&profile.legacy_access)return;
+    location.replace('courses.html');
+  }catch(e){/* en cas d'erreur réseau, on conserve la démo publique */}
+})();
+</script>
 <script type="importmap">
 { "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
