@@ -351,6 +351,104 @@ function getGeminiKey(){
   return fs.readFileSync(path.join(__dirname, 'gemini.key'), 'utf8').trim();
 }
 
+// ============ CRÉATION DE COMPTES PROFESSEURS PAR L'ADMINISTRATEUR ============
+// Nécessite la clé service_role Supabase : variable SUPABASE_SERVICE_ROLE_KEY ou fichier
+// supabase_service.key à côté de server.js (jamais servie au navigateur, déjà dans .gitignore).
+// L'administrateur choisit un identifiant simple ; le compte est créé confirmé d'office
+// (aucune vérification par e-mail) avec l'adresse <identifiant>@TEACHER_LOGIN_DOMAIN et le
+// mot de passe nom + matière. La page de connexion accepte l'identifiant seul (sans @).
+const TEACHER_LOGIN_DOMAIN = 'prof.classes-connectees.ma';
+function getSupabaseServiceKey(){
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) return process.env.SUPABASE_SERVICE_ROLE_KEY.trim();
+  return fs.readFileSync(path.join(__dirname, 'supabase_service.key'), 'utf8').trim();
+}
+function getSupabaseWebConfig(){
+  const envUrl = (process.env.SUPABASE_URL || '').trim();
+  const envAnon = (process.env.SUPABASE_ANON_KEY || '').trim();
+  if (/^https:\/\//.test(envUrl) && envAnon) return { url: envUrl, anonKey: envAnon };
+  const source = fs.readFileSync(path.join(__dirname, 'prototype', 'supabase-config.js'), 'utf8');
+  const url = envUrl || (source.match(/url:\s*'([^']+)'/) || [])[1] || '';
+  const anonKey = envAnon || (source.match(/anonKey:\s*'([^']+)'/) || [])[1] || '';
+  if (!/^https:\/\//.test(url) || !anonKey) throw new Error('Configuration Supabase introuvable.');
+  return { url, anonKey };
+}
+// minuscules sans accents ; extra = caractères supplémentaires autorisés (ex. '._-')
+function slugFr(value, extra){
+  const keep = 'a-z0-9' + (extra || '');
+  return String(value || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(new RegExp('[^' + keep + ']+', 'g'), '');
+}
+function handleAdminCreateTeacher(req, res){
+  let body='';
+  req.on('data', c=> body += c);
+  req.on('end', async ()=>{
+    const answer=(code,payload)=>{ res.writeHead(code,{'Content-Type':'application/json; charset=utf-8'}); res.end(JSON.stringify(payload)); };
+    try{
+      const token = String(req.headers.authorization||'').replace(/^Bearer\s+/i,'').trim();
+      if (!token) return answer(401,{ error:'Session administrateur requise.' });
+      let serviceKey;
+      try{ serviceKey = getSupabaseServiceKey(); }
+      catch(e){ return answer(503,{ error:'Clé service_role absente : créez le fichier supabase_service.key à côté de server.js (ou la variable SUPABASE_SERVICE_ROLE_KEY sur Render), depuis Supabase > Settings > API.' }); }
+      const { url, anonKey } = getSupabaseWebConfig();
+
+      // 1) Qui appelle ? Le jeton du navigateur est validé par Supabase Auth.
+      const userResp = await fetch(url+'/auth/v1/user', { headers:{ apikey:anonKey, Authorization:'Bearer '+token } });
+      if (!userResp.ok) return answer(401,{ error:'Session invalide ou expirée. Reconnectez-vous.' });
+      const caller = await userResp.json();
+
+      // 2) Seul un profil role=admin peut créer des comptes.
+      const profileResp = await fetch(url+'/rest/v1/profiles?id=eq.'+encodeURIComponent(caller.id)+'&select=role',
+        { headers:{ apikey:serviceKey, Authorization:'Bearer '+serviceKey } });
+      const profiles = profileResp.ok ? await profileResp.json() : [];
+      if (!profiles[0] || profiles[0].role !== 'admin') return answer(403,{ error:'Réservé au compte administrateur.' });
+
+      // 3) Données du formulaire.
+      const data = JSON.parse(body || '{}');
+      const firstName = String(data.first_name||'').trim().slice(0,80);
+      const lastName  = String(data.last_name||'').trim().slice(0,80);
+      const schoolName= String(data.school_name||'').trim().slice(0,160);
+      const subjectCode = String(data.subject_code||'').trim();
+      const gradeCode   = String(data.grade_level_code||'').trim();
+      const streamCode  = String(data.stream_code||'').trim() || 'general';
+      if (!firstName || !lastName) return answer(400,{ error:'Prénom et nom obligatoires.' });
+      if (!/^[a-z0-9_-]{2,40}$/.test(subjectCode) || !/^[a-z0-9_-]{2,40}$/.test(gradeCode))
+        return answer(400,{ error:'Matière ou niveau invalide.' });
+
+      // Identifiant choisi par l'administrateur, sinon proposé : initiale du prénom + nom.
+      const identifiant = slugFr(data.identifiant, '._-') || (slugFr(firstName).slice(0,1) + slugFr(lastName));
+      if (identifiant.length < 3)
+        return answer(400,{ error:'Identifiant trop court : saisissez au moins 3 caractères (lettres/chiffres, sans accents).' });
+
+      // Mot de passe demandé : nom du professeur + sa matière (complété si trop court).
+      let password = slugFr(lastName) + slugFr(subjectCode);
+      if (password.length < 8) password += slugFr(gradeCode);
+      if (password.length < 8) password += '2026';
+      if (password.length < 8) return answer(400,{ error:'Nom trop court pour générer un mot de passe : saisissez un identifiant et un nom plus longs.' });
+
+      // 4) Création confirmée d'office : aucune vérification par e-mail.
+      const email = identifiant + '@' + TEACHER_LOGIN_DOMAIN;
+      const createResp = await fetch(url+'/auth/v1/admin/users', {
+        method:'POST',
+        headers:{ apikey:serviceKey, Authorization:'Bearer '+serviceKey, 'Content-Type':'application/json' },
+        body: JSON.stringify({ email, password, email_confirm:true, user_metadata:{
+          first_name:firstName, last_name:lastName, school_name:schoolName,
+          subject_code:subjectCode, grade_level_code:gradeCode, stream_code:streamCode
+        }})
+      });
+      const created = await createResp.json().catch(()=>({}));
+      if (!createResp.ok){
+        const message = String(created.msg || created.message || created.error_description || 'Création impossible.');
+        if (/already|exists|registered/i.test(message))
+          return answer(409,{ error:'L’identifiant « '+identifiant+' » est déjà utilisé. Choisissez-en un autre.' });
+        return answer(502,{ error:message });
+      }
+      return answer(200,{ identifiant, email, password });
+    }catch(e){
+      answer(500,{ error:String(e.message||e) });
+    }
+  });
+}
+
 // ============ IMPORT PDF -> COURS STRUCTURE (espace professeur) ============
 // Le PDF est envoyé directement à Gemini : le modèle conserve ainsi les tableaux,
 // schémas et relations visuelles que perdrait une simple extraction de texte.
@@ -1394,6 +1492,7 @@ const server = http.createServer((req, res) => {
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/generate-quiz') return handleGenerateQuiz(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/generate-experience') return handleGenerateExperience(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/analyze-course-import') return handleAnalyzeCourseImport(req, res);
+    if (req.method === 'POST' && req.url.split('?')[0] === '/api/admin/create-teacher') return handleAdminCreateTeacher(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/handwriting') return handleHandwriting(req, res);
     // ---- API voix (Gemini TTS → Cloud TTS → navigateur) ----
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/tts') return handleTTS(req, res);

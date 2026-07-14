@@ -85,13 +85,12 @@
 
     <section class="panel">
       <h2>➕ Créer un compte professeur</h2>
-      <p class="hint">Le professeur recevra un e-mail de confirmation à son adresse, puis se connectera avec le mot de passe provisoire que vous définissez ici (à changer ensuite via « Mot de passe oublié »).</p>
+      <p class="hint">Aucune vérification par e-mail : le compte est actif immédiatement. Le professeur se connecte avec son <b>identifiant</b> et le mot de passe généré automatiquement (<b>nom + matière</b>, ex. <code>essaihisvt</code>), affichés ci-dessous après la création.</p>
       <form class="create" id="createTeacherForm">
         <label>Prénom<input name="first_name" required maxlength="80"></label>
         <label>Nom<input name="last_name" required maxlength="80"></label>
         <label>Établissement (facultatif)<input name="school_name" maxlength="160"></label>
-        <label>Adresse e-mail<input name="email" type="email" required></label>
-        <label>Mot de passe provisoire<input name="password" type="text" minlength="8" required placeholder="8 caractères minimum"></label>
+        <label>Identifiant de connexion (facultatif)<input name="identifiant" maxlength="40" placeholder="ex. a.essaihi — vide = auto"></label>
         <label>Matière<select name="subject_code" required></select></label>
         <label>Niveau<select name="grade_level_code" required></select></label>
         <label id="streamField" hidden>Filière lycée<select name="stream_code"><option value="sciences_maths">Sciences mathématiques</option><option value="sciences_physiques">Sciences physiques</option><option value="sciences_svt">Sciences de la vie et de la Terre</option><option value="sciences_economiques">Sciences économiques</option></select></label>
@@ -196,21 +195,23 @@
       event.preventDefault();
       const submit=form.querySelector('button');submit.disabled=true;setNotice('');
       try{
-        if(form.password.value.length<8)throw new Error('Le mot de passe doit contenir au moins 8 caractères.');
-        // Client secondaire sans persistance : la session administrateur reste intacte.
-        const config=window.CLASSES_SUPABASE;
-        const temp=window.supabase.createClient(config.url,config.anonKey,{auth:{persistSession:false,autoRefreshToken:false}});
-        const {data,error}=await temp.auth.signUp({
-          email:form.email.value.trim(),password:form.password.value,
-          options:{emailRedirectTo:new URL('login.html',location.origin).toString(),data:{
+        // La création passe par le serveur (clé service_role) : compte confirmé d'office,
+        // sans e-mail de vérification, mot de passe = nom + matière.
+        const {data:{session}}=await sb.auth.getSession();
+        if(!session)throw new Error('Session expirée : reconnectez-vous.');
+        const response=await fetch('/api/admin/create-teacher',{
+          method:'POST',
+          headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token},
+          body:JSON.stringify({
             first_name:form.first_name.value.trim(),last_name:form.last_name.value.trim(),
-            school_name:form.school_name.value.trim(),subject_code:form.subject_code.value,
-            grade_level_code:form.grade_level_code.value,stream_code:['tc','1bac','2bac'].includes(form.grade_level_code.value)?form.stream_code.value:'general'
-          }}
+            school_name:form.school_name.value.trim(),identifiant:form.identifiant.value.trim(),
+            subject_code:form.subject_code.value,grade_level_code:form.grade_level_code.value,
+            stream_code:['tc','1bac','2bac'].includes(form.grade_level_code.value)?form.stream_code.value:'general'
+          })
         });
-        if(error)throw error;
-        if(data&&data.user&&Array.isArray(data.user.identities)&&!data.user.identities.length)throw new Error('Un compte existe déjà avec cette adresse e-mail.');
-        setNotice(`Compte créé pour ${form.email.value.trim()}. Un e-mail de confirmation lui a été envoyé ; transmettez-lui le mot de passe provisoire.`,'ok');
+        const result=await response.json().catch(()=>({}));
+        if(!response.ok)throw new Error(result.error||'Création impossible.');
+        setNotice(`Compte créé ✓ — Identifiant : ${result.identifiant} · Mot de passe : ${result.password} — notez et transmettez ces identifiants au professeur (ils ne seront plus affichés).`,'ok');
         form.reset();syncStream();
         setTimeout(init,1200);
       }catch(error){setNotice(error.message||'Création impossible.','err')}

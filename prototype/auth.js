@@ -76,7 +76,11 @@
     if(new URLSearchParams(location.search).get('notice')==='profile') setNotice('Votre profil n’a pas été créé. Réessayez l’inscription ou vérifiez la migration SQL.','error');
     const run=async(form,work)=>{ const submit=form.querySelector('button[type=submit]'); submit.disabled=true; try{ await work(); }catch(error){ setNotice(error.message||'Une erreur est survenue.','error'); }finally{ submit.disabled=false; } };
     loginForm.onsubmit=e=>{ e.preventDefault(); run(loginForm,async()=>{
-      const email=loginForm.email.value.trim(), password=loginForm.password.value;
+      // Les comptes créés par l'administrateur utilisent un identifiant simple : on le
+      // complète avec le domaine interne (aucun e-mail réel n'est envoyé à cette adresse).
+      const raw=loginForm.email.value.trim();
+      const email=raw.includes('@')?raw:raw.toLowerCase()+'@prof.classes-connectees.ma';
+      const password=loginForm.password.value;
       const {error}=await client.auth.signInWithPassword({email,password}); if(error) throw error;
       location.replace(nextPath());
     }); };
