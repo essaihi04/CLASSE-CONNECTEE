@@ -5,6 +5,7 @@
   const isLogin=document.documentElement.dataset.authPage==='login';
   const isProtected=document.documentElement.dataset.requiresTeacher==='true';
   const isLegacyRequired=document.documentElement.dataset.requiresLegacy==='true';
+  const isAdminRequired=document.documentElement.dataset.requiresAdmin==='true';
   const nextPath=()=>{
     const raw=new URLSearchParams(location.search).get('next')||'prof.html';
     return /^[a-z0-9_-]+\.html(?:\?.*)?$/i.test(raw)?raw:'prof.html';
@@ -32,7 +33,7 @@
     const {data:{session},error}=await client.auth.getSession();
     if(error) throw error;
     if(!session){ const page=location.pathname.split('/').pop()||'prof.html'; location.replace('login.html?next='+encodeURIComponent(page+location.search)); return new Promise(()=>{}); }
-    const {data:profile,error:profileError}=await client.from('profiles').select('id,first_name,last_name,onboarding_complete,legacy_access').eq('id',session.user.id).maybeSingle();
+    const {data:profile,error:profileError}=await client.from('profiles').select('id,role,first_name,last_name,onboarding_complete,legacy_access').eq('id',session.user.id).maybeSingle();
     if(profileError) throw profileError;
     if(!profile || !profile.onboarding_complete){
       await client.auth.signOut();
@@ -41,6 +42,10 @@
     }
     if(isLegacyRequired && !profile.legacy_access){
       location.replace('prof.html?notice=private-content');
+      return new Promise(()=>{});
+    }
+    if(isAdminRequired && profile.role!=='admin'){
+      location.replace('prof.html');
       return new Promise(()=>{});
     }
     window.currentTeacher={session,profile};

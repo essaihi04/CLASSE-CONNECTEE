@@ -20,7 +20,8 @@
     const sb=window.classesSupabase||(window.classesSupabase=window.supabase.createClient(config.url,config.anonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}));
     const {data:{session}}=await sb.auth.getSession();
     if(!session||!session.user)return;
-    const {data:profile}=await sb.from('profiles').select('legacy_access').eq('id',session.user.id).maybeSingle();
+    const {data:profile}=await sb.from('profiles').select('role,legacy_access').eq('id',session.user.id).maybeSingle();
+    if(profile&&profile.role==='admin'){location.replace('admin.html');return}
     if(profile&&profile.legacy_access)return;
     location.replace('courses.html');
   }catch(e){/* en cas d'erreur réseau, on conserve la démo publique */}

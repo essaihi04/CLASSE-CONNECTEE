@@ -165,8 +165,13 @@
     ]);
     if(courseError)throw courseError;if(importError)throw importError;if(blockError)throw blockError;if(sourceError)throw sourceError;
     const owner=!!(session&&session.user&&session.user.id===course.teacher_id);
-    if(course.status!=='published'&&!owner)throw new Error('Ce cours n’est pas publié.');
-    if(session&&session.user&&!owner)throw new Error('Ce cours appartient à un autre professeur.');
+    let admin=false;
+    if(session&&session.user&&!owner){
+      const {data:profile}=await sb.from('profiles').select('role').eq('id',session.user.id).maybeSingle();
+      admin=!!(profile&&profile.role==='admin');
+    }
+    if(course.status!=='published'&&!owner&&!admin)throw new Error('Ce cours n’est pas publié.');
+    if(session&&session.user&&!owner&&!admin)throw new Error('Ce cours appartient à un autre professeur.');
     const sourceMap=await signedSources(sb,sources||[]),allSources=Object.values(sourceMap),usedSourceIds=new Set(),analysis=imports&&imports[0]&&imports[0].analysis||{};
     const sessionNames={};(analysis.sessions||[]).forEach((item,index)=>sessionNames[index]=plain(item&&item.title,180));
     const etapes=[{intro:true,say:`Bienvenue dans le cours ${plain(course.title,180)}. ${plain(course.description||analysis.summary,1200)} Aujourd'hui, je vais te guider avec des explications, des ressources à observer et des moments où tu participeras au tableau.`,board:{title:'',lines:[]},presentation:{scene:'avatar_only',avatarSize:'full'}}];

@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="fr" data-requires-teacher="true" data-requires-admin="true">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tableau de bord — Classes Connectées</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script>document.documentElement.classList.add('auth-pending')</script>
+  <script src="auth.js"></script>
+  <style>
+    :root{--ink:#17211c;--muted:#6f7b75;--line:#dce3df;--paper:#f4f7f4;--white:#fff;--green:#0f7b5f;--dark:#183128;--amber:#b45309;--red:#b91c1c}
+    html.auth-pending body{visibility:hidden}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,Segoe UI,sans-serif}
+    header{height:68px;display:flex;align-items:center;gap:14px;padding:0 28px;background:#fff;border-bottom:1px solid var(--line)}
+    .brand{display:flex;align-items:center;gap:9px;text-decoration:none;color:var(--ink);font-weight:800}
+    .logo{width:34px;height:34px;border-radius:10px;background:var(--green);color:#fff;display:grid;place-items:center;font-size:12px}
+    header .who{margin-left:auto;font-size:12px;color:var(--muted);font-weight:600}
+    header a.nav,header button{color:var(--green);font-size:11px;font-weight:700;text-decoration:none;border:1px solid #cfe0d8;border-radius:9px;padding:8px 11px;background:#fff;cursor:pointer}
+    .content{max-width:1150px;margin:auto;padding:28px 24px 70px}
+    h1{font-size:26px;letter-spacing:-.03em;margin:6px 0 4px}
+    .sub{color:var(--muted);font-size:13px;margin:0 0 22px}
+    .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:26px}
+    .stat{background:#fff;border:1px solid var(--line);border-radius:15px;padding:17px 18px}
+    .stat b{display:block;font-size:28px;letter-spacing:-.04em}
+    .stat span{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.07em}
+    .panel{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:22px}
+    .panel h2{font-size:16px;margin:0 0 4px}
+    .panel .hint{font-size:12px;color:var(--muted);margin:0 0 15px}
+    .bars{display:grid;gap:8px}
+    .bar-row{display:grid;grid-template-columns:210px 1fr 34px;align-items:center;gap:10px;font-size:12px}
+    .bar-track{height:12px;background:#edf3ef;border-radius:8px;overflow:hidden}
+    .bar-track i{display:block;height:100%;background:var(--bar-color,var(--green));border-radius:8px}
+    .bar-row b{text-align:right;font-size:12px}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    th{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+    td{padding:9px 10px;border-bottom:1px solid #eef2ef;vertical-align:middle}
+    tr:last-child td{border-bottom:0}
+    .badge{display:inline-block;border-radius:999px;padding:3px 9px;font-size:10px;font-weight:800}
+    .badge.published{background:#e2f5ec;color:var(--green)}
+    .badge.draft{background:#fef3c7;color:var(--amber)}
+    .badge.archived{background:#f1f5f9;color:#64748b}
+    .badge.admin{background:#ede9fe;color:#6d28d9}
+    .open{background:var(--green);color:#fff;text-decoration:none;border-radius:8px;padding:6px 10px;font-size:10px;font-weight:800;white-space:nowrap}
+    form.create{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    form.create label{display:grid;gap:5px;font-size:11px;font-weight:700;color:#3d4a44}
+    form.create input,form.create select{height:40px;border:1px solid var(--line);border-radius:9px;padding:0 11px;font-size:13px;background:#fff}
+    form.create .full{grid-column:1/-1}
+    form.create button{grid-column:1/-1;justify-self:start;background:var(--green);color:#fff;border:0;border-radius:10px;padding:11px 20px;font-size:13px;font-weight:800;cursor:pointer}
+    form.create button:disabled{opacity:.55;cursor:wait}
+    .notice{grid-column:1/-1;font-size:12px;border-radius:10px;padding:10px 13px;display:none}
+    .notice.ok{display:block;background:#e2f5ec;color:#065f46}
+    .notice.err{display:block;background:#fee2e2;color:var(--red)}
+    .empty{color:var(--muted);font-size:12px;padding:14px 4px}
+    .auth-error{max-width:520px;margin:60px auto;background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px;font-size:13px}
+    @media(max-width:900px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}form.create{grid-template-columns:1fr 1fr}.bar-row{grid-template-columns:120px 1fr 34px}}
+    @media(max-width:600px){header{padding:0 14px;flex-wrap:wrap}form.create{grid-template-columns:1fr}.table-scroll{overflow-x:auto}}
+    .table-scroll{overflow-x:auto}
+  </style>
+</head>
+<body>
+  <header>
+    <a class="brand" href="admin.html"><span class="logo">CC</span>Classes Connectées</a>
+    <span class="who" data-teacher-name></span>
+    <a class="nav" href="courses.html">Bibliothèque</a>
+    <a class="nav" href="prof.html">Espace supports</a>
+    <button id="logoutBtn" type="button">↪ Déconnexion</button>
+  </header>
+  <main class="content" id="authNotice">
+    <h1>📊 Tableau de bord administrateur</h1>
+    <p class="sub">Vue d'ensemble de la plateforme : professeurs inscrits, cours créés et publication.</p>
+
+    <div class="stats">
+      <div class="stat"><b id="statTeachers">…</b><span>Professeurs</span></div>
+      <div class="stat"><b id="statCourses">…</b><span>Cours au total</span></div>
+      <div class="stat"><b id="statPublished">…</b><span>Cours publiés</span></div>
+      <div class="stat"><b id="statDrafts">…</b><span>Brouillons</span></div>
+    </div>
+
+    <section class="panel">
+      <h2>Cours publiés par matière</h2>
+      <p class="hint">Répartition des cours publiés selon la matière.</p>
+      <div class="bars" id="subjectBars"><div class="empty">Chargement…</div></div>
+    </section>
+
+    <section class="panel">
+      <h2>➕ Créer un compte professeur</h2>
+      <p class="hint">Le professeur recevra un e-mail de confirmation à son adresse, puis se connectera avec le mot de passe provisoire que vous définissez ici (à changer ensuite via « Mot de passe oublié »).</p>
+      <form class="create" id="createTeacherForm">
+        <label>Prénom<input name="first_name" required maxlength="80"></label>
+        <label>Nom<input name="last_name" required maxlength="80"></label>
+        <label>Établissement (facultatif)<input name="school_name" maxlength="160"></label>
+        <label>Adresse e-mail<input name="email" type="email" required></label>
+        <label>Mot de passe provisoire<input name="password" type="text" minlength="8" required placeholder="8 caractères minimum"></label>
+        <label>Matière<select name="subject_code" required></select></label>
+        <label>Niveau<select name="grade_level_code" required></select></label>
+        <label id="streamField" hidden>Filière lycée<select name="stream_code"><option value="sciences_maths">Sciences mathématiques</option><option value="sciences_physiques">Sciences physiques</option><option value="sciences_svt">Sciences de la vie et de la Terre</option><option value="sciences_economiques">Sciences économiques</option></select></label>
+        <div class="notice" id="createNotice"></div>
+        <button type="submit">Créer le compte professeur</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>👩‍🏫 Professeurs (<span id="teacherCount">0</span>)</h2>
+      <p class="hint">Tous les comptes de la plateforme, avec leur activité.</p>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Nom</th><th>E-mail</th><th>Établissement</th><th>Cours</th><th>Publiés</th><th>Rôle</th><th>Inscrit le</th><th>Dernière connexion</th></tr></thead>
+        <tbody id="teacherRows"><tr><td colspan="8" class="empty">Chargement…</td></tr></tbody>
+      </table></div>
+    </section>
+
+    <section class="panel">
+      <h2>📚 Tous les cours (<span id="courseCount">0</span>)</h2>
+      <p class="hint">L'administrateur voit les cours de tous les professeurs, y compris les brouillons.</p>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Titre</th><th>Professeur</th><th>Matière</th><th>Niveau</th><th>Statut</th><th>Mis à jour</th><th></th></tr></thead>
+        <tbody id="courseRows"><tr><td colspan="7" class="empty">Chargement…</td></tr></tbody>
+      </table></div>
+    </section>
+  </main>
+
+<script>
+(function(){
+  'use strict';
+  const $=id=>document.getElementById(id);
+  const safe=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const dateFr=v=>v?new Date(v).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}):'—';
+  const STATUS_FR={published:'Publié',draft:'Brouillon',archived:'Archivé'};
+
+  async function init(){
+    const teacher=await window.teacherAuthReady;
+    const sb=window.classesSupabase;
+    const [{data:teachers,error:teacherError},{data:courses,error:courseError},{data:subjects},{data:levels}]=await Promise.all([
+      sb.rpc('admin_list_teachers'),
+      sb.from('courses').select('id,teacher_id,subject_id,grade_level_id,title,status,updated_at,subjects(name,color),grade_levels(name,sort_order)').order('updated_at',{ascending:false}),
+      sb.from('subjects').select('code,name').order('name'),
+      sb.from('grade_levels').select('code,name,sort_order').order('sort_order')
+    ]);
+    if(teacherError)throw teacherError;if(courseError)throw courseError;
+    renderStats(teachers||[],courses||[]);
+    renderSubjectBars(courses||[]);
+    renderTeachers(teachers||[],courses||[]);
+    renderCourses(teachers||[],courses||[]);
+    setupCreateForm(sb,subjects||[],levels||[]);
+  }
+
+  function renderStats(teachers,courses){
+    $('statTeachers').textContent=teachers.filter(t=>t.role!=='admin').length;
+    $('statCourses').textContent=courses.length;
+    $('statPublished').textContent=courses.filter(c=>c.status==='published').length;
+    $('statDrafts').textContent=courses.filter(c=>c.status==='draft').length;
+  }
+
+  function renderSubjectBars(courses){
+    const published=courses.filter(c=>c.status==='published');
+    const bySubject=new Map();
+    published.forEach(c=>{const key=c.subjects&&c.subjects.name||'Autre';const entry=bySubject.get(key)||{count:0,color:c.subjects&&c.subjects.color||'#0f7b5f'};entry.count++;bySubject.set(key,entry)});
+    const rows=[...bySubject.entries()].sort((a,b)=>b[1].count-a[1].count);
+    const max=rows.length?rows[0][1].count:0;
+    $('subjectBars').innerHTML=rows.length?rows.map(([name,entry])=>
+      `<div class="bar-row"><span>${safe(name)}</span><div class="bar-track"><i style="width:${Math.round(entry.count/max*100)}%;--bar-color:${safe(entry.color)}"></i></div><b>${entry.count}</b></div>`
+    ).join(''):'<div class="empty">Aucun cours publié pour l’instant.</div>';
+  }
+
+  function countBy(courses,teacherId,status){return courses.filter(c=>c.teacher_id===teacherId&&(!status||c.status===status)).length}
+
+  function renderTeachers(teachers,courses){
+    $('teacherCount').textContent=teachers.length;
+    $('teacherRows').innerHTML=teachers.length?teachers.map(t=>
+      `<tr><td><b>${safe((t.first_name+' '+t.last_name).trim()||'—')}</b></td><td>${safe(t.email)}</td><td>${safe(t.school_name||'—')}</td>`+
+      `<td>${countBy(courses,t.id)}</td><td>${countBy(courses,t.id,'published')}</td>`+
+      `<td>${t.role==='admin'?'<span class="badge admin">Admin</span>':(t.legacy_access?'<span class="badge draft">Démo</span>':'Professeur')}</td>`+
+      `<td>${dateFr(t.created_at)}</td><td>${dateFr(t.last_sign_in_at)}</td></tr>`
+    ).join(''):'<tr><td colspan="8" class="empty">Aucun professeur inscrit.</td></tr>';
+  }
+
+  function renderCourses(teachers,courses){
+    const names=Object.fromEntries(teachers.map(t=>[t.id,(t.first_name+' '+t.last_name).trim()||t.email]));
+    $('courseCount').textContent=courses.length;
+    $('courseRows').innerHTML=courses.length?courses.map(c=>
+      `<tr><td><b>${safe(c.title)}</b></td><td>${safe(names[c.teacher_id]||'—')}</td>`+
+      `<td>${safe(c.subjects&&c.subjects.name||'—')}</td><td>${safe(c.grade_levels&&c.grade_levels.name||'—')}</td>`+
+      `<td><span class="badge ${safe(c.status)}">${STATUS_FR[c.status]||safe(c.status)}</span></td><td>${dateFr(c.updated_at)}</td>`+
+      `<td><a class="open" href="index.html?course=${encodeURIComponent(c.id)}">▶ Ouvrir</a></td></tr>`
+    ).join(''):'<tr><td colspan="7" class="empty">Aucun cours créé.</td></tr>';
+  }
+
+  function setupCreateForm(sb,subjects,levels){
+    const form=$('createTeacherForm'),notice=$('createNotice');
+    subjects.forEach(s=>{const o=document.createElement('option');o.value=s.code;o.textContent=s.name;form.subject_code.appendChild(o)});
+    levels.forEach(l=>{const o=document.createElement('option');o.value=l.code;o.textContent=l.name;form.grade_level_code.appendChild(o)});
+    const syncStream=()=>{const lycee=['tc','1bac','2bac'].includes(form.grade_level_code.value);$('streamField').hidden=!lycee;if(!lycee)form.stream_code.value='sciences_maths'};
+    form.grade_level_code.onchange=syncStream;syncStream();
+    const setNotice=(message,kind)=>{notice.className='notice '+(kind||'');notice.textContent=message||''};
+    form.onsubmit=async event=>{
+      event.preventDefault();
+      const submit=form.querySelector('button');submit.disabled=true;setNotice('');
+      try{
+        if(form.password.value.length<8)throw new Error('Le mot de passe doit contenir au moins 8 caractères.');
+        // Client secondaire sans persistance : la session administrateur reste intacte.
+        const config=window.CLASSES_SUPABASE;
+        const temp=window.supabase.createClient(config.url,config.anonKey,{auth:{persistSession:false,autoRefreshToken:false}});
+        const {data,error}=await temp.auth.signUp({
+          email:form.email.value.trim(),password:form.password.value,
+          options:{emailRedirectTo:new URL('login.html',location.origin).toString(),data:{
+            first_name:form.first_name.value.trim(),last_name:form.last_name.value.trim(),
+            school_name:form.school_name.value.trim(),subject_code:form.subject_code.value,
+            grade_level_code:form.grade_level_code.value,stream_code:['tc','1bac','2bac'].includes(form.grade_level_code.value)?form.stream_code.value:'general'
+          }}
+        });
+        if(error)throw error;
+        if(data&&data.user&&Array.isArray(data.user.identities)&&!data.user.identities.length)throw new Error('Un compte existe déjà avec cette adresse e-mail.');
+        setNotice(`Compte créé pour ${form.email.value.trim()}. Un e-mail de confirmation lui a été envoyé ; transmettez-lui le mot de passe provisoire.`,'ok');
+        form.reset();syncStream();
+        setTimeout(init,1200);
+      }catch(error){setNotice(error.message||'Création impossible.','err')}
+      finally{submit.disabled=false}
+    };
+  }
+
+  init().catch(error=>{
+    console.error('Dashboard admin :',error);
+    $('teacherRows').innerHTML='<tr><td colspan="8" class="empty">Chargement impossible. Vérifiez que la migration 20260714_010 est exécutée et que votre compte a le rôle admin.</td></tr>';
+    $('courseRows').innerHTML='<tr><td colspan="7" class="empty">Chargement impossible.</td></tr>';
+    $('subjectBars').innerHTML='<div class="empty">Indisponible.</div>';
+  });
+})();
+</script>
+</body>
+</html>

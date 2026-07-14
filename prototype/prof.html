@@ -210,11 +210,13 @@
   <h1>🗂️ Espace supports pédagogiques</h1>
   <span data-teacher-name style="font-size:13px;color:var(--muted);font-weight:600"></span>
   <button class="logout" id="logoutBtn" type="button" title="Fermer votre session professeur">↪ Déconnexion</button>
+  <a class="back" id="adminDashboardLink" href="admin.html" hidden style="background:#4c1d95;color:#ede9fe">📊 Dashboard admin</a>
   <a class="back" href="course-import.html" style="background:#0f766e;color:#ecfeff">✦ Créer avec PDF + IA</a>
   <a class="back" id="privateCoursesLink" href="prof.html?view=private" style="background:#155e75;color:#ecfeff">Mes cours PDF + IA</a>
   <a class="back" id="legacyModelsLink" href="schema3d-viewer.html">Bibliothèque 3D</a>
   <a class="back" href="index.html">← Retour au cours</a>
 </header>
+<script>window.teacherAuthReady&&window.teacherAuthReady.then(t=>{if(t&&t.profile&&t.profile.role==='admin')document.getElementById('adminDashboardLink').hidden=false}).catch(()=>{});</script>
 
 <div class="wrap">
   <!-- ───────── Colonne gauche : matière → cours → étape ───────── -->
