@@ -3,6 +3,7 @@
 google_oauth_client.json
 .env
 .env.*
+!.env.example
 
 # ===== Dépendances =====
 node_modules/

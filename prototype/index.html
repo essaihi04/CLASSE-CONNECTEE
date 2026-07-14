@@ -731,7 +731,7 @@
       <button id="addMediaBtn" class="primary" title="Ajouter une image ou une vidéo à cette étape" style="display:none">➕ Média</button>
       <a id="profSpaceLink" href="prof.html" title="Espace dédié : gérer tous les supports pédagogiques" style="display:none">🗂️ Espace supports</a>
     </div>
-    <label class="voice-toggle"><input type="checkbox" id="voice" checked> 🔊 Voix</label>
+    <label class="voice-toggle" title="Voix synthétique générée par OpenAI"><input type="checkbox" id="voice" checked> 🔊 Voix générée par IA</label>
   </div>
   <input type="file" id="mediaFile" accept="image/*,video/*" style="display:none">
   <div class="progress" id="progressTop"><div id="bar"></div></div>
@@ -822,7 +822,7 @@
   </div>
 </div>
 
-<footer id="courseFooter">Prototype « Classes Connectées » · Programme marocain · SVT 3ème année collège</footer>
+<footer id="courseFooter">Prototype « Classes Connectées » · Programme marocain · Voix générée par IA</footer>
 
 <!-- ====== PAVÉ D'ÉCRITURE MANUSCRITE (bouton flottant + panneau) ====== -->
 <button id="writeFab" title="Écrire à la main et convertir en texte">⌨️<span class="lbl">Écrire à la main</span></button>
@@ -1386,7 +1386,7 @@ function speak(text, then){
   if(ttsServerDown && (Date.now()-ttsServerDown) < TTS_RETRY_MS){ speakBrowser(text); return; }
   const ctrl=new AbortController(); ttsAbort=ctrl;
   fetch('/api/tts',{ method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text}), signal:ctrl.signal })  // requête principale
+      body:JSON.stringify({text,targetContext:(lecon&&lecon.targetContext)||null}), signal:ctrl.signal })  // requête principale
     .then(r=>{ if(r.status===204) throw new Error('tts fallback'); if(!r.ok) throw new Error('tts '+r.status); return r.blob(); })
     .then(blob=>{
       if(!blob.size) throw new Error('tts empty');
@@ -1440,7 +1440,7 @@ function prefetchTTS(text){
   if(VOICE_SOURCE==='browser') return;   // mode navigateur : rien à précharger côté serveur
   if(!text || ttsCache.has(text) || !document.getElementById('voice').checked) return;
   if(ttsServerDown && (Date.now()-ttsServerDown) < TTS_RETRY_MS) return;   // serveur KO : on ne précharge pas
-  fetch('/api/tts',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text}) })
+  fetch('/api/tts',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text,targetContext:(lecon&&lecon.targetContext)||null}) })
     .then(r=> (r.ok && r.status!==204) ? r.blob() : null)
     .then(blob=>{ if(blob && blob.size){ if(ttsCache.size>40) ttsCache.clear(); ttsCache.set(text, blob); } })
     .catch(()=>{});
@@ -1551,8 +1551,9 @@ function renderLessonMedia(m){
   if(Array.isArray(m.slides) && m.slides.filter(s=>s&&(s.src||s.svg)).length){ return renderCarousel(m); }
   const box=document.createElement('div'); box.className='lesson-media';
   if(m.src && m.type==='simulation'){
+    activeSimulationContext=null;
     const frame=document.createElement('iframe');frame.src=m.src;frame.title=m.desc||'Simulation pédagogique';
-    frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-pointer-lock');frame.setAttribute('allowfullscreen','');
+    frame.setAttribute('sandbox','allow-scripts allow-forms allow-pointer-lock');frame.setAttribute('allowfullscreen','');
     box.appendChild(frame);
     const open=document.createElement('a');open.className='lm-open';open.href=m.src;open.target='_blank';open.rel='noopener';open.textContent='↗ Ouvrir la simulation en grand';box.appendChild(open);
     return box;
@@ -3013,7 +3014,7 @@ Promise.all([
 ]).then(([cs, st, publishedLesson])=>{
     if(publishedLesson) window.LECONS=[publishedLesson];
     document.body.classList.toggle('imported-course',!!publishedLesson);
-    if(publishedLesson&&document.getElementById('courseFooter'))document.getElementById('courseFooter').textContent=`Classes Connectées · Programme marocain${publishedLesson.targetLabel?' · '+publishedLesson.targetLabel:''}`;
+    if(publishedLesson&&document.getElementById('courseFooter'))document.getElementById('courseFooter').textContent=`Classes Connectées · Programme marocain${publishedLesson.targetLabel?' · '+publishedLesson.targetLabel:''} · Voix générée par IA`;
     customSteps = cs||{}; structure = st||{};
     applyStepPlan();
     fillChapterSelect();
@@ -3219,7 +3220,28 @@ function aiAnswerLines(d){
   return ls.length ? ls : [{t:sanitizeLineHTML(d.answer), cls:'def'}];   // repli : tout en « définition »
 }
 // Q&R pilotée par l'IA DeepSeek (le prof réfléchit puis répond + choisit son geste)
+/* PILOTAGE DE SIMULATION PAR L'IA : les simulations générées écoutent un contrat
+   postMessage {type:'cc-sim', action:'demo'|'reset'|'set'}. Le tableau étant effacé le
+   temps de la question, on réessaie jusqu'au retour de l'iframe après la reprise. */
+let activeSimulationContext=null;
+window.addEventListener('message',event=>{
+  const data=event.data||{};if(data.type!=='cc-sim-state'||!data.capabilities)return;
+  const variables=Array.isArray(data.capabilities.variables)?data.capabilities.variables.slice(0,3).map(v=>({name:String(v&&v.name||'').slice(0,80),min:Number(v&&v.min),max:Number(v&&v.max),step:Number(v&&v.step),unit:String(v&&v.unit||'').slice(0,24)})).filter(v=>v.name&&Number.isFinite(v.min)&&Number.isFinite(v.max)):[];
+  const state={};variables.forEach(v=>{const n=Number(data.state&&data.state[v.name]);if(Number.isFinite(n))state[v.name]=n});
+  activeSimulationContext={state,capabilities:{actions:['demo','reset','set'],variables}};
+});
+function sendSimAction(action){
+  if(!action || typeof action!=='object' || !action.action) return;
+  const attempt=(triesLeft)=>{
+    const frame=document.querySelector('.lesson-media iframe');
+    if(frame && frame.contentWindow){
+      frame.contentWindow.postMessage({type:'cc-sim',action:String(action.action),name:action.name,value:action.value},'*');
+    } else if(triesLeft>0) setTimeout(()=>attempt(triesLeft-1),700);
+  };
+  attempt(10);
+}
 function answer(q){
+  const simulationContext=document.querySelector('.lesson-media iframe')&&activeSimulationContext?JSON.parse(JSON.stringify(activeSimulationContext)):null;
   thinking.style.display='block'; speech.textContent='…'; stopAudio();   // coupe l'audio précédent
   cancelAutoNext(); cancelAutoResume();                                   // une question interrompt l'avance auto
   if(typeof i==='number' && i>=0 && !inQuiz) askedFromStep=i;             // on retient où on s'est arrêté
@@ -3231,7 +3253,8 @@ function answer(q){
   fetch('/api/ask',{ method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ question:q, lessonTitle:lecon.titre,
                              chapterId:(lecon&&lecon.id)||null, step:(typeof i==='number'?i:null),
-                             courseContext:(lecon&&lecon.imported)?String(lecon.aiContext||'').slice(0,6500):'' }) })
+                             courseContext:(lecon&&lecon.imported)?String(lecon.aiContext||'').slice(0,6500):'',
+                             simulationContext }) })
     .then(r=>r.json())
     .then(d=>{
       thinking.style.display='none';
@@ -3257,6 +3280,7 @@ function answer(q){
         appendResumeButton();                         // ramène toujours l'élève vers le cours
         avatarEmotion(emotion);
         avatarDockRight((svg || schema3d || tbl) ? 'point' : gesture);   // avatar à droite, texte à gauche
+        if(simulationContext && d.simAction) sendSimAction(d.simAction); // l'IA manipule la simulation affichée
         speak(d.answer, scheduleAutoResume);   // réponse finie → petit délai → retour au cours tout seul
       } else { throw new Error(d && d.error ? d.error : 'réponse vide'); }
     })

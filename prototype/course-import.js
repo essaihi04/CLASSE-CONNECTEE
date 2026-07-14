@@ -95,7 +95,7 @@
   function normalizePlan(raw){
     const requestedMinutes=Math.round(Math.min(12,Math.max(1,Number($('durationHours').value)||1))*60);
     const plan=raw&&typeof raw==='object'?raw:{};plan.courseTitle=String(plan.courseTitle||$('courseTitle').value||(state.pdf&&state.pdf.name||'Cours').replace(/\.pdf$/i,''));plan.totalDurationMinutes=state.courseId?(Number(plan.totalDurationMinutes)||requestedMinutes):requestedMinutes;plan.summary=String(plan.summary||'Cours structuré à partir de la préparation du professeur.');plan.warnings=Array.isArray(plan.warnings)?plan.warnings:[];
-    plan.sessions=Array.isArray(plan.sessions)?plan.sessions:[];plan.sessions.forEach((session,si)=>{session.id=session.id||uid('session');session.title=String(session.title||`Séance ${si+1}`);session.durationMinutes=Math.max(1,Number(session.durationMinutes)||60);session.explanationMinutes=Math.max(0,Number(session.explanationMinutes)||Math.round(session.durationMinutes*.3));session.objective=String(session.objective||'');session.blocks=Array.isArray(session.blocks)?session.blocks:[];session.blocks.forEach(block=>{block.id=block.id||uid('block');block.type=BLOCK_TYPES[block.type]?block.type:'text';block.title=String(block.title||BLOCK_TYPES[block.type].label);block.durationMinutes=Math.max(1,Number(block.durationMinutes)||5);block.objective=String(block.objective||'');block.content=typeof block.content==='string'?block.content:JSON.stringify(block.content||'');block.resourceName=String(block.resourceName||'');block.presentation=block.presentation&&typeof block.presentation==='object'?block.presentation:null;block.activity=block.activity&&typeof block.activity==='object'?block.activity:null;block.teacherNote=String(block.teacherNote||'');block.validated=!!block.validated})});
+    plan.sessions=Array.isArray(plan.sessions)?plan.sessions:[];plan.sessions.forEach((session,si)=>{session.id=session.id||uid('session');session.title=String(session.title||`Séance ${si+1}`);session.durationMinutes=Math.max(1,Number(session.durationMinutes)||60);session.explanationMinutes=Math.max(0,Number(session.explanationMinutes)||Math.round(session.durationMinutes*.3));session.objective=String(session.objective||'');session.blocks=Array.isArray(session.blocks)?session.blocks:[];session.blocks.forEach(block=>{block.id=block.id||uid('block');block.type=BLOCK_TYPES[block.type]?block.type:'text';block.title=String(block.title||BLOCK_TYPES[block.type].label);block.durationMinutes=Math.max(1,Number(block.durationMinutes)||5);block.objective=String(block.objective||'');block.content=typeof block.content==='string'?block.content:JSON.stringify(block.content||'');block.resourceName=String(block.resourceName||'');block.presentation=block.presentation&&typeof block.presentation==='object'?block.presentation:null;block.activity=block.activity&&typeof block.activity==='object'?block.activity:null;block.simulation=block.simulation&&typeof block.simulation==='object'?block.simulation:null;block.image=block.image&&typeof block.image==='object'?block.image:null;block.evaluation=block.evaluation&&typeof block.evaluation==='object'?block.evaluation:null;block.teacherNote=String(block.teacherNote||'');block.validated=!!block.validated})});
     return plan;
   }
   async function analyze(){
@@ -105,13 +105,50 @@
       const pdfData=await fileAsBase64(state.pdf),budget={remaining:Math.max(0,15*1024*1024-state.pdf.size)},resources=[];
       for(const resource of state.resources)resources.push(await resourceForAnalysis(resource,budget));
       const token=window.currentTeacher&&window.currentTeacher.session&&window.currentTeacher.session.access_token;
-      const response=await fetch('/api/analyze-course-import',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({pdf:{name:state.pdf.name,mimeType:'application/pdf',data:pdfData},resources,request:{assignmentId:assignment.id,title:$('courseTitle').value.trim(),durationHours:Number($('durationHours').value)}})});
-      const body=await response.json();if(!response.ok)throw new Error(body.error||'Analyse impossible');state.plan=normalizePlan(body);enablePlanStages();renderPlan();
+      const response=await fetch('/api/analyze-course-import',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({pdf:{name:state.pdf.name,mimeType:'application/pdf',data:pdfData},resources,request:{assignmentId:assignment.id,title:$('courseTitle').value.trim(),durationHours:Number($('durationHours').value),teacherInstructions:$('teacherInstructions').value.trim()}})});
+      const body=await response.json();if(!response.ok)throw new Error(body.error||'Analyse impossible');state.plan=normalizePlan(body);
+      await generateMissingImages(token);
+      await generateMissingSimulations(token);
+      enablePlanStages();renderPlan();
       stopLoading();toast('Cours structuré. Ouverture directe des tableaux…');
       await saveCourse(false,{openBoards:true});
     }catch(error){toast(error.message||'Analyse impossible.',true)}finally{stopLoading();updateSourceSummary()}
   }
   $('analyzeBtn').onclick=analyze;
+  function fileFromBase64(data,fileName,mimeType){
+    const bytes=atob(String(data||'')),array=new Uint8Array(bytes.length);for(let i=0;i<bytes.length;i++)array[i]=bytes.charCodeAt(i);
+    return new File([array],fileName,{type:mimeType||'application/octet-stream'});
+  }
+  async function generateMissingImages(token){
+    const targets=allBlocks().filter(block=>(block.type==='image'||block.type==='schema')&&!block.resourceName&&block.image&&block.image.useful===true).slice(0,Math.max(0,Number(window.OPENAI_MAX_COURSE_IMAGES)||4));
+    for(const block of targets){
+      $('loadingMessage').textContent='Création de l’illustration utile : '+block.title;
+      try{
+        const response=await fetch('/api/generate-course-image',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({title:block.title,image:block.image,targetContext:state.plan.targetContext||null})});
+        const out=await response.json();if(!response.ok)throw new Error(out.error||'génération impossible');
+        const file=fileFromBase64(out.data,out.fileName,out.mimeType);
+        state.resources.push({id:uid('res'),file,kind:block.type==='schema'?'schema':'image',objective:block.objective||block.image.reason||'Observer et identifier'});block.resourceName=out.fileName;
+      }catch(error){state.plan.warnings.push('Image non générée pour « '+block.title+' » : '+error.message);}
+    }
+    if(targets.length)renderResources();
+  }
+  // Pour chaque bloc simulation sans ressource importée, l'IA fabrique une page HTML
+  // interactive (énoncé, curseurs, schéma SVG, observations) ajoutée comme ressource du
+  // cours et associée au bloc. Un échec sur une simulation n'interrompt pas l'import.
+  async function generateMissingSimulations(token){
+    const targets=allBlocks().filter(block=>block.type==='simulation'&&!block.resourceName&&block.simulation);
+    for(const block of targets.slice(0,6)){
+      $('loadingMessage').textContent='Création de la simulation interactive : '+block.title;
+      try{
+        const response=await fetch('/api/generate-simulation',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({title:block.title,objective:block.objective,content:block.content,simulation:block.simulation,targetContext:state.plan.targetContext||null})});
+        const out=await response.json();if(!response.ok)throw new Error(out.error||'génération impossible');if(out.warning)state.plan.warnings.push(out.warning);
+        const file=new File([out.html],out.fileName,{type:'text/html'});
+        state.resources.push({id:uid('res'),file,kind:'simulation',objective:block.simulation.goal||'Manipuler et expérimenter'});
+        block.resourceName=out.fileName;
+      }catch(error){console.warn('Simulation non générée ('+block.title+') :',error.message)}
+    }
+    if(targets.length)renderResources();
+  }
   function enablePlanStages(){document.querySelector('[data-go-stage="2"]').disabled=false;document.querySelector('[data-go-stage="3"]').disabled=false}
 
   function allBlocks(){return (state.plan&&state.plan.sessions||[]).flatMap(s=>s.blocks||[])}
@@ -169,7 +206,7 @@
   async function uploadSource(sb,teacherId,courseId,file,folder){const path=`${teacherId}/courses/${courseId}/${folder}/${Date.now()}-${safeFileName(file.name)}`;const {error}=await sb.storage.from('course-media').upload(path,file,{contentType:file.type||'application/octet-stream',upsert:false});if(error)throw error;return path}
   function courseBlockRows(courseId,importId,sourceMap){
     const rows=[];
-    state.plan.sessions.forEach((session,si)=>session.blocks.forEach((b,bi)=>rows.push({course_id:courseId,import_id:importId,session_position:si,position:bi,block_type:b.type,title:b.title,duration_minutes:b.durationMinutes,objective:b.objective,content:{text:b.content,session_title:session.title,session_duration_minutes:session.durationMinutes,explanation_minutes:session.explanationMinutes,presentation:b.presentation||null,activity:b.activity||null},source_id:sourceMap[b.resourceName]||null,status:b.validated?'validated':'draft',teacher_notes:b.teacherNote||''})));
+    state.plan.sessions.forEach((session,si)=>session.blocks.forEach((b,bi)=>rows.push({course_id:courseId,import_id:importId,session_position:si,position:bi,block_type:b.type,title:b.title,duration_minutes:b.durationMinutes,objective:b.objective,content:{text:b.content,session_title:session.title,session_duration_minutes:session.durationMinutes,explanation_minutes:session.explanationMinutes,presentation:b.presentation||null,activity:b.activity||null,simulation:b.simulation||null,image:b.image||null,evaluation:b.evaluation||null},source_id:sourceMap[b.resourceName]||null,status:b.validated?'validated':'draft',teacher_notes:b.teacherNote||''})));
     return rows;
   }
   async function saveExistingCourse(sb,publish){
@@ -231,7 +268,7 @@
       const grouped={};blocks.forEach(row=>(grouped[row.session_position]||(grouped[row.session_position]=[])).push(row));
       plan.sessions=Object.keys(grouped).map(Number).sort((a,b)=>a-b).map((sessionIndex,newIndex)=>{
         const template=(plan.sessions&&plan.sessions[sessionIndex])||{};const rows=grouped[sessionIndex];const content=rows[0]&&rows[0].content||{};
-        return {id:template.id||'session-'+(newIndex+1),title:content.session_title||template.title||`Séance ${newIndex+1}`,durationMinutes:Number(content.session_duration_minutes)||Number(template.durationMinutes)||rows.reduce((n,row)=>n+Number(row.duration_minutes||0),0),explanationMinutes:Number(content.explanation_minutes)||Number(template.explanationMinutes)||0,objective:template.objective||'',blocks:rows.map(row=>({id:row.id,dbId:row.id,type:row.block_type,title:row.title,durationMinutes:Number(row.duration_minutes)||5,objective:row.objective||'',content:row.content&&row.content.text||'',presentation:row.content&&row.content.presentation||null,activity:row.content&&row.content.activity||null,resourceName:sourceNames[row.source_id]||'',teacherNote:row.teacher_notes||'',validated:row.status==='validated'}))};
+        return {id:template.id||'session-'+(newIndex+1),title:content.session_title||template.title||`Séance ${newIndex+1}`,durationMinutes:Number(content.session_duration_minutes)||Number(template.durationMinutes)||rows.reduce((n,row)=>n+Number(row.duration_minutes||0),0),explanationMinutes:Number(content.explanation_minutes)||Number(template.explanationMinutes)||0,objective:template.objective||'',blocks:rows.map(row=>({id:row.id,dbId:row.id,type:row.block_type,title:row.title,durationMinutes:Number(row.duration_minutes)||5,objective:row.objective||'',content:row.content&&row.content.text||'',presentation:row.content&&row.content.presentation||null,activity:row.content&&row.content.activity||null,simulation:row.content&&row.content.simulation||null,image:row.content&&row.content.image||null,evaluation:row.content&&row.content.evaluation||null,resourceName:sourceNames[row.source_id]||'',teacherNote:row.teacher_notes||'',validated:row.status==='validated'}))};
       });
     }
     state.plan=plan;enablePlanStages();document.querySelector('[data-go-stage="1"]').disabled=true;$('backToSources').textContent='← Mes cours';$('studioTools').hidden=false;$('avatarPreviewLink').href='index.html?course='+encodeURIComponent(course.id);$('avatarPreviewLink').textContent='▶ Expliquer tout le cours avec l’avatar';renderResources();renderPlan();setStage(2);

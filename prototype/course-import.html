@@ -77,6 +77,10 @@
           <label class="field"><span>Durée totale demandée</span>
             <div class="duration-control"><button id="durationMinus" type="button">−</button><input id="durationHours" type="number" min="1" max="12" step="0.5" value="2"><span>heures</span><button id="durationPlus" type="button">+</button></div>
           </label>
+          <label class="field span-2"><span>Instructions pédagogiques <em>facultatif</em></span>
+            <textarea id="teacherInstructions" rows="4" maxlength="1800" placeholder="Ex. privilégier l’oral, prévoir une remédiation, utiliser des exemples du quotidien…"></textarea>
+            <small>Le PDF reste la source. Ces instructions précisent vos priorités sans pouvoir changer la matière ni l’année sélectionnées.</small>
+          </label>
         </div>
 
         <div class="source-section">
@@ -95,13 +99,13 @@
 
         <div class="source-section">
           <div class="section-title-row">
-            <div><span class="section-kicker">02</span><h3>Ressources pédagogiques</h3></div>
-            <span class="optional-tag">Import séparé</span>
+            <div><span class="section-kicker">02</span><h3>Ressources complémentaires</h3></div>
+            <span class="optional-tag">Facultatif</span>
           </div>
           <label class="dropzone resource-dropzone" id="resourceDropzone">
             <input id="resourceInput" type="file" multiple accept="image/*,video/*,audio/*,.html,.htm,.zip,.json,.gltf,.glb,.fbx" hidden>
             <span class="plus-icon">+</span>
-            <span class="drop-copy"><b>Ajoutez images, vidéos, schémas ou simulations</b><small>L’IA les associera aux noms et aux objectifs décrits dans le PDF</small></span>
+            <span class="drop-copy"><b>Ajoutez vos médias seulement si vous en avez</b><small>Sinon OpenAI décidera si une image ou une simulation est pédagogiquement utile et la préparera</small></span>
             <span class="choose-button secondary">Ajouter des fichiers</span>
           </label>
           <div id="resourceList" class="resource-list"></div>
@@ -115,7 +119,7 @@
 
         <div class="analysis-note">
           <div class="sparkle">✦</div>
-          <div><b>Ce que l’IA va préparer</b><p>Les tableaux complets du cours, les médias bien positionnés et 15 à 20 minutes d’explication par heure. Vous serez ensuite dirigé directement vers les tableaux modifiables.</p></div>
+          <div><b>Ce qu’OpenAI va préparer</b><p>Une structure adaptée à la matière et à l’année exactes, des évaluations, et uniquement les images ou simulations réellement utiles. Vous gardez la validation finale.</p></div>
         </div>
 
         <div class="stage-actions">
@@ -209,7 +213,7 @@
       <h2>Construction du cours…</h2>
       <p id="loadingMessage">Lecture du PDF et repérage des ressources</p>
       <div class="loading-track"><i id="loadingProgress"></i></div>
-      <small>Le brouillon sera enregistré puis ouvert directement dans les tableaux du cours.</small>
+      <small>Le PDF et vos instructions sont analysés sans envoyer de donnée personnelle d’élève.</small>
     </div>
   </div>
 

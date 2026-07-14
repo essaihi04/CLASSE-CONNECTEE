@@ -129,6 +129,21 @@
     }
     return {match:{consigne:instruction||'Associe chaque notion à sa description issue du cours.',pairs:items.map(item=>({a:item.prompt,b:item.answer}))}};
   }
+  function evaluationQuestion(raw,fallback){
+    raw=raw&&typeof raw==='object'?raw:{};const kind=['qcm','vf','libre','association'].includes(raw.kind)?raw.kind:'libre';
+    const q=html(plain(raw.question||fallback,500)),enonce=html(plain(raw.enonce,500)),fb=html(plain(raw.feedback,500));
+    if(kind==='qcm'){
+      const options=(Array.isArray(raw.options)?raw.options:[]).map(x=>html(plain(x,180))).filter(Boolean).slice(0,6);
+      if(options.length>=2)return {type:'qcm',enonce,q,options,correct:Math.max(0,Math.min(options.length-1,Number(raw.correctIndex)||0)),fb};
+    }
+    if(kind==='vf')return {type:'vf',enonce,q,correct:raw.correctBoolean===true,fb};
+    if(kind==='association'){
+      const pairs=(Array.isArray(raw.pairs)?raw.pairs:[]).map(pair=>({l:html(plain(pair&&pair.left,160)),r:html(plain(pair&&pair.right,160))})).filter(pair=>pair.l&&pair.r).slice(0,6);
+      if(pairs.length>=2)return {type:'association',enonce,q,pairs,fb};
+    }
+    const attendus=(Array.isArray(raw.expectedKeywords)?raw.expectedKeywords:[]).map(x=>plain(x,100)).filter(Boolean).slice(0,10);
+    return {type:'libre',enonce,q,attendus:attendus.length?attendus:[plain(raw.expectedAnswer,120)||'réponse attendue'],reponse:html(plain(raw.expectedAnswer,400)),fb};
+  }
   function stepFromBlock(row,source,chunk,chunkIndex,chunkCount,sessionTitle,visualIndex,mediaIndex,sessionRows){
     const type=row.block_type||'text',content=row.content&&typeof row.content==='object'?row.content:{};
     const title=plain(row.title||'Partie du cours',180),objective=plain(row.objective,300);
@@ -176,6 +191,7 @@
     const sessionNames={};(analysis.sessions||[]).forEach((item,index)=>sessionNames[index]=plain(item&&item.title,180));
     const etapes=[{intro:true,say:`Bienvenue dans le cours ${plain(course.title,180)}. ${plain(course.description||analysis.summary,1200)} Aujourd'hui, je vais te guider avec des explications, des ressources à observer et des moments où tu participeras au tableau.`,board:{title:'',lines:[]},presentation:{scene:'avatar_only',avatarSize:'full'}}];
     const grouped={};(blocks||[]).forEach(row=>(grouped[row.session_position]||(grouped[row.session_position]=[])).push(row));
+    const quizSets=[];
     let visualIndex=0,mediaIndex=0,explanationsSinceQuestion=0,checkpointIndex=0,processedRows=0,midpointDone=false;
     const midpointAt=Math.ceil((blocks||[]).length/2);
     Object.keys(grouped).map(Number).sort((a,b)=>a-b).forEach(sessionPosition=>{
@@ -195,6 +211,8 @@
           etapes.push({intro:true,phase:'rappel',say:'Nous sommes au milieu du parcours. Nous avons posé les premières bases. Fais une courte pause, puis nous allons relier ces idées et passer à la suite.',board:{title:'',lines:[]},presentation:{scene:'avatar_only',avatarSize:'full'}});
         }
       });
+      const sessionQuiz=rows.filter(row=>row.block_type==='evaluation').map(row=>evaluationQuestion(row.content&&row.content.evaluation,(row.content&&row.content.text)||row.title)).filter(Boolean);
+      if(sessionQuiz.length)quizSets.push({label:`Évaluation · ${sessionTitle}`,intro:`Vérifie les objectifs de ${sessionTitle}.`,quiz:sessionQuiz});
       const hasInteractive=rows.some(row=>['activity','simulation'].includes(row.block_type));
       if(!hasInteractive&&sessionRows.length>=2){
         const board=activityBoard(null,sessionRows);if(board)etapes.push({phase:'structuration',say:`Passons au tableau pour organiser les notions de ${sessionTitle}. Associe chaque notion à la description correspondante.`,board:Object.assign({title:'Activité au tableau',lines:[]},board),presentation:{scene:'activity_focus',avatarSize:'full',layout:layoutForScene('activity_focus','full')}});
@@ -209,7 +227,7 @@
     const context=(targetContext+(blocks||[]).map(row=>`${plain(row.title,180)} : ${plain(row.content&&row.content.text||row.objective,800)}`).join('\n')).slice(0,6500);
     const suggestedQuestions=(blocks||[]).filter(row=>row.block_type==='question'||row.block_type==='evaluation').map(row=>plain(row.title,90)).filter(Boolean).slice(0,4);
     if(!suggestedQuestions.length)suggestedQuestions.push('Résume ce cours','Réexplique la notion principale','Quel est le point le plus important ?','Propose-moi une question de révision');
-    return {id:'published-'+course.id,imported:true,publishedCourseId:course.id,courseStatus:course.status,sem:'PDF',titre:plain(course.title,180),description:plain(course.description||analysis.summary,1500),targetLabel,aiContext:context,suggestedQuestions,theme:{name:'cours-importé',text:'#f8fafc',key:'#fde68a',accent:'#38bdf8'},etapes};
+    return {id:'published-'+course.id,imported:true,publishedCourseId:course.id,courseStatus:course.status,sem:'PDF',titre:plain(course.title,180),description:plain(course.description||analysis.summary,1500),targetLabel,targetContext:target,aiContext:context,suggestedQuestions,quizSets,theme:{name:'cours-importé',text:'#f8fafc',key:'#fde68a',accent:'#38bdf8'},etapes};
   }
   window.loadPublishedCourseLesson=loadPublishedCourseLesson;
 })();
