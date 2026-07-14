@@ -228,6 +228,45 @@
     if(publish){const {error}=await sb.from('courses').update({status:'published'}).eq('id',state.courseId);if(error)throw error}
   }
   function courseBoardsUrl(courseId){return `prof.html?course=${encodeURIComponent(courseId)}&boards=1`}
+  /* ===== VOIX DU COURS GÉNÉRÉES UNE SEULE FOIS, À LA CRÉATION =====
+     Après l'enregistrement, on reconstruit les étapes exactement comme le lecteur
+     (loadPublishedCourseLesson), on synthétise chaque texte parlé UNE fois, et on range
+     les fichiers audio dans le storage du cours avec une carte {empreinte -> chemin}
+     (settings.audio_map). Le lecteur rejoue ces fichiers sans jamais re-synthétiser ;
+     seules les questions libres et les réexplications génèrent de nouvelles voix.
+     Un échec (voix serveur indisponible…) n'empêche jamais l'enregistrement du cours. */
+  async function pregenerateCourseAudio(sb,courseId){
+    if(!window.loadPublishedCourseLesson||!window.ccTextHash)return;
+    let lesson;try{lesson=await window.loadPublishedCourseLesson(courseId);}catch(error){console.warn('Voix du cours : lecture impossible,',error.message);return}
+    const texts=[...new Set(lesson.etapes.map(e=>String(e.say||'').trim()).filter(Boolean))];
+    if(!texts.length)return;
+    const {data:course,error:courseError}=await sb.from('courses').select('settings').eq('id',courseId).single();
+    if(courseError)return;
+    const settings=course&&course.settings&&typeof course.settings==='object'?course.settings:{};
+    const map=settings.audio_map&&typeof settings.audio_map==='object'?settings.audio_map:{};
+    const teacherId=window.currentTeacher.session.user.id;
+    let generated=0,failures=0;
+    for(let index=0;index<texts.length;index++){
+      const text=texts[index],hash=window.ccTextHash(text);
+      if(map[hash])continue;                       // déjà enregistré lors d'une création précédente
+      if(failures>=3)break;                        // voix serveur KO : le lecteur synthétisera à la volée
+      $('loadingMessage').textContent=`Enregistrement de la voix du cours (${index+1}/${texts.length})…`;
+      try{
+        const response=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,targetContext:lesson.targetContext||null})});
+        if(!response.ok||response.status===204){failures++;continue}
+        const blob=await response.blob();if(!blob.size){failures++;continue}
+        const wav=(response.headers.get('content-type')||'').includes('wav');
+        const storagePath=`${teacherId}/courses/${courseId}/audio/${hash}.${wav?'wav':'mp3'}`;
+        const {error}=await sb.storage.from('course-media').upload(storagePath,blob,{contentType:blob.type||(wav?'audio/wav':'audio/mpeg'),upsert:true});
+        if(error){failures++;continue}
+        map[hash]=storagePath;generated++;
+      }catch(error){failures++}
+    }
+    if(generated){
+      const {error}=await sb.from('courses').update({settings:Object.assign({},settings,{audio_map:map})}).eq('id',courseId);
+      if(!error)toast(`${generated} voix du cours enregistrée${generated>1?'s':''} — elles ne seront plus régénérées.`);
+    }
+  }
   async function saveCourse(publish,options){
     options=options||{};
     if(state.saving)return;const sb=window.classesSupabase,teacher=window.currentTeacher,assignment=state.assignments.find(x=>x.id===$('assignment').value);if(!sb||!teacher||(!state.courseId&&!assignment))return toast('Session professeur indisponible.',true);
@@ -235,7 +274,7 @@
     state.saving=true;$('saveDraftBtn').disabled=true;$('publishBtn').disabled=true;startLoading();$('loadingMessage').textContent='Enregistrement du cours et des ressources';
     let courseId='';
     try{
-      if(state.courseId){await saveExistingCourse(sb,publish);stopLoading();toast(publish?'Cours publié avec succès.':'Modifications enregistrées.');const target=options.openBoards?courseBoardsUrl(state.courseId):(publish?`index.html?course=${encodeURIComponent(state.courseId)}`:'prof.html?view=private');return setTimeout(()=>location.href=target,500)}
+      if(state.courseId){await saveExistingCourse(sb,publish);await pregenerateCourseAudio(sb,state.courseId);stopLoading();toast(publish?'Cours publié avec succès.':'Modifications enregistrées.');const target=options.openBoards?courseBoardsUrl(state.courseId):(publish?`index.html?course=${encodeURIComponent(state.courseId)}`:'prof.html?view=private');return setTimeout(()=>location.href=target,500)}
       const {data:course,error:courseError}=await sb.from('courses').insert({teacher_id:teacher.session.user.id,assignment_id:assignment.id,subject_id:assignment.subject_id,grade_level_id:assignment.grade_level_id,stream_id:assignment.stream_id||null,title:state.plan.courseTitle,description:state.plan.summary,status:'draft',settings:{source:'teacher_pdf_ai',duration_minutes:state.plan.totalDurationMinutes,explanation_minutes_per_hour:'15-20',target_context:state.plan.targetContext||null,source_assessment:state.plan.sourceAssessment||null}}).select('id').single();if(courseError)throw courseError;courseId=course.id;
       const pdfPath=await uploadSource(sb,teacher.session.user.id,courseId,state.pdf,'sources');
       const {data:job,error:jobError}=await sb.from('course_imports').insert({course_id:courseId,status:'ready',source_pdf_path:pdfPath,duration_minutes:state.plan.totalDurationMinutes,analysis:state.plan}).select('id').single();if(jobError)throw new Error('Migration 007 requise : '+jobError.message);
@@ -244,7 +283,7 @@
       const rows=courseBlockRows(courseId,job.id,sourceMap);
       if(rows.length){const {error}=await sb.from('course_blocks').insert(rows);if(error)throw error}
       if(publish){const {error}=await sb.from('courses').update({status:'published'}).eq('id',courseId);if(error)throw error}
-      state.courseId=courseId;stopLoading();toast(options.openBoards?'Tableaux du cours prêts.':(publish?'Cours publié avec succès.':'Brouillon enregistré.'));const target=options.openBoards?courseBoardsUrl(courseId):(publish?`index.html?course=${encodeURIComponent(courseId)}`:'prof.html?view=private');setTimeout(()=>location.href=target,500);
+      state.courseId=courseId;await pregenerateCourseAudio(sb,courseId);stopLoading();toast(options.openBoards?'Tableaux du cours prêts.':(publish?'Cours publié avec succès.':'Brouillon enregistré.'));const target=options.openBoards?courseBoardsUrl(courseId):(publish?`index.html?course=${encodeURIComponent(courseId)}`:'prof.html?view=private');setTimeout(()=>location.href=target,500);
     }catch(error){stopLoading();if(courseId)await sb.from('courses').delete().eq('id',courseId);toast(error.message||'Enregistrement impossible.',true);state.saving=false;$('saveDraftBtn').disabled=false;$('publishBtn').disabled=!$('publishConfirm').checked}
   }
   $('saveDraftBtn').onclick=()=>saveCourse(false);$('publishBtn').onclick=()=>saveCourse(true);

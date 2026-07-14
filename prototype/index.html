@@ -1382,23 +1382,45 @@ function speak(text, then){
   const my=ttsToken;                                 // jeton de CETTE prise de parole
   const cached=ttsCache.get(text);
   if(cached){ playBlob(cached, text, my); return; }  // déjà généré → instantané
-  // DISJONCTEUR : serveur TTS KO récemment → voix navigateur DIRECTE (zéro latence)
-  if(ttsServerDown && (Date.now()-ttsServerDown) < TTS_RETRY_MS){ speakBrowser(text); return; }
-  const ctrl=new AbortController(); ttsAbort=ctrl;
-  fetch('/api/tts',{ method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text,targetContext:(lecon&&lecon.targetContext)||null}), signal:ctrl.signal })  // requête principale
-    .then(r=>{ if(r.status===204) throw new Error('tts fallback'); if(!r.ok) throw new Error('tts '+r.status); return r.blob(); })
-    .then(blob=>{
-      if(!blob.size) throw new Error('tts empty');
-      if(my!==ttsToken) return;                      // demande dépassée → on abandonne
-      ttsServerDown=0;                               // serveur OK → on referme le disjoncteur
-      if(ttsCache.size>40) ttsCache.clear();
-      ttsCache.set(text, blob);
-      playBlob(blob, text, my);
-    })
-    .catch(err=>{ if(err && err.name==='AbortError') return;   // annulation volontaire : silence
-      ttsServerDown=Date.now();                      // serveur KO → on bascule sur la voix navigateur
-      if(my===ttsToken) speakBrowser(text); });
+  // AUDIO PRÉ-GÉNÉRÉ À LA CRÉATION DU COURS : si ce texte a déjà sa voix enregistrée
+  // (carte audio du cours importé), on la télécharge au lieu de la re-synthétiser.
+  // Les questions libres et réexplications, absentes de la carte, restent synthétisées.
+  const preUrl=(lecon&&lecon.audioMap&&window.ccTextHash)?lecon.audioMap[window.ccTextHash(text)]:null;
+  if(preUrl){
+    const ctrlPre=new AbortController(); ttsAbort=ctrlPre;
+    fetch(preUrl,{signal:ctrlPre.signal})
+      .then(r=>{ if(!r.ok) throw new Error('audio préenregistré '+r.status); return r.blob(); })
+      .then(blob=>{
+        if(!blob.size) throw new Error('audio préenregistré vide');
+        if(my!==ttsToken) return;
+        if(ttsCache.size>40) ttsCache.clear();
+        ttsCache.set(text, blob);
+        playBlob(blob, text, my);
+      })
+      .catch(err=>{ if(err && err.name==='AbortError') return;
+        if(my===ttsToken) requestServerTTS(); });    // fichier indisponible → synthèse classique
+    return;
+  }
+  requestServerTTS();
+  function requestServerTTS(){
+    // DISJONCTEUR : serveur TTS KO récemment → voix navigateur DIRECTE (zéro latence)
+    if(ttsServerDown && (Date.now()-ttsServerDown) < TTS_RETRY_MS){ speakBrowser(text); return; }
+    const ctrl=new AbortController(); ttsAbort=ctrl;
+    fetch('/api/tts',{ method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({text,targetContext:(lecon&&lecon.targetContext)||null}), signal:ctrl.signal })  // requête principale
+      .then(r=>{ if(r.status===204) throw new Error('tts fallback'); if(!r.ok) throw new Error('tts '+r.status); return r.blob(); })
+      .then(blob=>{
+        if(!blob.size) throw new Error('tts empty');
+        if(my!==ttsToken) return;                      // demande dépassée → on abandonne
+        ttsServerDown=0;                               // serveur OK → on referme le disjoncteur
+        if(ttsCache.size>40) ttsCache.clear();
+        ttsCache.set(text, blob);
+        playBlob(blob, text, my);
+      })
+      .catch(err=>{ if(err && err.name==='AbortError') return;   // annulation volontaire : silence
+        ttsServerDown=Date.now();                      // serveur KO → on bascule sur la voix navigateur
+        if(my===ttsToken) speakBrowser(text); });
+  }
 }
 /* ---- PAROLE d'une étape avec CARROUSEL : l'avatar parle de chaque image et fait défiler
    le carrousel au fur et à mesure. Si aucune image n'a de texte `say`, on parle simplement le
@@ -1439,6 +1461,14 @@ let narrationToken=0;
 function prefetchTTS(text){
   if(VOICE_SOURCE==='browser') return;   // mode navigateur : rien à précharger côté serveur
   if(!text || ttsCache.has(text) || !document.getElementById('voice').checked) return;
+  // audio pré-généré à la création du cours : on précharge le fichier, pas de synthèse
+  const preUrl=(lecon&&lecon.audioMap&&window.ccTextHash)?lecon.audioMap[window.ccTextHash(text)]:null;
+  if(preUrl){
+    fetch(preUrl).then(r=>r.ok?r.blob():null)
+      .then(blob=>{ if(blob && blob.size){ if(ttsCache.size>40) ttsCache.clear(); ttsCache.set(text, blob); } })
+      .catch(()=>{});
+    return;
+  }
   if(ttsServerDown && (Date.now()-ttsServerDown) < TTS_RETRY_MS) return;   // serveur KO : on ne précharge pas
   fetch('/api/tts',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text,targetContext:(lecon&&lecon.targetContext)||null}) })
     .then(r=> (r.ok && r.status!==204) ? r.blob() : null)
@@ -2590,12 +2620,42 @@ function showComprehensionHint(n){
   wrap.innerHTML='<div class="comp-hint">🎤 Réponds-moi à voix haute&nbsp;: «&nbsp;oui&nbsp;» ou «&nbsp;non&nbsp;»</div>';
   document.querySelector('.board').appendChild(wrap);   // simple indice, non cliquable
 }
+/* ===== MÉMOIRE PÉDAGOGIQUE DE LA CLASSE =====
+   À chaque réponse « compris / pas compris », on enregistre côté serveur la MÉTHODE
+   d'explication utilisée (texte, schéma, simulation…) pour cette matière et ce niveau.
+   L'IA réutilise ensuite ce bilan : les méthodes qui marchent avec CETTE classe sont
+   privilégiées dans les prochaines leçons et réexplications. */
+function lessonTarget(){
+  const t=(lecon&&lecon.targetContext)||{};
+  return { subjectName:t.subjectName||'SVT', gradeLevelName:t.gradeLevelName||'3ème année collège (3APIC)' };
+}
+function stepMethod(e){
+  if(!e) return 'texte';
+  if(e.__reexplainMethod) return e.__reexplainMethod;              // méthode de la dernière réexplication
+  const b=e.board||{};
+  if(b.media){ if(b.media.type==='simulation')return 'simulation'; if(b.media.type==='video')return 'video'; if(b.media.type==='audio')return 'texte'; return 'image'; }
+  if(b.fillTable||b.match||b.sortItems)return 'activite';
+  if(e.mediaSlides&&e.mediaSlides.length)return 'images';
+  if(b.schema3d||e.schema3d)return '3d';
+  if(b.schema||e.svg)return 'schema';
+  if(b.chart)return 'courbe';
+  return 'texte';
+}
+function recordUnderstanding(n,understood){
+  try{
+    const e=lecon.etapes[n]; if(!e||e.intro) return;
+    const target=lessonTarget();
+    fetch('/api/learning-feedback',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({subject:target.subjectName,grade:target.gradeLevelName,method:stepMethod(e),understood:!!understood,chapter:lecon.id,step:n})}).catch(()=>{});
+  }catch(err){}
+}
 function comprehensionYes(n){
   cancelAutoNext();                                   // l'élève a répondu : plus besoin du minuteur
+  recordUnderstanding(n,true);                        // mémoire de classe : cette méthode a fonctionné
   compClear(); avatarExpress('nod','happy'); speak(pick(CONTINUE_SAYS));
   setTimeout(()=>{ if(i>=0 && i<lecon.etapes.length-1) go(i+1); }, 750);
 }
-function comprehensionNo(n){ cancelAutoNext(); reexplain(n); }
+function comprehensionNo(n){ cancelAutoNext(); recordUnderstanding(n,false); reexplain(n); }
 // intros rassurantes (« pas de souci ») pour rendre la réexplication chaleureuse ET plus développée
 const REEXPLAIN_INTROS=[
   "Pas de souci, c'est tout à fait normal. On reprend ensemble, tout doucement et plus en détail.",
@@ -2603,11 +2663,51 @@ const REEXPLAIN_INTROS=[
   "Très bien de me le dire ! On recommence calmement, avec d'autres mots et un peu plus d'explications.",
   "D'accord, on va y aller pas à pas. Je reprends depuis le début, plus lentement et plus complètement."
 ];
-// réexplique l'étape AUTREMENT et PLUS EN DÉTAIL : intro rassurante + champ "redire" (ou rejoue l'étape)
+/* réexplique l'étape AUTREMENT et PLUS EN PROFONDEUR.
+   1) L'IA (/api/reexplain) change d'angle, décompose, et choisit le support le plus adapté à
+      CETTE classe (mémoire pédagogique) : schéma SVG, tableau, courbe ou SIMULATION interactive.
+   2) En cas d'échec IA : ancien comportement (champ "redire" ou relecture posée). */
 function reexplain(n){
   cancelAutoNext();                                    // on réexplique : pas d'avance auto pendant ce temps
-  const e=lecon.etapes[n], alt=e.redire; compClear();
+  const e=lecon.etapes[n]; compClear();
   const intro=pick(REEXPLAIN_INTROS);
+  e.__reexplainTried=Array.isArray(e.__reexplainTried)?e.__reexplainTried:[stepMethod(e)];
+  const target=lessonTarget();
+  thinking.style.display='block'; stopAudio(); avatarScene('think');
+  fetch('/api/reexplain',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      stepTitle:(e.board&&e.board.title)||'',
+      stepText:String(e.say||'').slice(0,2200),
+      lessonTitle:lecon.titre,
+      courseContext:(lecon&&lecon.imported)?String(lecon.aiContext||'').slice(0,4000):'',
+      target, methodsTried:e.__reexplainTried.slice(-6)
+    })})
+    .then(r=>r.json())
+    .then(d=>{
+      thinking.style.display='none';
+      if(i!==n) return;                                 // l'élève a changé d'étape entre-temps
+      if(!d || d.fallback || !d.answer) return reexplainLocal(n,e,intro);
+      e.__reexplainMethod=d.method||'texte';            // mémorisé pour le prochain « compris ? »
+      e.__reexplainTried.push(e.__reexplainMethod);
+      const svg=sanitizeSVG(d.svg)||buildChartSVG(d.chart);
+      paint({ title:(e.board&&e.board.title||'')+" 🔁 (autrement)", lines:(d.lines&&d.lines.length?d.lines:[{t:'Reprenons pas à pas.',cls:'def'}]), schema:svg||undefined });
+      const tbl=(!svg)?renderAiTable(d.table):null; if(tbl) board.appendChild(tbl);
+      // SIMULATION créée pour la réexplication : affichée dans le tableau, pilotable par l'IA
+      if(d.simulationHtml){
+        const holder=document.createElement('div');holder.className='lesson-media';
+        const frame=document.createElement('iframe');frame.style.width='100%';frame.style.height='330px';
+        frame.setAttribute('srcdoc',d.simulationHtml);holder.appendChild(frame);board.appendChild(holder);
+      }
+      setAvatarHeadMode(true); avatarEmotion(d.emotion==='happy'||d.emotion==='surprised'?d.emotion:'curious');
+      if(svg||tbl||d.simulationHtml) avatarWalkTo(true,'point'); else avatarWalkTo(false,'explain');
+      setTimeout(()=>{ if(i===n) showComprehensionHint(n); }, 600);
+      speak(intro+" "+d.answer, ()=>{ if(i===n) askComprehension(n); });
+    })
+    .catch(()=>{ thinking.style.display='none'; if(i===n) reexplainLocal(n,e,intro); });
+}
+// ancien comportement conservé en repli : champ "redire" préparé, sinon relecture posée
+function reexplainLocal(n,e,intro){
+  const alt=e.redire;
   if(!alt){                                            // pas de reformulation prévue → on rejoue plus posément
     speak(intro+" Je te réexplique cette étape depuis le début.", ()=>{ if(i===n) render(n); });
     return;
@@ -3261,7 +3361,7 @@ function answer(q){
       body: JSON.stringify({ question:q, lessonTitle:lecon.titre,
                              chapterId:(lecon&&lecon.id)||null, step:(typeof i==='number'?i:null),
                              courseContext:(lecon&&lecon.imported)?String(lecon.aiContext||'').slice(0,6500):'',
-                             simulationContext }) })
+                             simulationContext, target:lessonTarget() }) })
     .then(r=>r.json())
     .then(d=>{
       thinking.style.display='none';

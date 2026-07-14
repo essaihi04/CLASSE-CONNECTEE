@@ -227,7 +227,25 @@
     const context=(targetContext+(blocks||[]).map(row=>`${plain(row.title,180)} : ${plain(row.content&&row.content.text||row.objective,800)}`).join('\n')).slice(0,6500);
     const suggestedQuestions=(blocks||[]).filter(row=>row.block_type==='question'||row.block_type==='evaluation').map(row=>plain(row.title,90)).filter(Boolean).slice(0,4);
     if(!suggestedQuestions.length)suggestedQuestions.push('Résume ce cours','Réexplique la notion principale','Quel est le point le plus important ?','Propose-moi une question de révision');
-    return {id:'published-'+course.id,imported:true,publishedCourseId:course.id,courseStatus:course.status,sem:'PDF',titre:plain(course.title,180),description:plain(course.description||analysis.summary,1500),targetLabel,targetContext:target,aiContext:context,suggestedQuestions,quizSets,theme:{name:'cours-importé',text:'#f8fafc',key:'#fde68a',accent:'#38bdf8'},etapes};
+    // Audio pré-généré à la création du cours : {empreinte du texte -> chemin storage}.
+    // Le lecteur joue ces fichiers au lieu de régénérer la voix ; seules les questions
+    // libres et les réexplications déclenchent une nouvelle synthèse.
+    const audioSetting=course.settings&&course.settings.audio_map&&typeof course.settings.audio_map==='object'?course.settings.audio_map:{};
+    const audioEntries=await Promise.all(Object.entries(audioSetting).slice(0,400).map(async([hash,storagePath])=>{
+      if(typeof storagePath!=='string'||!storagePath)return [hash,''];
+      const {data,error}=await sb.storage.from('course-media').createSignedUrl(storagePath,7200);
+      return [hash,error?'':data&&data.signedUrl||''];
+    }));
+    const audioMap=Object.fromEntries(audioEntries.filter(([,url])=>url));
+    return {id:'published-'+course.id,imported:true,publishedCourseId:course.id,courseStatus:course.status,sem:'PDF',titre:plain(course.title,180),description:plain(course.description||analysis.summary,1500),targetLabel,targetContext:target,aiContext:context,suggestedQuestions,quizSets,audioMap,theme:{name:'cours-importé',text:'#f8fafc',key:'#fde68a',accent:'#38bdf8'},etapes};
   }
+  // Empreinte stable d'un texte parlé (djb2) : partagée entre la pré-génération des voix
+  // (course-import), la carte audio du cours et la lecture (index.html).
+  window.ccTextHash=function(text){
+    text=String(text||'').trim();
+    let h=5381;
+    for(let i=0;i<text.length;i++)h=((h<<5)+h+text.charCodeAt(i))>>>0;
+    return 'h'+h.toString(36)+'-'+text.length;
+  };
   window.loadPublishedCourseLesson=loadPublishedCourseLesson;
 })();
