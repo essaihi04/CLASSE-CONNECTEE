@@ -121,6 +121,9 @@
   .quiz-opt:disabled{cursor:default;opacity:.92}
   .quiz-opt.good{background:#14532d;border-color:#22c55e;color:#bbf7d0}
   .quiz-opt.bad{background:#4c1d1d;border-color:#ef4444;color:#fecaca}
+  .quiz-opt.has-visual{display:grid;grid-template-columns:92px 1fr;align-items:center;gap:14px;min-height:92px;font-size:19px}
+  .quiz-opt .qo-svg{display:flex;align-items:center;justify-content:center;width:88px;height:76px;border-radius:10px;background:#fff;overflow:hidden}
+  .quiz-opt .qo-svg svg{width:100%;height:100%;max-height:76px}
   .quiz-input{flex:1;background:#0b1220;border:1px solid #334155;color:#e2e8f0;
     padding:11px 15px;border-radius:11px;font-size:16px}
   .quiz-input:focus{outline:none;border-color:var(--accent)}
@@ -157,6 +160,8 @@
   .assoc-row{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap}
   .assoc-l{flex:0 0 auto;min-width:150px;font-weight:700;color:#fde68a;font-size:17px;
     font-family:'Comic Sans MS','Segoe UI',cursive}
+  .assoc-l .qo-svg{display:inline-flex;vertical-align:middle;align-items:center;justify-content:center;width:72px;height:62px;margin-right:10px;border-radius:9px;background:#fff;overflow:hidden}
+  .assoc-l .qo-svg svg{width:100%;height:100%}
   .assoc-l::before{content:"🔗 "}
   .assoc-sel{flex:1 1 220px;background:#0b1220;border:1px solid #334155;color:#e2e8f0;
     padding:10px 12px;border-radius:11px;font-size:15px;cursor:pointer}
@@ -439,10 +444,13 @@
   .lesson-media img,.lesson-media video{display:block;width:100%;max-height:340px;object-fit:contain;
     border-radius:12px;border:1px solid #334155;background:#000}
   .lesson-media iframe{display:block;width:100%;height:330px;border:1px solid #334155;border-radius:12px;background:#fff}
+  .lesson-media.simulation-embedded{min-height:260px}
+  .lesson-media.simulation-embedded iframe{flex:1 1 auto;min-height:220px}
   .lesson-media audio{display:block;width:min(100%,560px);margin:28px auto}
   .lesson-media .lm-cap{font-size:13px;color:#94a3b8;margin-top:6px}
   .lesson-media .lm-open{display:inline-flex;align-items:center;justify-content:center;gap:8px;margin-top:9px;
     padding:9px 14px;border-radius:9px;background:#0e7490;color:#ecfeff;text-decoration:none;font-size:13px;font-weight:800}
+  .lesson-media .lm-expand{border:0;cursor:pointer}
   .lesson-media.resource-link{height:100%;min-height:180px;display:flex;flex-direction:column;align-items:center;
     justify-content:center;text-align:center;border:1px solid rgba(56,189,248,.45);background:rgba(8,47,73,.46)}
   .lesson-media .lm-resource-icon{font-size:48px;margin-bottom:10px}
@@ -1577,7 +1585,9 @@ function paint(d, sayText){
   const lineEls=[];
   // carte « situation-problème » : met en avant la question qui crée le besoin d'apprendre
   if(d.probleme){ const c=document.createElement('div'); c.className='probleme-card';
-    c.innerHTML='<span class="pc-tag">🧩 Situation-problème</span><div class="pc-q">'+d.probleme+'</div>';
+    const tag=document.createElement('span');tag.className='pc-tag';tag.textContent=(d.problemeTag==='Situation-problème'?'🧩 ':'💬 ')+(d.problemeTag||'Question à la classe');
+    const question=document.createElement('div');question.className='pc-q';question.innerHTML=d.probleme;
+    c.append(tag,question);
     board.appendChild(c); }
   d.lines.forEach((l)=>{ const e=document.createElement('div');
     e.className='line typed '+(l.cls||''); e.innerHTML=l.t; board.appendChild(e); lineEls.push(e); });
@@ -1623,12 +1633,16 @@ function renderLessonMedia(m){
   // L'avatar peut piloter le défilement (voir speakStepNarration) ; sinon défilement auto.
   if(Array.isArray(m.slides) && m.slides.filter(s=>s&&(s.src||s.svg)).length){ return renderCarousel(m); }
   const box=document.createElement('div'); box.className='lesson-media';
-  if(m.src && m.type==='simulation'){
+  if((m.src||m.srcdoc) && m.type==='simulation'){
     activeSimulationContext=null;
-    const frame=document.createElement('iframe');frame.src=m.src;frame.title=m.desc||'Simulation pédagogique';
+    box.classList.add('simulation-embedded');
+    const frame=document.createElement('iframe');
+    if(m.srcdoc)frame.srcdoc=m.srcdoc;else frame.src=m.src;
+    frame.title=m.desc||'Simulation pédagogique';frame.loading='eager';
     frame.setAttribute('sandbox','allow-scripts allow-forms allow-pointer-lock');frame.setAttribute('allowfullscreen','');
     box.appendChild(frame);
-    const open=document.createElement('a');open.className='lm-open';open.href=m.src;open.target='_blank';open.rel='noopener';open.textContent='↗ Ouvrir la simulation en grand';box.appendChild(open);
+    const expand=document.createElement('button');expand.type='button';expand.className='lm-open lm-expand';expand.textContent='⛶ Agrandir la simulation';
+    expand.onclick=()=>{const fn=frame.requestFullscreen||frame.webkitRequestFullscreen;if(fn)fn.call(frame);else if(m.src)window.open(m.src,'_blank','noopener')};box.appendChild(expand);
     return box;
   }
   if(m.src && m.type==='audio'){
@@ -2550,7 +2564,7 @@ function render(n){ const e=lecon.etapes[n];
   // (ex. avant la 2ᵉ activité). Bouton DISTINCT du « Suivant ▶ » ; après l'évaluation,
   // l'élève revient automatiquement à l'étape suivante (quizReturnStep) pour poursuivre.
   if(isIntermediateQuizStep(e) && n < lecon.etapes.length-1 && (getQuizSets('quiz-mid').length)){
-    const b=mkOpt("📝 Passer l'évaluation maintenant",'primary'); b.style.marginTop='16px';
+    const b=mkOpt(lecon.quizGameMode?"🎲 Jouer maintenant":"📝 Passer l'évaluation maintenant",'primary'); b.style.marginTop='16px';
     b.style.background='var(--accent2)'; b.style.color='#082f49';
     b.onclick=()=>{ quizReturnStep=n+1; startQuiz('quiz-mid'); };
     setTimeout(()=>board.appendChild(b), 400);
@@ -2559,7 +2573,7 @@ function render(n){ const e=lecon.etapes[n];
   if(n===lecon.etapes.length-1){
     markCourseDone(lecon.id);                              // "cours vu" enregistré
     if(getQuizSets('quiz').length){
-      const b=mkOpt("📝 Faire l'évaluation",'primary'); b.style.marginTop='16px';
+      const b=mkOpt(lecon.quizGameMode?"🎲 Choisir un jeu":"📝 Faire l'évaluation",'primary'); b.style.marginTop='16px';
       b.style.background='var(--accent2)'; b.style.color='#082f49';
       b.onclick=()=>{ quizReturnStep=null; startQuiz('quiz'); };
       setTimeout(()=>board.appendChild(b), 400);
@@ -2887,7 +2901,7 @@ function startQuiz(layoutKey){
   bar.style.width='100%'; renderPhase(-1);
   const sets=getQuizSets(activeQuizLayoutKey);
   if(!sets.length){
-    paint({title:"📝 Évaluation", lines:[{t:"Aucune évaluation pour ce chapitre pour l'instant.",cls:"def"}]});
+    paint({title:lecon.quizGameMode?'🎲 Jeux':'📝 Évaluation', lines:[{t:lecon.quizGameMode?"Aucun jeu n'est encore disponible.":"Aucune évaluation pour ce chapitre pour l'instant.",cls:"def"}]});
     return;
   }
   if(sets.length===1){ launchQuiz(sets[0]); return; }
@@ -2897,20 +2911,21 @@ function renderQuizChooser(sets, cur){
   inQuiz=false; quizAnswered=false; pendingQuizNext=null;
   cur=((cur%sets.length)+sets.length)%sets.length;
   const s=sets[cur];
-  title.textContent='📝 Choisis ton évaluation';
+  const gameMode=!!lecon.quizGameMode;
+  title.textContent=gameMode?'🎲 Choisis ton jeu':'📝 Choisis ton évaluation';
   board.innerHTML=''; clearBoardFloatingBlocks();
   const card=document.createElement('div'); card.className='quizpick';
-  const desc=s.intro || 'Une évaluation pour vérifier ce que tu as compris sur ce chapitre.';
-  card.innerHTML='<span class="qp-badge">Quiz '+(cur+1)+' / '+sets.length+'</span>'
-    +'<div class="qp-label">'+(s.label||('Quiz '+(cur+1)))+'</div>'
+  const desc=s.intro || (gameMode?'Un petit défi pour montrer ce que tu sais.':'Une évaluation pour vérifier ce que tu as compris sur ce chapitre.');
+  card.innerHTML='<span class="qp-badge">'+(gameMode?'Jeu ':'Quiz ')+(cur+1)+' / '+sets.length+'</span>'
+    +'<div class="qp-label">'+(s.label||((gameMode?'Jeu ':'Quiz ')+(cur+1)))+'</div>'
     +'<div class="qp-desc">'+desc+'</div>'
-    +'<div class="qp-meta">📄 '+s.quiz.length+' question'+(s.quiz.length>1?'s':'')+' à énoncé</div>';
+    +'<div class="qp-meta">🎯 '+s.quiz.length+' défi'+(s.quiz.length>1?'s':'')+'</div>';
   const actions=document.createElement('div'); actions.className='qp-actions';
-  const startBtn=document.createElement('button'); startBtn.className='qp-btn qp-start'; startBtn.textContent='▶ Commencer ce quiz';
+  const startBtn=document.createElement('button'); startBtn.className='qp-btn qp-start'; startBtn.textContent=gameMode?'▶ Jouer':'▶ Commencer ce quiz';
   startBtn.onclick=()=>launchQuiz(s);
   actions.appendChild(startBtn);
   if(sets.length>1){
-    const chg=document.createElement('button'); chg.className='qp-btn qp-change'; chg.textContent='🔄 Changer de quiz';
+    const chg=document.createElement('button'); chg.className='qp-btn qp-change'; chg.textContent=gameMode?'🔄 Choisir un autre jeu':'🔄 Changer de quiz';
     chg.onclick=()=>renderQuizChooser(sets, cur+1);
     actions.appendChild(chg);
   }
@@ -2918,25 +2933,25 @@ function renderQuizChooser(sets, cur){
   if(sets.length>1){
     const dots=document.createElement('div'); dots.className='qp-dots';
     sets.forEach((_,i)=>{ const d=document.createElement('button'); d.className='qp-dot'+(i===cur?' on':'');
-      d.title='Quiz '+(i+1); d.onclick=()=>renderQuizChooser(sets,i); dots.appendChild(d); });
+      d.title=(gameMode?'Jeu ':'Quiz ')+(i+1); d.onclick=()=>renderQuizChooser(sets,i); dots.appendChild(d); });
     card.appendChild(dots);
   }
   const quizLayout=document.createElement('div'); quizLayout.className='quiz-layout-block';
   quizLayout.appendChild(card); board.appendChild(quizLayout);
   applyLayout(lecon.id,activeQuizLayoutKey);
   avatarExpress('explain','happy');
-  speak('Choisis ton évaluation. J\'en ai préparé '+sets.length+'. Tu peux changer de quiz avant de commencer.');
+  speak(gameMode?'Choisis ton jeu. J\'ai préparé '+sets.length+' petits défis.':'Choisis ton évaluation. J\'en ai préparé '+sets.length+'. Tu peux changer de quiz avant de commencer.');
 }
 function launchQuiz(set){
   quiz=set.quiz; qi=0; qScore=0; qMax=quiz.length;
   inQuiz=true; quizAnswered=false; pendingQuizNext=null;
-  speech.textContent="C'est l'heure de l'évaluation ! 💪";
+  speech.textContent=lecon.quizGameMode?"C'est parti pour le jeu ! 🎲":"C'est l'heure de l'évaluation ! 💪";
   renderQ();
 }
 function renderQ(){
   const item=quiz[qi];
   quizAnswered=false; pendingQuizNext=null;        // nouvelle question : pas encore répondue
-  title.textContent='📝 Évaluation — Question '+(qi+1)+' / '+qMax;
+  title.textContent=(lecon.quizGameMode?'🎲 Jeu — Défi ':'📝 Évaluation — Question ')+(qi+1)+' / '+qMax;
   board.innerHTML='';
   clearBoardFloatingBlocks();
   const quizLayout=document.createElement('div'); quizLayout.className='quiz-layout-block'; board.appendChild(quizLayout);
@@ -2954,7 +2969,7 @@ function renderQ(){
   const opts=document.createElement('div'); opts.className='quiz-opts'; quizLayout.appendChild(opts);
 
   if(item.type==='qcm'){
-    item.options.forEach((o,idx)=>{ const b=mkOpt(o); b.onclick=()=>answerChoice(idx,opts); opts.appendChild(b); });
+    item.options.forEach((o,idx)=>{ const visual=item.optionSvgs&&item.optionSvgs[idx];const b=mkOpt(visual?'<span class="qo-svg">'+visual+'</span><span>'+o+'</span>':o);if(visual)b.classList.add('has-visual');b.onclick=()=>answerChoice(idx,opts); opts.appendChild(b); });
   } else if(item.type==='vf'){
     const row=document.createElement('div'); row.className='quiz-row';
     [['✔ Vrai',true],['✘ Faux',false]].forEach(([lab,val])=>{ const b=mkOpt(lab); b.onclick=()=>answerChoice(val,opts); row.appendChild(b); });
@@ -2963,7 +2978,7 @@ function renderQ(){
     const rights=shuffle(item.pairs.map(p=>p.r));     // réponses mélangées
     item.pairs.forEach((p,idx)=>{
       const row=document.createElement('div'); row.className='assoc-row';
-      const l=document.createElement('div'); l.className='assoc-l'; l.innerHTML=p.l;
+      const l=document.createElement('div'); l.className='assoc-l'; l.innerHTML=(p.lSvg?'<span class="qo-svg">'+p.lSvg+'</span>':'')+p.l;
       const sel=document.createElement('select'); sel.className='assoc-sel'; sel.dataset.idx=idx;
       const o0=document.createElement('option'); o0.value=''; o0.textContent='— choisir —'; sel.appendChild(o0);
       rights.forEach(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=r; sel.appendChild(o); });
@@ -3043,7 +3058,7 @@ function endQuiz(){
   inQuiz=false; quizAnswered=false; pendingQuizNext=null;   // fin de l'évaluation
   recordQuiz(lecon.id, qScore, qMax);                      // mémorise le meilleur score du chapitre
   const pct=Math.round(qScore/qMax*100);
-  title.textContent='🎯 Résultat de l\'évaluation';
+  title.textContent=lecon.quizGameMode?'🏆 Résultat du jeu':'🎯 Résultat de l\'évaluation';
   board.innerHTML='';
   clearBoardFloatingBlocks();
   const s=document.createElement('div'); s.className='quiz-score';
@@ -3142,6 +3157,7 @@ function showChapterHome(){
   applyLayout(lecon.id,-1);                                  // retire la composition de la dernière étape
   speech.textContent='Nouveau chapitre : '+lecon.titre+'. Prêt ? 😊';
   avatarExpress('welcome','happy');   // accueil du chapitre : bras ouverts
+  document.getElementById('quizBtn').textContent=lecon.quizGameMode?'🎲 Jeux':'📝 Évaluation';
 
   renderChips();                                            // questions suggérées adaptées au chapitre
 }

@@ -60,7 +60,7 @@
       split_right:{avatar:{x:72,y:7,w:full?27:14,h:full?88:14,mode:full?'full':'head',z:5},el:{title:{x:5,y:8,w:64,h:12,fs:31,z:3},body:{x:5,y:23,w:63,h:66,fs:22,z:3}}},
       board_focus:{avatar:{x:83,y:4,w:13,h:13,mode:'head',z:6},el:{title:{x:5,y:7,w:74,h:12,fs:32,z:3},body:{x:5,y:23,w:74,h:66,fs:23,z:3}}},
       media_focus:mediaLayouts[mediaPosition]||mediaLayouts.right,
-      activity_focus:{avatar:{x:1,y:23,w:18,h:65,mode:'full',z:6},el:{title:{x:21,y:5,w:73,h:12,fs:30,z:3},body:{x:21,y:82,w:72,h:10,fs:17,z:3},sim:{x:21,y:19,w:72,h:60,fs:17,z:4}}},
+      activity_focus:{avatar:{x:1,y:23,w:18,h:65,mode:'full',z:6},el:{title:{x:21,y:5,w:73,h:12,fs:30,z:3},body:{x:21,y:82,w:72,h:10,fs:17,z:3},sim:{x:21,y:19,w:72,h:60,fs:17,z:4},media:{x:21,y:19,w:72,h:60,fs:17,z:4}}},
       question_focus:{avatar:{x:67,y:13,w:26,h:80,mode:'full',z:5},el:{title:{x:5,y:7,w:58,h:12,fs:29,z:3},probleme:{x:5,y:23,w:56,h:50,fs:25,z:3},body:{x:5,y:76,w:56,h:12,fs:18,z:3}}},
       summary_focus:{avatar:{x:1,y:12,w:24,h:80,mode:'full',z:5},el:{title:{x:28,y:7,w:66,h:12,fs:31,z:3},body:{x:28,y:23,w:65,h:65,fs:22,z:3}}}
     };
@@ -79,9 +79,15 @@
     // L'ouverture avatar seul est déjà créée par le lecteur avant les blocs du PDF. Un bloc de
     // contenu garde donc toujours une zone lisible, même si l'IA redemande avatar_only.
     if(scene==='avatar_only')scene='split_left';
-    const avatarSize=raw&&raw.avatarSize==='full'?'full':(raw&&raw.avatarSize==='reduced'?'reduced':(/^(question|summary)$/.test(type)?'full':'reduced'));
+    const wideSource=!!(source&&['video','simulation'].includes(source.kind));
+    // Une vidéo ou une simulation doit toujours recevoir une vraie zone média. Si l'IA a
+    // demandé activity_focus, l'iframe se retrouvait sans hauteur et seul le lien restait visible.
+    if(wideSource)scene='media_focus';
+    const openingExplanation=visualIndex===0&&!source&&type==='text';
+    if(openingExplanation)scene='split_left';
+    const avatarSize=openingExplanation?'full':(raw&&raw.avatarSize==='full'?'full':(raw&&raw.avatarSize==='reduced'?'reduced':(/^(question|summary)$/.test(type)?'full':'reduced')));
     const requestedPosition=raw&&['left','right','wide'].includes(raw.mediaPosition)?raw.mediaPosition:'';
-    const needsWide=!!(source&&['video','simulation'].includes(source.kind));
+    const needsWide=wideSource;
     const mediaPosition=needsWide?'wide':(requestedPosition||(visualIndex%2?'left':'right'));
     return {scene,avatarSize,mediaPosition,layout:scene==='avatar_only'?null:layoutForScene(scene,avatarSize,mediaPosition)};
   }
@@ -131,43 +137,45 @@
   }
   function evaluationQuestion(raw,fallback){
     raw=raw&&typeof raw==='object'?raw:{};const kind=['qcm','vf','libre','association'].includes(raw.kind)?raw.kind:'libre';
-    const q=html(plain(raw.question||fallback,500)),enonce=html(plain(raw.enonce,500)),fb=html(plain(raw.feedback,500));
+    const q=html(plain(raw.question||fallback,500)),enonce=html(plain(raw.enonce,500)),fb=html(plain(raw.feedback,500)),svg=typeof raw.questionSvg==='string'?raw.questionSvg:'';
     if(kind==='qcm'){
       const options=(Array.isArray(raw.options)?raw.options:[]).map(x=>html(plain(x,180))).filter(Boolean).slice(0,6);
-      if(options.length>=2)return {type:'qcm',enonce,q,options,correct:Math.max(0,Math.min(options.length-1,Number(raw.correctIndex)||0)),fb};
+      const optionSvgs=(Array.isArray(raw.optionSvgs)?raw.optionSvgs:[]).slice(0,options.length).map(value=>typeof value==='string'?value:'');
+      if(options.length>=2)return {type:'qcm',enonce,q,svg,options,optionSvgs,correct:Math.max(0,Math.min(options.length-1,Number(raw.correctIndex)||0)),fb};
     }
-    if(kind==='vf')return {type:'vf',enonce,q,correct:raw.correctBoolean===true,fb};
+    if(kind==='vf')return {type:'vf',enonce,q,svg,correct:raw.correctBoolean===true,fb};
     if(kind==='association'){
-      const pairs=(Array.isArray(raw.pairs)?raw.pairs:[]).map(pair=>({l:html(plain(pair&&pair.left,160)),r:html(plain(pair&&pair.right,160))})).filter(pair=>pair.l&&pair.r).slice(0,6);
-      if(pairs.length>=2)return {type:'association',enonce,q,pairs,fb};
+      const pairs=(Array.isArray(raw.pairs)?raw.pairs:[]).map(pair=>({l:html(plain(pair&&pair.left,160)),r:html(plain(pair&&pair.right,160)),lSvg:typeof (pair&&pair.leftSvg)==='string'?pair.leftSvg:'',rSvg:typeof (pair&&pair.rightSvg)==='string'?pair.rightSvg:''})).filter(pair=>pair.l&&pair.r).slice(0,6);
+      if(pairs.length>=2)return {type:'association',enonce,q,svg,pairs,fb};
     }
     const attendus=(Array.isArray(raw.expectedKeywords)?raw.expectedKeywords:[]).map(x=>plain(x,100)).filter(Boolean).slice(0,10);
-    return {type:'libre',enonce,q,attendus:attendus.length?attendus:[plain(raw.expectedAnswer,120)||'réponse attendue'],reponse:html(plain(raw.expectedAnswer,400)),fb};
+    return {type:'libre',enonce,q,svg,attendus:attendus.length?attendus:[plain(raw.expectedAnswer,120)||'réponse attendue'],reponse:html(plain(raw.expectedAnswer,400)),fb};
   }
   function stepFromBlock(row,source,chunk,chunkIndex,chunkCount,sessionTitle,visualIndex,mediaIndex,sessionRows){
     const type=row.block_type||'text',content=row.content&&typeof row.content==='object'?row.content:{};
-    const title=plain(row.title||'Partie du cours',180),objective=plain(row.objective,300);
+    const rawTitle=plain(row.title||'Partie du cours',180),objective=plain(row.objective,300);
+    const vagueTitle=/^(?:je|j['’])\s*(?:vois|regarde|écoute|observe|découvre|retiens)\s*[.!…]*$/i.test(rawTitle);
+    const title=vagueTitle&&objective?compact(objective,90):rawTitle;
     const shownTitle=chunkCount>1?`${title} (${chunkIndex+1}/${chunkCount})`:title;
     const presentation=normalizePresentation(content.presentation,type,source,source?mediaIndex:visualIndex);
     const board={title:html(shownTitle),lines:boardLines(chunk,presentation.scene==='media_focus'?2:5)};
-    if(type==='question'||type==='evaluation'){board.probleme=html(chunk);board.lines=[];}
+    if(type==='question'){
+      board.probleme=html(chunk);board.lines=[];
+      board.problemeTag=/situation\s*[-–—]?\s*probl[èe]me/i.test(`${title} ${objective}`)?'Situation-problème':'Question à la classe';
+    }
     if(source&&source.url){
       board.media=sourceMedia(source,title,chunk);if(!board.media.objective)board.media.objective=objective;
+    }else if(type==='simulation'&&typeof content.simulation_html==='string'&&content.simulation_html.trim()){
+      board.media={type:'simulation',kind:'simulation',srcdoc:content.simulation_html,desc:title,objective};
     }
-    if(type==='activity'||(type==='simulation'&&!board.media)){
+    if(type==='activity'){
       const interactive=activityBoard(content.activity,sessionRows);if(interactive)Object.assign(board,interactive);
     }
     if(presentation.scene==='board_focus'&&chunkIndex===0)board.linesAfterSpeech=true;
     const lead=type==='image'?'Observe attentivement cette image. ':type==='schema'?'Regardons comment ce schéma est organisé. ':type==='video'?'Observe cette vidéo avant de retenir l’explication. ':type==='simulation'?'Manipule la simulation et observe le résultat. ':type==='activity'?'À toi de participer au tableau. ':type==='question'||type==='evaluation'?'Je te laisse quelques instants pour répondre. ':type==='summary'?'Retenons l’essentiel. ':'';
     const holdForResource=!!(board.media&&['video','simulation','audio','link'].includes(board.media.type));
-    return {phase:PHASE_BY_TYPE[type]||'concept',say:`${sessionTitle?sessionTitle+'. ':''}${shownTitle}. ${lead}${chunk}${objective?' Objectif : '+objective:''}`.slice(0,1950),board,presentation,pauseForAnswer:type==='question'||type==='evaluation'||holdForResource};
-  }
-  function checkpointStep(row,index){
-    const subject=plain(row&&row.title||'la notion précédente',140);
-    const question=`Explique avec tes propres mots ce que tu as compris de « ${subject} ».`;
-    return {phase:'probleme',say:`Petite pause. ${question} Prends le temps de réfléchir, puis poursuis quand tu es prêt.`,pauseForAnswer:true,
-      board:{title:'À toi de réfléchir',probleme:html(question),lines:[]},
-      presentation:{scene:'question_focus',avatarSize:'full',layout:layoutForScene('question_focus','full')},__checkpoint:index};
+    const phase=type==='question'&&board.problemeTag!=='Situation-problème'?'structuration':(PHASE_BY_TYPE[type]||'concept');
+    return {phase,say:`${shownTitle}. ${lead}${chunk}`.slice(0,1950),board,presentation,pauseForAnswer:type==='question'||holdForResource};
   }
   async function loadPublishedCourseLesson(courseId){
     if(!/^[0-9a-f-]{36}$/i.test(courseId||''))throw new Error('Identifiant de cours invalide.');
@@ -188,40 +196,35 @@
     if(course.status!=='published'&&!owner&&!admin)throw new Error('Ce cours n’est pas publié.');
     if(session&&session.user&&!owner&&!admin)throw new Error('Ce cours appartient à un autre professeur.');
     const sourceMap=await signedSources(sb,sources||[]),allSources=Object.values(sourceMap),usedSourceIds=new Set(),analysis=imports&&imports[0]&&imports[0].analysis||{};
+    const target=analysis.targetContext||(course.settings&&course.settings.target_context)||{subjectName:course.subjects&&course.subjects.name,gradeLevelName:course.grade_levels&&course.grade_levels.name,streamName:course.study_streams&&course.study_streams.name};
+    const gameMode=/préscolaire|primaire|apep|grande\s+section|\bcp\b/i.test(`${target.cycle||''} ${target.gradeLevelName||''} ${target.gradeLevelCode||''}`);
     const sessionNames={};(analysis.sessions||[]).forEach((item,index)=>sessionNames[index]=plain(item&&item.title,180));
-    const etapes=[{intro:true,say:`Bienvenue dans le cours ${plain(course.title,180)}. ${plain(course.description||analysis.summary,1200)} Aujourd'hui, je vais te guider avec des explications, des ressources à observer et des moments où tu participeras au tableau.`,board:{title:'',lines:[]},presentation:{scene:'avatar_only',avatarSize:'full'}}];
+    const introLayout={avatar:{x:31,y:2,w:38,h:96,mode:'full',z:6},el:{}};
+    const etapes=[{intro:true,say:`Bienvenue dans le cours ${plain(course.title,180)}. ${plain(course.description||analysis.summary,1200)} Aujourd'hui, je vais te guider avec des explications, des ressources à observer et des moments où tu participeras au tableau.`,board:{title:'',lines:[]},presentation:{scene:'avatar_only',avatarSize:'full',layout:introLayout}}];
     const grouped={};(blocks||[]).forEach(row=>(grouped[row.session_position]||(grouped[row.session_position]=[])).push(row));
     const quizSets=[];
-    let visualIndex=0,mediaIndex=0,explanationsSinceQuestion=0,checkpointIndex=0,processedRows=0,midpointDone=false;
-    const midpointAt=Math.ceil((blocks||[]).length/2);
+    let visualIndex=0,mediaIndex=0;
     Object.keys(grouped).map(Number).sort((a,b)=>a-b).forEach(sessionPosition=>{
       const rows=grouped[sessionPosition],sessionTitle=plain((rows[0]&&rows[0].content&&rows[0].content.session_title)||sessionNames[sessionPosition]||`Séance ${sessionPosition+1}`,180);
       const sessionRows=rows.filter(row=>!['question','evaluation','activity','simulation'].includes(row.block_type)).map(row=>({title:plain(row.title,100),clue:plain(row.objective||(row.content&&row.content.text),180)}));
       rows.forEach(row=>{
+        // Les évaluations vivent dans l'espace Jeux/Quiz. Les rejouer comme des diapositives
+        // créait autant de faux cadres « situation-problème » dans la leçon.
+        if(row.block_type==='evaluation')return;
         const content=row.content&&typeof row.content==='object'?row.content:{};
         const text=plain(content.text||row.objective||row.title,12000),parts=chunks(text);
         const source=sourceForRow(row,sourceMap,allSources);if(source)usedSourceIds.add(source.id);
         parts.forEach((part,index)=>{etapes.push(stepFromBlock(row,source,part,index,parts.length,sessionTitle,visualIndex++,source?mediaIndex++:mediaIndex,sessionRows));});
-        if(['question','evaluation'].includes(row.block_type))explanationsSinceQuestion=0;
-        else if(!['activity','simulation'].includes(row.block_type))explanationsSinceQuestion++;
-        if(explanationsSinceQuestion>=4){etapes.push(checkpointStep(row,++checkpointIndex));explanationsSinceQuestion=0;visualIndex++;}
-        processedRows++;
-        if(!midpointDone&&(blocks||[]).length>=5&&processedRows>=midpointAt){
-          midpointDone=true;
-          etapes.push({intro:true,phase:'rappel',say:'Nous sommes au milieu du parcours. Nous avons posé les premières bases. Fais une courte pause, puis nous allons relier ces idées et passer à la suite.',board:{title:'',lines:[]},presentation:{scene:'avatar_only',avatarSize:'full'}});
-        }
       });
-      const sessionQuiz=rows.filter(row=>row.block_type==='evaluation').map(row=>evaluationQuestion(row.content&&row.content.evaluation,(row.content&&row.content.text)||row.title)).filter(Boolean);
-      if(sessionQuiz.length)quizSets.push({label:`Évaluation · ${sessionTitle}`,intro:`Vérifie les objectifs de ${sessionTitle}.`,quiz:sessionQuiz});
-      const hasInteractive=rows.some(row=>['activity','simulation'].includes(row.block_type));
-      if(!hasInteractive&&sessionRows.length>=2){
-        const board=activityBoard(null,sessionRows);if(board)etapes.push({phase:'structuration',say:`Passons au tableau pour organiser les notions de ${sessionTitle}. Associe chaque notion à la description correspondante.`,board:Object.assign({title:'Activité au tableau',lines:[]},board),presentation:{scene:'activity_focus',avatarSize:'full',layout:layoutForScene('activity_focus','full')}});
-      }
+      const evaluationRows=rows.filter(row=>row.block_type==='evaluation');
+      const sessionQuiz=evaluationRows.map(row=>evaluationQuestion(row.content&&row.content.evaluation,(row.content&&row.content.text)||row.title)).filter(Boolean);
+      if(gameMode){
+        sessionQuiz.forEach((question,index)=>{const row=evaluationRows[index]||{};quizSets.push({label:`Jeu · ${plain(row.title,100)||sessionTitle}`,intro:plain(row.objective,220)||`Joue pour vérifier ce que tu as appris.`,quiz:[question]})});
+      }else if(sessionQuiz.length)quizSets.push({label:`Évaluation · ${sessionTitle}`,intro:`Vérifie les objectifs de ${sessionTitle}.`,quiz:sessionQuiz});
     });
     const unusedSources=allSources.filter(source=>source.url&&!usedSourceIds.has(source.id));
     unusedSources.forEach(source=>etapes.push(standaloneResourceStep(source,mediaIndex++)));
     if(etapes.length===1)throw new Error('Ce cours ne contient aucun bloc publié.');
-    const target=analysis.targetContext||(course.settings&&course.settings.target_context)||{subjectName:course.subjects&&course.subjects.name,gradeLevelName:course.grade_levels&&course.grade_levels.name,streamName:course.study_streams&&course.study_streams.name};
     const targetLabel=[plain(target.subjectName,160),plain(target.gradeLevelName,160),plain(target.streamName,120)].filter(value=>value&&value!=='Sans filière').join(' · ');
     const targetContext=targetLabel?`CIBLE EXACTE DU COURS : ${targetLabel}. Répondre uniquement pour cette matière et cette année scolaire, avec le vocabulaire, les prérequis et les méthodes correspondants.\n`:'';
     const context=(targetContext+(blocks||[]).map(row=>`${plain(row.title,180)} : ${plain(row.content&&row.content.text||row.objective,800)}`).join('\n')).slice(0,6500);
@@ -236,15 +239,19 @@
       return [hash,error?'':data&&data.signedUrl||''];
     }));
     const audioMap=Object.fromEntries(audioEntries.filter(([,url])=>url));
-    return {id:'published-'+course.id,imported:true,publishedCourseId:course.id,courseStatus:course.status,courseAudioToken:owner&&session?session.access_token:'',sem:'PDF',titre:plain(course.title,180),description:plain(course.description||analysis.summary,1500),targetLabel,targetContext:target,aiContext:context,suggestedQuestions,quizSets,audioMap,theme:{name:'cours-importé',text:'#f8fafc',key:'#fde68a',accent:'#38bdf8'},etapes};
+    return {id:'published-'+course.id,imported:true,publishedCourseId:course.id,courseStatus:course.status,courseAudioToken:owner&&session?session.access_token:'',sem:'PDF',titre:plain(course.title,180),description:plain(course.description||analysis.summary,1500),targetLabel,targetContext:target,aiContext:context,suggestedQuestions,quizSets,quizGameMode:gameMode,audioMap,theme:{name:'cours-importé',text:'#f8fafc',key:'#fde68a',accent:'#38bdf8'},etapes};
   }
   // Empreinte stable d'un texte parlé (djb2) : partagée entre l'enregistrement à la
   // première lecture, la carte audio du cours et le lecteur (index.html).
-  window.ccTextHash=function(text){
+  function ccTextHash(text){
     text=String(text||'').trim();
     let h=5381;
     for(let i=0;i<text.length;i++)h=((h<<5)+h+text.charCodeAt(i))>>>0;
     return 'h'+h.toString(36)+'-'+text.length;
-  };
-  window.loadPublishedCourseLesson=loadPublishedCourseLesson;
+  }
+  if(typeof window!=='undefined'){
+    window.ccTextHash=ccTextHash;
+    window.loadPublishedCourseLesson=loadPublishedCourseLesson;
+  }
+  if(typeof module!=='undefined'&&module.exports)module.exports={layoutForScene,normalizePresentation,evaluationQuestion,stepFromBlock,ccTextHash};
 })();
