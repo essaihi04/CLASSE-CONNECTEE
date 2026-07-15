@@ -52,7 +52,7 @@
       camera.aspect = w/h; camera.updateProjectionMatrix();
       if(vrm) applyFraming();                 // garde le bon cadrage (corps ou visage) après resize
     }
-    let vrm=null, speaking=false, sceneMood='greet';
+    let vrm=null, speaking=false, speakLevel=null, sceneMood='greet';
     let visemeT=0, blinkT=0, blinkNext=2+Math.random()*3, t0=performance.now();
     let walking=false, walkT0=0;                          // marche vers le tableau
 
@@ -152,7 +152,10 @@
     // ---- API pilotée par l'app parente (postMessage) ----
     window.addEventListener('message', (e)=>{
       const d=e.data||{};
-      if(d.type==='speak'){ speaking = !!d.on; if(!speaking && vrm){ clearVisemes(); } }
+      if(d.type==='speak'){ speaking = !!d.on;
+        // niveau sonore réel (0..1) mesuré sur l'audio joué : la bouche suit la voix
+        speakLevel = (typeof d.level==='number' && isFinite(d.level)) ? Math.max(0,Math.min(1,d.level)) : null;
+        if(!speaking && vrm){ clearVisemes(); } }
       if(d.type==='scene'){ setScene(d.name); }          // compat (ancien système)
       if(d.type==='gesture'){ doGesture(d.name); }       // nouveau : geste du corps
       if(d.type==='emotion'){ setEmotion(d.name); }      // nouveau : expression du visage
@@ -311,11 +314,14 @@
         if(blinkT>blinkNext){ const k=(blinkT-blinkNext); expr('blink', k<0.12? (k/0.12) : k<0.24? (1-(k-0.12)/0.12):0);
           if(k>0.24){ blinkT=0; blinkNext=2+Math.random()*4; expr('blink',0); } }
 
-        // LIP-SYNC : la bouche bouge tant que "speaking" est vrai
+        // LIP-SYNC : la bouche bouge tant que "speaking" est vrai. Si le lecteur mesure
+        // le VOLUME RÉEL de l'audio (speakLevel), l'amplitude de la bouche le suit :
+        // silence entre deux phrases = bouche presque fermée, voix forte = bouche ouverte.
         if(speaking){
           visemeT += dt;
           if(visemeT>0.09){ visemeT=0; clearVisemes(); curViseme=VISEMES[(Math.random()*VISEMES.length)|0];
-            expr(curViseme, 0.4+Math.random()*0.6); }
+            const amp = speakLevel==null ? (0.4+Math.random()*0.6) : Math.min(1, 0.12+speakLevel*1.15);
+            expr(curViseme, amp); }
         }
 
         applyGestures();

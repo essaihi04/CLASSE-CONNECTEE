@@ -356,8 +356,13 @@ function getGeminiKey(){
 // Clé : variable OPENAI_API_KEY ou fichier openai.key (jamais servi au navigateur).
 // OpenAI est essayé en premier partout ; les anciens moteurs (Gemini pour l'import,
 // DeepSeek pour les réponses, ElevenLabs pour la voix) restent des replis automatiques.
+// Variable d'environnement (Render) OU fichier openai.key à côté de server.js (local,
+// exclu de git par *.key). Sans l'un des deux, tous les appels OpenAI basculent sur
+// les moteurs de repli (Gemini / DeepSeek / ElevenLabs) : cours moins adaptés, pas
+// d'images générées — pensez à vérifier la ligne « OpenAI » au démarrage du serveur.
 function getOpenAIKey(){
-  const key=String(process.env.OPENAI_API_KEY||'').trim();
+  if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY.trim();
+  const key=fs.readFileSync(path.join(__dirname, 'openai.key'), 'utf8').trim();
   if(!key) throw new Error('OPENAI_API_KEY manquante sur le serveur.');
   return key;
 }
@@ -406,9 +411,10 @@ async function callOpenAIResponses(options){
     }};
     else if(options.jsonMode) payload.text={format:{type:'json_object'}};
     if(options.moderate)payload.moderation={model:'omni-moderation-latest'};
-    // Les modèles de raisonnement consomment des jetons avant de répondre : effort bas
-    // pour rester rapide. Un modèle qui refuse ce paramètre déclenche l'essai du suivant.
-    if(/^(gpt-5|o\d)/.test(model)) payload.reasoning={effort:'low'};
+    // Modèles de raisonnement : effort réglable par appel. 'low' (défaut) pour les
+    // réponses temps réel (tuteur, intentions) ; 'high' pour la création de cours et
+    // les contenus pédagogiques où la qualité prime sur la latence.
+    if(/^(gpt-5|o\d)/.test(model)) payload.reasoning={effort:['low','medium','high'].includes(options.effort)?options.effort:'low'};
     const response=await fetch('https://api.openai.com/v1/responses',{
       method:'POST',
       headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},
@@ -814,6 +820,13 @@ REGLES PEDAGOGIQUES STRICTES
 17. SIMULATIONS GÉNÉRÉES : pour chaque bloc simulation SANS ressource importée, fournis 1 à 3 variables réalistes, une situation-problème, un objectif de découverte, une question de conclusion, des éléments SVG déclaratifs et des règles d'observation. Aucun HTML ni JavaScript. "bindVariable" doit recopier exactement le nom d'une variable. "imageUseful" vaut true seulement si une illustration de contexte améliore réellement la manipulation ; dans ce cas fournis imagePrompt et imageAlt. Une simulation est interdite si une activité simple, une image ou du texte suffit.
 18. ÉVALUATIONS OBLIGATOIRES : termine chaque séance par au moins une question formative structurée dans "evaluation" et termine le cours par une évaluation générale couvrant toutes les séances. Utilise qcm, vf, libre ou association ; fournis réponse correcte, rétroaction et critères de réussite tirés du PDF. Les distracteurs doivent être plausibles pour l'âge sans introduire de nouvelle notion.
 19. DÉVELOPPEMENT DE L'ÉLÈVE : primaire = manipulation, exemples concrets du quotidien, phrases très courtes ; collège = passage progressif du concret vers l'abstrait, schématisation guidée ; lycée = formalisation, raisonnement hypothético-déductif, autonomie. Applique le niveau exact de la cible, avec des méthodes actives (investigation, situation-problème, évaluation formative) et jamais un cours magistral continu.
+    EXIGENCES SPÉCIFIQUES AU PRIMAIRE (préscolaire à 6APEP) — obligatoires si la cible est une année du primaire :
+    - phrases parlées de 12 mots MAXIMUM, un seul mot nouveau par bloc, toujours expliqué avec un objet du quotidien marocain (pain, thé, cartable, ballon…) ;
+    - ton joueur et encourageant, tutoiement, questions fréquentes « et toi, qu'est-ce que tu vois ? » ;
+    - beaucoup de visuel et de manipulation, très peu de texte au tableau (3 lignes maximum, mots simples) ;
+    - simulations à UNE seule variable, éléments GRANDS et très colorés, consignes d'une phrase ;
+    - évaluations sous forme de jeux : vrai/faux illustré, association image-mot, jamais de question rédigée longue ;
+    - aucun terme technique du collège : adapte chaque notion avec les mots d'un enfant de cet âge.
 ${(()=>{const memory=classMemoryInstruction(target.subjectName,target.gradeLevelName);return memory?'20. '+memory.replace(/\n/g,'\n    ')+'\n':'';})()}
 Réponds en français avec un unique objet JSON :
 {"courseTitle":"...","summary":"...","targetAudience":"${target.gradeLevelName}","sourceSummary":"...","sourceAssessment":{"detectedSubject":"...","detectedCycle":"...","detectedGradeLevel":"...","subjectMatch":"match|mismatch|uncertain","gradeLevelMatch":"match|mismatch|uncertain","evidence":["indice bref tiré du PDF"]},"warnings":["..."],"sessions":[{"title":"...","durationMinutes":60,"explanationMinutes":18,"objective":"...","blocks":[{"type":"activity","title":"Activité de structuration","durationMinutes":8,"objective":"Organiser les notions","content":"Consigne fidèle au PDF.","resourceName":"","presentation":{"scene":"activity_focus","avatarSize":"full"},"activity":{"kind":"association","instruction":"Associe chaque notion à sa description.","items":[{"prompt":"notion 1 du PDF","answer":"description 1 fidèle au PDF","options":[]},{"prompt":"notion 2 du PDF","answer":"description 2 fidèle au PDF","options":[]}]}}]}]}
@@ -880,7 +893,7 @@ async function callOpenAICourseImport(ctx){
   content.push({type:'input_text',text:buildCourseImportMission(ctx.request||{},target,requestedMinutes,requestedHours,inventory)});
   const courseModels=[...(process.env.OPENAI_COURSE_MODEL||'').split(',').map(x=>x.trim()).filter(Boolean),...OPENAI_MODELS]
     .filter((model,index,models)=>models.indexOf(model)===index);
-  const raw=await callOpenAIResponses({instructions:COURSE_IMPORT_SYSTEM,content,maxTokens:24000,models:courseModels,schema:COURSE_IMPORT_SCHEMA,schemaName:'course_plan'});
+  const raw=await callOpenAIResponses({instructions:COURSE_IMPORT_SYSTEM,content,maxTokens:24000,models:courseModels,schema:COURSE_IMPORT_SCHEMA,schemaName:'course_plan',effort:'high'});
   let parsed;
   try{parsed=JSON.parse(raw.replace(/^```json\s*/i,'').replace(/```$/,''));}
   catch(e){throw new Error('réponse IA illisible');}
@@ -999,7 +1012,7 @@ Réponds uniquement par un objet JSON valide :
       ].filter(Boolean).join('\n\n');
       let parsed;
       try{
-        const raw=await callOpenAIResponses({instructions,content:[{type:'input_text',text:userText}],maxTokens:4000,jsonMode:true});
+        const raw=await callOpenAIResponses({instructions,content:[{type:'input_text',text:userText}],maxTokens:4000,jsonMode:true,effort:'medium'});
         parsed=JSON.parse(raw);
       }catch(error){
         console.warn('[reexplain] OpenAI indisponible : '+String(error.message||error).slice(0,180));
@@ -1075,7 +1088,7 @@ async function callOpenAIImage(prompt,target,alt){
   const finalPrompt=`Illustration pédagogique exacte pour ${targetLabel||'le niveau indiqué par le professeur'}. ${cleanText(prompt,1200)}. Image claire, sobre, centrée sur un seul objectif d'observation, adaptée à l'âge, sans logo, sans filigrane, sans texte imprimé dans l'image, sans visage d'élève identifiable. Texte alternatif prévu : ${cleanText(alt,260)}.`;
   const response=await fetch('https://api.openai.com/v1/images/generations',{
     method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+getOpenAIKey()},
-    body:JSON.stringify({model:OPENAI_IMAGE_MODEL,prompt:finalPrompt,size:process.env.OPENAI_IMAGE_SIZE||'1536x1024',quality:process.env.OPENAI_IMAGE_QUALITY||'medium',output_format:'png'})
+    body:JSON.stringify({model:OPENAI_IMAGE_MODEL,prompt:finalPrompt,size:process.env.OPENAI_IMAGE_SIZE||'1536x1024',quality:process.env.OPENAI_IMAGE_QUALITY||'high',output_format:'png'})
   });
   if(!response.ok)throw new Error('OpenAI Image HTTP '+response.status+' : '+(await response.text()).slice(0,240));
   const result=await response.json(),data=result&&result.data&&result.data[0]&&result.data[0].b64_json;

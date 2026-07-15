@@ -1298,15 +1298,43 @@ function schedule3DTour(text, audio, my){
   };
   tryBind(0);
 }
+/* ---- LIP-SYNC AU VOLUME RÉEL ----
+   Pendant la lecture d'un audio (généré à la volée OU pré-enregistré à la création du
+   cours), on mesure le volume réel ~12 fois/s (WebAudio) et on l'envoie à l'avatar VRM :
+   la bouche suit exactement la voix (fermée dans les silences, ouverte sur les syllabes).
+   Sécurité : si l'AudioContext est bloqué par le navigateur, on n'y branche RIEN
+   (le son passerait par un contexte muet) et la bouche garde son animation classique. */
+let lipCtx=null, lipTimer=null;
+function stopLipLevel(){ if(lipTimer){ clearInterval(lipTimer); lipTimer=null; } }
+function startLipLevel(a, my){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    if(!lipCtx) lipCtx=new AC();
+    if(lipCtx.state!=='running'){ lipCtx.resume().catch(()=>{}); if(lipCtx.state!=='running') return; }
+    const source=lipCtx.createMediaElementSource(a);
+    const analyser=lipCtx.createAnalyser(); analyser.fftSize=256;
+    source.connect(analyser); analyser.connect(lipCtx.destination);   // le son continue vers les enceintes
+    const data=new Uint8Array(analyser.frequencyBinCount);
+    stopLipLevel();
+    lipTimer=setInterval(()=>{
+      if(my!==ttsToken || a.paused || a.ended){ stopLipLevel(); return; }
+      analyser.getByteFrequencyData(data);
+      let sum=0; for(let k=2;k<42;k++) sum+=data[k];                  // bande des voix parlées
+      const level=Math.min(1, (sum/40)/135);
+      avatarPost({type:'speak',on:true,level});                       // amplitude réelle → VRM
+      if(mouth) mouth.setAttribute('ry', 2+level*6);                  // avatar 2D de secours
+    },80);
+  }catch(e){}                                                          // analyse impossible : lèvres classiques
+}
 function playBlob(blob, text, my){
   if(my!==ttsToken) return;                          // une parole plus récente a pris la main
   const url=URL.createObjectURL(blob);
   const a=new Audio(url); currentAudio=a;
   const schemaEl=curSchemaEl;                        // le schéma associé à CETTE parole
-  a.onplay =()=>{ if(my===ttsToken){ animateMouth(true); scheduleHighlights(schemaEl, text, a, my); schedule3DTour(text, a, my); } };
-  a.onended=()=>{ animateMouth(false); URL.revokeObjectURL(url); if(currentAudio===a) currentAudio=null;
+  a.onplay =()=>{ if(my===ttsToken){ animateMouth(true); startLipLevel(a, my); scheduleHighlights(schemaEl, text, a, my); schedule3DTour(text, a, my); } };
+  a.onended=()=>{ stopLipLevel(); animateMouth(false); URL.revokeObjectURL(url); if(currentAudio===a) currentAudio=null;
     const cb=afterSpeakCb; afterSpeakCb=null; if(my===ttsToken && cb) cb(); };
-  a.onerror=()=>{ URL.revokeObjectURL(url); if(my===ttsToken) speakBrowser(text); };
+  a.onerror=()=>{ stopLipLevel(); URL.revokeObjectURL(url); if(my===ttsToken) speakBrowser(text); };
   a.play().catch(()=>{ if(my===ttsToken) speakBrowser(text); });
 }
 
