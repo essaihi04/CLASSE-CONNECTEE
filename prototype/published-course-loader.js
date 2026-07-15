@@ -111,6 +111,16 @@
       return (name&&hay.includes(name))||(base.length>=4&&hay.includes(base));
     })||null;
   }
+  function simulationDocument(value){
+    let document=typeof value==='string'?value.trim():'';
+    if(!document)return '';
+    // Certaines anciennes lignes ont reçu le document HTML déjà encodé. Ne décode que
+    // lorsqu'il s'agit manifestement d'une page complète, pour ne pas modifier son contenu.
+    if(/^&lt;\s*(?:!doctype|html)\b/i.test(document)){
+      document=document.replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&quot;/gi,'"').replace(/&#0*39;|&#x0*27;/gi,"'").replace(/&amp;/gi,'&');
+    }
+    return /^<\s*(?:!doctype|html)\b/i.test(document)?document:'';
+  }
   function standaloneResourceStep(source,mediaIndex){
     const objective=plain(source.pedagogical_objective,240)||'Observer et exploiter cette ressource pédagogique.';
     const presentation=normalizePresentation({scene:'media_focus',avatarSize:'reduced'},source.kind,source,mediaIndex);
@@ -163,10 +173,13 @@
       board.probleme=html(chunk);board.lines=[];
       board.problemeTag=/situation\s*[-–—]?\s*probl[èe]me/i.test(`${title} ${objective}`)?'Situation-problème':'Question à la classe';
     }
-    if(source&&source.url){
+    const inlineSimulation=type==='simulation'?simulationDocument(content.simulation_html):'';
+    // Le document intégré est prioritaire : certains stockages servent les fichiers HTML avec
+    // un type texte, ce qui afficherait leur code source au lieu d'exécuter la simulation.
+    if(inlineSimulation){
+      board.media={type:'simulation',kind:'simulation',srcdoc:inlineSimulation,desc:title,objective};
+    }else if(source&&source.url){
       board.media=sourceMedia(source,title,chunk);if(!board.media.objective)board.media.objective=objective;
-    }else if(type==='simulation'&&typeof content.simulation_html==='string'&&content.simulation_html.trim()){
-      board.media={type:'simulation',kind:'simulation',srcdoc:content.simulation_html,desc:title,objective};
     }
     if(type==='activity'){
       const interactive=activityBoard(content.activity,sessionRows);if(interactive)Object.assign(board,interactive);
@@ -253,5 +266,5 @@
     window.ccTextHash=ccTextHash;
     window.loadPublishedCourseLesson=loadPublishedCourseLesson;
   }
-  if(typeof module!=='undefined'&&module.exports)module.exports={layoutForScene,normalizePresentation,evaluationQuestion,stepFromBlock,ccTextHash};
+  if(typeof module!=='undefined'&&module.exports)module.exports={layoutForScene,normalizePresentation,evaluationQuestion,simulationDocument,stepFromBlock,ccTextHash};
 })();

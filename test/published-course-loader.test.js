@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizePresentation, evaluationQuestion, stepFromBlock } = require('../prototype/published-course-loader');
+const { normalizePresentation, evaluationQuestion, simulationDocument, stepFromBlock } = require('../prototype/published-course-loader');
 
 test('réserve une vraie zone média aux simulations même si l’IA demande activity_focus', () => {
   const source={kind:'simulation',url:'https://example.test/simulation.html',file_name:'simulation.html',mime_type:'text/html'};
@@ -35,9 +35,16 @@ test('conserve les SVG générés pour un mini-jeu visuel', () => {
   assert.match(item.svg,/^<svg/);
 });
 
-test('utilise une simulation inline si la ressource distante manque', () => {
+test('donne la priorité à la simulation inline même si une ressource distante existe', () => {
   const html='<!doctype html><title>Jeu</title>';
-  const step=stepFromBlock({block_type:'simulation',title:'Le panier',objective:'Classer',content:{simulation_html:html,presentation:{scene:'activity_focus',avatarSize:'full'}}},null,'Glisse les images.',0,1,'Séance',1,0,[]);
+  const source={kind:'simulation',url:'https://example.test/simulation.html',file_name:'simulation.html',mime_type:'text/html'};
+  const step=stepFromBlock({block_type:'simulation',title:'Le panier',objective:'Classer',content:{simulation_html:html,presentation:{scene:'activity_focus',avatarSize:'full'}}},source,'Glisse les images.',0,1,'Séance',1,0,[]);
   assert.equal(step.board.media.type,'simulation');
   assert.equal(step.board.media.srcdoc,html);
+  assert.equal(step.board.media.src,undefined);
+});
+
+test('répare une ancienne simulation dont toute la page HTML est encodée', () => {
+  const encoded='&lt;!doctype html&gt;&lt;html&gt;&lt;title&gt;Jeu &amp; sons&lt;/title&gt;&lt;/html&gt;';
+  assert.equal(simulationDocument(encoded),'<!doctype html><html><title>Jeu & sons</title></html>');
 });
