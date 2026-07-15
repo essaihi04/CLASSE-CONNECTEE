@@ -212,8 +212,19 @@
       <div class="ai-orbit"><span>IA</span></div>
       <h2>Construction du cours…</h2>
       <p id="loadingMessage">Lecture du PDF et repérage des ressources</p>
+      <div class="loading-meta"><span id="loadingElapsed">0:00 écoulé</span><span id="loadingPercent">0 %</span></div>
       <div class="loading-track"><i id="loadingProgress"></i></div>
-      <small>Le PDF et vos instructions sont analysés sans envoyer de donnée personnelle d’élève.</small>
+      <div id="loadingDetail" class="loading-detail">Préparation des fichiers dans votre navigateur.</div>
+      <ol id="loadingSteps" class="loading-steps">
+        <li data-loading-step="prepare"><i>1</i><span><b>Préparer les fichiers</b><small>Lecture locale du PDF et des ressources</small></span></li>
+        <li data-loading-step="analyze"><i>2</i><span><b>Analyser et structurer avec l’IA</b><small>OpenAI lit le PDF et rédige le plan ; Gemini sert de secours</small></span></li>
+        <li data-loading-step="images"><i>3</i><span><b>Créer les images utiles</b><small>OpenAI Image, seulement si un visuel pédagogique manque</small></span></li>
+        <li data-loading-step="simulations"><i>4</i><span><b>Créer les simulations</b><small>L’IA définit les variables ; l’application assemble la simulation</small></span></li>
+        <li data-loading-step="save"><i>5</i><span><b>Enregistrer le brouillon</b><small>PDF, ressources et tableaux dans Supabase</small></span></li>
+        <li data-loading-step="voice"><i>6</i><span><b>Préparer la voix à la demande</b><small>Aucune attente ici : chaque piste sera créée au premier passage, puis enregistrée</small></span></li>
+        <li data-loading-step="done"><i>7</i><span><b>Ouvrir les tableaux</b><small>Le professeur peut tout déplacer et modifier</small></span></li>
+      </ol>
+      <small class="loading-privacy">Aucune donnée personnelle d’élève n’est envoyée. Les images et simulations ne sont produites que lorsqu’elles sont nécessaires ; les voix seront générées progressivement pendant le cours.</small>
     </div>
   </div>
 

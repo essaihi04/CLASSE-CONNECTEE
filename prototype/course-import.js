@@ -86,12 +86,34 @@
     if(resource.file&&analyzable&&resourceSize(resource)<=budget.remaining&&resourceSize(resource)<=5*1024*1024){out.data=await fileAsBase64(resource.file);budget.remaining-=resourceSize(resource)}
     return out;
   }
-  function startLoading(){
-    $('loadingOverlay').hidden=false;let progress=10,index=0;const messages=['Lecture du PDF et repérage des ressources','Identification des objectifs pédagogiques','Découpage en blocs standardisés','Scénarisation avatar, tableau, médias et activités','Calcul du rythme et préparation de la supervision','L’IA rédige un cours de qualité : cela peut prendre plusieurs minutes, merci de patienter'];
-    $('loadingMessage').textContent=messages[0];$('loadingProgress').style.width='10%';
-    startLoading.timer=setInterval(()=>{progress=Math.min(90,progress+Math.random()*13);index=Math.min(messages.length-1,Math.floor(progress/16));$('loadingProgress').style.width=progress+'%';$('loadingMessage').textContent=messages[index]},850);
+  const LOADING_ORDER=['prepare','analyze','images','simulations','save','voice','done'];
+  let loadingStartedAt=0,loadingPercent=0;
+  function elapsedLabel(){const seconds=Math.max(0,Math.floor((Date.now()-loadingStartedAt)/1000)),minutes=Math.floor(seconds/60);return `${minutes}:${String(seconds%60).padStart(2,'0')} écoulé`}
+  function updateLoadingProgress(percent,detail,message){
+    loadingPercent=Math.max(0,Math.min(100,Number(percent)||0));$('loadingProgress').style.width=loadingPercent+'%';$('loadingPercent').textContent=Math.round(loadingPercent)+' %';
+    if(detail!==undefined)$('loadingDetail').textContent=detail;if(message)$('loadingMessage').textContent=message;
   }
-  function stopLoading(){clearInterval(startLoading.timer);$('loadingProgress').style.width='100%';setTimeout(()=>$('loadingOverlay').hidden=true,250)}
+  function setLoadingStage(stage,message,detail,percent){
+    const current=LOADING_ORDER.indexOf(stage);
+    document.querySelectorAll('[data-loading-step]').forEach(item=>{const index=LOADING_ORDER.indexOf(item.dataset.loadingStep);if(item.classList.contains('skipped'))return;item.classList.toggle('done',index<current);item.classList.toggle('active',index===current)});
+    updateLoadingProgress(percent,detail,message);
+  }
+  function skipLoadingStage(stage,detail){const item=document.querySelector(`[data-loading-step="${stage}"]`);if(item){item.classList.remove('active','done');item.classList.add('skipped');const small=item.querySelector('small');if(small&&detail)small.textContent=detail}}
+  function startLoading(){
+    $('loadingOverlay').hidden=false;loadingStartedAt=Date.now();loadingPercent=0;clearInterval(startLoading.timer);
+    document.querySelectorAll('[data-loading-step]').forEach(item=>item.classList.remove('active','done','skipped'));
+    $('loadingElapsed').textContent='0:00 écoulé';setLoadingStage('prepare','Préparation du PDF et des ressources','Lecture locale des fichiers avant leur analyse.',4);
+    startLoading.timer=setInterval(()=>$('loadingElapsed').textContent=elapsedLabel(),1000);
+  }
+  function stopLoading(success){
+    clearInterval(startLoading.timer);
+    if(success){setLoadingStage('done','Cours prêt','Ouverture de la vue « Tableaux du cours ».',100);const done=document.querySelector('[data-loading-step="done"]');if(done){done.classList.remove('active');done.classList.add('done')}}
+    setTimeout(()=>$('loadingOverlay').hidden=true,success?500:150);
+  }
+  async function runPool(items,limit,worker){
+    const queue=items.slice();const count=Math.max(1,Math.min(Number(limit)||1,queue.length||1));
+    await Promise.all(Array.from({length:count},async()=>{while(queue.length)await worker(queue.shift())}));
+  }
   function normalizePlan(raw){
     const requestedMinutes=Math.round(Math.min(12,Math.max(1,Number($('durationHours').value)||1))*60);
     const plan=raw&&typeof raw==='object'?raw:{};plan.courseTitle=String(plan.courseTitle||$('courseTitle').value||(state.pdf&&state.pdf.name||'Cours').replace(/\.pdf$/i,''));plan.totalDurationMinutes=state.courseId?(Number(plan.totalDurationMinutes)||requestedMinutes):requestedMinutes;plan.summary=String(plan.summary||'Cours structuré à partir de la préparation du professeur.');plan.warnings=Array.isArray(plan.warnings)?plan.warnings:[];
@@ -105,6 +127,7 @@
       const pdfData=await fileAsBase64(state.pdf),budget={remaining:Math.max(0,15*1024*1024-state.pdf.size)},resources=[];
       for(const resource of state.resources)resources.push(await resourceForAnalysis(resource,budget));
       const token=window.currentTeacher&&window.currentTeacher.session&&window.currentTeacher.session.access_token;
+      setLoadingStage('analyze','Analyse et structuration du cours','Étape généralement la plus longue (souvent 1 à 4 min) : l’IA lit le PDF, vérifie la matière et le niveau, puis rédige séances, textes parlés, activités et mise en scène. Aucune voix ni image n’est encore générée.',16);
       // Délai limite global (13 min) : la génération de qualité peut être longue, mais
       // l'écran ne doit jamais rester bloqué pour toujours si le serveur ne répond plus.
       const response=await fetch('/api/analyze-course-import',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},signal:AbortSignal.timeout(13*60*1000),body:JSON.stringify({pdf:{name:state.pdf.name,mimeType:'application/pdf',data:pdfData},resources,request:{assignmentId:assignment.id,title:$('courseTitle').value.trim(),durationHours:Number($('durationHours').value),teacherInstructions:$('teacherInstructions').value.trim()}})}).catch(error=>{throw new Error(error&&(error.name==='TimeoutError'||error.name==='AbortError')?'L’analyse a dépassé le délai maximum. Réessayez, ou réduisez la taille du PDF / la durée demandée.':'Serveur inaccessible : vérifiez que le serveur tourne, puis réessayez.')});
@@ -112,9 +135,9 @@
       await generateMissingImages(token);
       await generateMissingSimulations(token);
       enablePlanStages();renderPlan();
-      stopLoading();toast('Cours structuré. Ouverture directe des tableaux…');
+      toast('Cours structuré. Enregistrement des tableaux et ressources…');
       await saveCourse(false,{openBoards:true});
-    }catch(error){toast(error.message||'Analyse impossible.',true)}finally{stopLoading();updateSourceSummary()}
+    }catch(error){stopLoading(false);toast(error.message||'Analyse impossible.',true)}finally{updateSourceSummary()}
   }
   $('analyzeBtn').onclick=analyze;
   function fileFromBase64(data,fileName,mimeType){
@@ -123,15 +146,17 @@
   }
   async function generateMissingImages(token){
     const targets=allBlocks().filter(block=>(block.type==='image'||block.type==='schema')&&!block.resourceName&&block.image&&block.image.useful===true).slice(0,Math.max(0,Number(window.OPENAI_MAX_COURSE_IMAGES)||4));
-    for(const block of targets){
-      $('loadingMessage').textContent='Création de l’illustration utile : '+block.title;
+    if(!targets.length){skipLoadingStage('images','Aucune image manquante jugée indispensable');return}
+    let completed=0;setLoadingStage('images','Génération des illustrations utiles',`${targets.length} image${targets.length>1?'s':''} pédagogique${targets.length>1?'s':''} à créer. Deux générations peuvent avancer en parallèle.`,52);
+    await runPool(targets,2,async block=>{
       try{
         const response=await fetch('/api/generate-course-image',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({title:block.title,image:block.image,targetContext:state.plan.targetContext||null})});
         const out=await response.json();if(!response.ok)throw new Error(out.error||'génération impossible');
         const file=fileFromBase64(out.data,out.fileName,out.mimeType);
         state.resources.push({id:uid('res'),file,kind:block.type==='schema'?'schema':'image',objective:block.objective||block.image.reason||'Observer et identifier'});block.resourceName=out.fileName;
       }catch(error){state.plan.warnings.push('Image non générée pour « '+block.title+' » : '+error.message);}
-    }
+      finally{completed++;updateLoadingProgress(52+(completed/targets.length)*10,`${completed}/${targets.length} illustration${targets.length>1?'s':''} traitée${completed>1?'s':''}. Les images fournies par le professeur sont conservées ; seules les images utiles manquantes sont créées.`)}
+    });
     if(targets.length)renderResources();
   }
   // Pour chaque bloc simulation sans ressource importée, l'IA fabrique une page HTML
@@ -139,8 +164,9 @@
   // cours et associée au bloc. Un échec sur une simulation n'interrompt pas l'import.
   async function generateMissingSimulations(token){
     const targets=allBlocks().filter(block=>block.type==='simulation'&&!block.resourceName&&block.simulation);
-    for(const block of targets.slice(0,6)){
-      $('loadingMessage').textContent='Création de la simulation interactive : '+block.title;
+    const selected=targets.slice(0,6);if(!selected.length){skipLoadingStage('simulations','Aucune simulation à fabriquer');return}
+    let completed=0;setLoadingStage('simulations','Création des simulations interactives',`${selected.length} simulation${selected.length>1?'s':''} à assembler à partir des variables et règles du cours.`,63);
+    await runPool(selected,2,async block=>{
       try{
         const response=await fetch('/api/generate-simulation',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({title:block.title,objective:block.objective,content:block.content,simulation:block.simulation,targetContext:state.plan.targetContext||null})});
         const out=await response.json();if(!response.ok)throw new Error(out.error||'génération impossible');if(out.warning)state.plan.warnings.push(out.warning);
@@ -148,7 +174,8 @@
         state.resources.push({id:uid('res'),file,kind:'simulation',objective:block.simulation.goal||'Manipuler et expérimenter'});
         block.resourceName=out.fileName;
       }catch(error){console.warn('Simulation non générée ('+block.title+') :',error.message)}
-    }
+      finally{completed++;updateLoadingProgress(63+(completed/selected.length)*8,`${completed}/${selected.length} simulation${selected.length>1?'s':''} préparée${completed>1?'s':''}.`)}
+    });
     if(targets.length)renderResources();
   }
   function enablePlanStages(){document.querySelector('[data-go-stage="2"]').disabled=false;document.querySelector('[data-go-stage="3"]').disabled=false}
@@ -206,21 +233,24 @@
   $('publishConfirm').onchange=()=>{$('publishBtn').disabled=!$('publishConfirm').checked};
   function safeFileName(name){return name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,100)||'fichier'}
   async function uploadSource(sb,teacherId,courseId,file,folder){const path=`${teacherId}/courses/${courseId}/${folder}/${Date.now()}-${safeFileName(file.name)}`;const {error}=await sb.storage.from('course-media').upload(path,file,{contentType:file.type||'application/octet-stream',upsert:false});if(error)throw error;return path}
+  async function uploadCourseResources(sb,courseId,importId){
+    const pending=state.resources.filter(resource=>!resource.dbId&&resource.file),teacherId=window.currentTeacher.session.user.id;let completed=0;
+    if(pending.length)updateLoadingProgress(76,`Téléversement de ${pending.length} ressource${pending.length>1?'s':''}. Jusqu’à trois fichiers sont envoyés en parallèle.`,'Enregistrement du PDF et des ressources');
+    await runPool(pending,3,async resource=>{
+      const storagePath=await uploadSource(sb,teacherId,courseId,resource.file,'resources');
+      const {data:source,error}=await sb.from('course_sources').insert({course_id:courseId,import_id:importId,kind:resource.kind,file_name:resource.file.name,mime_type:resource.file.type||'application/octet-stream',storage_path:storagePath,pedagogical_objective:resource.objective,ai_metadata:{size:resource.file.size}}).select('id').single();
+      if(error)throw error;resource.dbId=source.id;resource.storagePath=storagePath;completed++;
+      updateLoadingProgress(76+(completed/Math.max(1,pending.length))*6,`${completed}/${pending.length} ressource${pending.length>1?'s':''} enregistrée${completed>1?'s':''}.`);
+    });
+    const sourceMap={};state.resources.forEach(resource=>{if(resource.dbId)sourceMap[resourceName(resource)]=resource.dbId});return sourceMap;
+  }
   function courseBlockRows(courseId,importId,sourceMap){
     const rows=[];
     state.plan.sessions.forEach((session,si)=>session.blocks.forEach((b,bi)=>rows.push({course_id:courseId,import_id:importId,session_position:si,position:bi,block_type:b.type,title:b.title,duration_minutes:b.durationMinutes,objective:b.objective,content:{text:b.content,session_title:session.title,session_duration_minutes:session.durationMinutes,explanation_minutes:session.explanationMinutes,presentation:b.presentation||null,activity:b.activity||null,simulation:b.simulation||null,image:b.image||null,evaluation:b.evaluation||null},source_id:sourceMap[b.resourceName]||null,status:b.validated?'validated':'draft',teacher_notes:b.teacherNote||''})));
     return rows;
   }
   async function saveExistingCourse(sb,publish){
-    const sourceMap={};
-    for(const resource of state.resources){
-      if(!resource.dbId&&resource.file){
-        const storagePath=await uploadSource(sb,window.currentTeacher.session.user.id,state.courseId,resource.file,'resources');
-        const {data:source,error}=await sb.from('course_sources').insert({course_id:state.courseId,import_id:state.importId,kind:resource.kind,file_name:resource.file.name,mime_type:resource.file.type||'application/octet-stream',storage_path:storagePath,pedagogical_objective:resource.objective,ai_metadata:{size:resource.file.size}}).select('id').single();
-        if(error)throw error;resource.dbId=source.id;resource.storagePath=storagePath;
-      }
-      if(resource.dbId)sourceMap[resourceName(resource)]=resource.dbId;
-    }
+    const sourceMap=await uploadCourseResources(sb,state.courseId,state.importId);
     const backup=state.persistedBlocks.map(row=>({id:row.id,course_id:state.courseId,import_id:state.importId,session_position:row.session_position,position:row.position,block_type:row.block_type,title:row.title,duration_minutes:row.duration_minutes,objective:row.objective,content:row.content||{},source_id:row.source_id||null,status:row.status,teacher_notes:row.teacher_notes||''}));
     const {error:courseError}=await sb.from('courses').update({title:state.plan.courseTitle,description:state.plan.summary,status:'draft',settings:{source:'teacher_pdf_ai',duration_minutes:state.plan.totalDurationMinutes,explanation_minutes_per_hour:'15-20',target_context:state.plan.targetContext||null,source_assessment:state.plan.sourceAssessment||null}}).eq('id',state.courseId);if(courseError)throw courseError;
     const {error:importError}=await sb.from('course_imports').update({status:'ready',duration_minutes:state.plan.totalDurationMinutes,analysis:state.plan,error_message:null}).eq('id',state.importId);if(importError)throw importError;
@@ -230,63 +260,29 @@
     if(publish){const {error}=await sb.from('courses').update({status:'published'}).eq('id',state.courseId);if(error)throw error}
   }
   function courseBoardsUrl(courseId){return `prof.html?course=${encodeURIComponent(courseId)}&boards=1`}
-  /* ===== VOIX DU COURS GÉNÉRÉES UNE SEULE FOIS, À LA CRÉATION =====
-     Après l'enregistrement, on reconstruit les étapes exactement comme le lecteur
-     (loadPublishedCourseLesson), on synthétise chaque texte parlé UNE fois, et on range
-     les fichiers audio dans le storage du cours avec une carte {empreinte -> chemin}
-     (settings.audio_map). Le lecteur rejoue ces fichiers sans jamais re-synthétiser ;
-     seules les questions libres et les réexplications génèrent de nouvelles voix.
-     Un échec (voix serveur indisponible…) n'empêche jamais l'enregistrement du cours. */
-  async function pregenerateCourseAudio(sb,courseId){
-    if(!window.loadPublishedCourseLesson||!window.ccTextHash)return;
-    let lesson;try{lesson=await window.loadPublishedCourseLesson(courseId);}catch(error){console.warn('Voix du cours : lecture impossible,',error.message);return}
-    const texts=[...new Set(lesson.etapes.map(e=>String(e.say||'').trim()).filter(Boolean))];
-    if(!texts.length)return;
-    const {data:course,error:courseError}=await sb.from('courses').select('settings').eq('id',courseId).single();
-    if(courseError)return;
-    const settings=course&&course.settings&&typeof course.settings==='object'?course.settings:{};
-    const map=settings.audio_map&&typeof settings.audio_map==='object'?settings.audio_map:{};
-    const teacherId=window.currentTeacher.session.user.id;
-    let generated=0,failures=0;
-    for(let index=0;index<texts.length;index++){
-      const text=texts[index],hash=window.ccTextHash(text);
-      if(map[hash])continue;                       // déjà enregistré lors d'une création précédente
-      if(failures>=3)break;                        // voix serveur KO : le lecteur synthétisera à la volée
-      $('loadingMessage').textContent=`Enregistrement de la voix du cours (${index+1}/${texts.length})…`;
-      try{
-        const response=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,targetContext:lesson.targetContext||null})});
-        if(!response.ok||response.status===204){failures++;continue}
-        const blob=await response.blob();if(!blob.size){failures++;continue}
-        const wav=(response.headers.get('content-type')||'').includes('wav');
-        const storagePath=`${teacherId}/courses/${courseId}/audio/${hash}.${wav?'wav':'mp3'}`;
-        const {error}=await sb.storage.from('course-media').upload(storagePath,blob,{contentType:blob.type||(wav?'audio/wav':'audio/mpeg'),upsert:true});
-        if(error){failures++;continue}
-        map[hash]=storagePath;generated++;
-      }catch(error){failures++}
-    }
-    if(generated){
-      const {error}=await sb.from('courses').update({settings:Object.assign({},settings,{audio_map:map})}).eq('id',courseId);
-      if(!error)toast(`${generated} voix du cours enregistrée${generated>1?'s':''} — elles ne seront plus régénérées.`);
-    }
+  function prepareOnDemandAudio(){
+    skipLoadingStage('voice','Création au premier passage, puis réutilisation du fichier enregistré');
+    updateLoadingProgress(98,'Aucune voix n’est générée pendant l’import. Pendant le cours, chaque explication déclenchera sa voix une seule fois ; le fichier sera ensuite conservé avec le cours.','Voix configurée à la demande');
   }
   async function saveCourse(publish,options){
     options=options||{};
     if(state.saving)return;const sb=window.classesSupabase,teacher=window.currentTeacher,assignment=state.assignments.find(x=>x.id===$('assignment').value);if(!sb||!teacher||(!state.courseId&&!assignment))return toast('Session professeur indisponible.',true);
     if(publish&&allBlocks().some(block=>!block.validated)){setStage(2);return toast('Validez tous les blocs avant de publier.',true)}
-    state.saving=true;$('saveDraftBtn').disabled=true;$('publishBtn').disabled=true;startLoading();$('loadingMessage').textContent='Enregistrement du cours et des ressources';
+    state.saving=true;$('saveDraftBtn').disabled=true;$('publishBtn').disabled=true;if($('loadingOverlay').hidden)startLoading();setLoadingStage('save','Enregistrement du brouillon','Création du cours privé, puis téléversement du PDF, des ressources et des tableaux.',72);
     let courseId='';
     try{
-      if(state.courseId){await saveExistingCourse(sb,publish);await pregenerateCourseAudio(sb,state.courseId);stopLoading();toast(publish?'Cours publié avec succès.':'Modifications enregistrées.');const target=options.openBoards?courseBoardsUrl(state.courseId):(publish?`index.html?course=${encodeURIComponent(state.courseId)}`:'prof.html?view=private');return setTimeout(()=>location.href=target,500)}
+      if(state.courseId){await saveExistingCourse(sb,publish);prepareOnDemandAudio();stopLoading(true);toast(publish?'Cours publié avec succès.':'Modifications enregistrées.');const target=options.openBoards?courseBoardsUrl(state.courseId):(publish?`index.html?course=${encodeURIComponent(state.courseId)}`:'prof.html?view=private');return setTimeout(()=>location.href=target,500)}
       const {data:course,error:courseError}=await sb.from('courses').insert({teacher_id:teacher.session.user.id,assignment_id:assignment.id,subject_id:assignment.subject_id,grade_level_id:assignment.grade_level_id,stream_id:assignment.stream_id||null,title:state.plan.courseTitle,description:state.plan.summary,status:'draft',settings:{source:'teacher_pdf_ai',duration_minutes:state.plan.totalDurationMinutes,explanation_minutes_per_hour:'15-20',target_context:state.plan.targetContext||null,source_assessment:state.plan.sourceAssessment||null}}).select('id').single();if(courseError)throw courseError;courseId=course.id;
+      updateLoadingProgress(74,'Cours privé créé. Téléversement du PDF source…');
       const pdfPath=await uploadSource(sb,teacher.session.user.id,courseId,state.pdf,'sources');
       const {data:job,error:jobError}=await sb.from('course_imports').insert({course_id:courseId,status:'ready',source_pdf_path:pdfPath,duration_minutes:state.plan.totalDurationMinutes,analysis:state.plan}).select('id').single();if(jobError)throw new Error('Migration 007 requise : '+jobError.message);
-      const sourceMap={};
-      for(const r of state.resources){const storagePath=await uploadSource(sb,teacher.session.user.id,courseId,r.file,'resources');const {data:source,error}=await sb.from('course_sources').insert({course_id:courseId,import_id:job.id,kind:r.kind,file_name:r.file.name,mime_type:r.file.type||'application/octet-stream',storage_path:storagePath,pedagogical_objective:r.objective,ai_metadata:{size:r.file.size}}).select('id').single();if(error)throw error;sourceMap[r.file.name]=source.id}
+      const sourceMap=await uploadCourseResources(sb,courseId,job.id);
       const rows=courseBlockRows(courseId,job.id,sourceMap);
       if(rows.length){const {error}=await sb.from('course_blocks').insert(rows);if(error)throw error}
+      updateLoadingProgress(83,`${rows.length} tableau${rows.length>1?'x':''} pédagogique${rows.length>1?'s':''} enregistré${rows.length>1?'s':''}.`);
       if(publish){const {error}=await sb.from('courses').update({status:'published'}).eq('id',courseId);if(error)throw error}
-      state.courseId=courseId;await pregenerateCourseAudio(sb,courseId);stopLoading();toast(options.openBoards?'Tableaux du cours prêts.':(publish?'Cours publié avec succès.':'Brouillon enregistré.'));const target=options.openBoards?courseBoardsUrl(courseId):(publish?`index.html?course=${encodeURIComponent(courseId)}`:'prof.html?view=private');setTimeout(()=>location.href=target,500);
-    }catch(error){stopLoading();if(courseId)await sb.from('courses').delete().eq('id',courseId);toast(error.message||'Enregistrement impossible.',true);state.saving=false;$('saveDraftBtn').disabled=false;$('publishBtn').disabled=!$('publishConfirm').checked}
+      state.courseId=courseId;prepareOnDemandAudio();stopLoading(true);toast(options.openBoards?'Tableaux du cours prêts.':(publish?'Cours publié avec succès.':'Brouillon enregistré.'));const target=options.openBoards?courseBoardsUrl(courseId):(publish?`index.html?course=${encodeURIComponent(courseId)}`:'prof.html?view=private');setTimeout(()=>location.href=target,650);
+    }catch(error){stopLoading(false);if(courseId)await sb.from('courses').delete().eq('id',courseId);toast(error.message||'Enregistrement impossible.',true);state.saving=false;$('saveDraftBtn').disabled=false;$('publishBtn').disabled=!$('publishConfirm').checked}
   }
   $('saveDraftBtn').onclick=()=>saveCourse(false);$('publishBtn').onclick=()=>saveCourse(true);
 

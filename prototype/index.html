@@ -1410,9 +1410,8 @@ function speak(text, then){
   const my=ttsToken;                                 // jeton de CETTE prise de parole
   const cached=ttsCache.get(text);
   if(cached){ playBlob(cached, text, my); return; }  // déjà généré → instantané
-  // AUDIO PRÉ-GÉNÉRÉ À LA CRÉATION DU COURS : si ce texte a déjà sa voix enregistrée
-  // (carte audio du cours importé), on la télécharge au lieu de la re-synthétiser.
-  // Les questions libres et réexplications, absentes de la carte, restent synthétisées.
+  // AUDIO DÉJÀ GÉNÉRÉ PENDANT UNE LECTURE PRÉCÉDENTE : on télécharge la piste enregistrée
+  // avec le cours au lieu de la synthétiser une nouvelle fois.
   const preUrl=(lecon&&lecon.audioMap&&window.ccTextHash)?lecon.audioMap[window.ccTextHash(text)]:null;
   if(preUrl){
     const ctrlPre=new AbortController(); ttsAbort=ctrlPre;
@@ -1434,8 +1433,7 @@ function speak(text, then){
     // DISJONCTEUR : serveur TTS KO récemment → voix navigateur DIRECTE (zéro latence)
     if(ttsServerDown && (Date.now()-ttsServerDown) < TTS_RETRY_MS){ speakBrowser(text); return; }
     const ctrl=new AbortController(); ttsAbort=ctrl;
-    fetch('/api/tts',{ method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({text,targetContext:(lecon&&lecon.targetContext)||null}), signal:ctrl.signal })  // requête principale
+    requestCourseTTS(text,ctrl.signal)  // génère maintenant et enregistre pour les prochaines lectures
       .then(r=>{ if(r.status===204) throw new Error('tts fallback'); if(!r.ok) throw new Error('tts '+r.status); return r.blob(); })
       .then(blob=>{
         if(!blob.size) throw new Error('tts empty');
@@ -1483,13 +1481,30 @@ function speakStepNarration(say, carousel, onDone){
   })();
 }
 let narrationToken=0;
-/* PRÉCHARGEMENT : génère l'audio de l'étape suivante EN AVANCE (pendant la lecture
-   de l'étape en cours) et le met en cache → "Suivant" devient quasi instantané.
+function courseTTSRequest(text){
+  const request={text,targetContext:(lecon&&lecon.targetContext)||null};
+  if(lecon&&lecon.imported&&lecon.publishedCourseId&&window.ccTextHash){
+    request.courseId=lecon.publishedCourseId;request.textHash=window.ccTextHash(text);request.persistCourseAudio=true;
+  }
+  return request;
+}
+async function requestCourseTTS(text,signal){
+  const headers={'Content-Type':'application/json'};let token=lecon&&lecon.courseAudioToken;
+  // La session Supabase se renouvelle automatiquement : on récupère le jeton courant afin
+  // que l'enregistrement continue de fonctionner pendant les cours de longue durée.
+  if(window.classesSupabase){
+    try{const {data}=await window.classesSupabase.auth.getSession();if(data&&data.session)token=data.session.access_token;}catch(e){}
+  }
+  if(token)headers.Authorization='Bearer '+token;
+  return fetch('/api/tts',{method:'POST',headers,body:JSON.stringify(courseTTSRequest(text)),signal});
+}
+/* PRÉCHARGEMENT PROGRESSIF : génère l'audio de l'étape suivante pendant la lecture
+   de l'étape en cours, l'enregistre avec le cours et le met en cache → "Suivant" devient quasi instantané.
    Requête de fond, non annulable, qui ne joue rien. */
 function prefetchTTS(text){
   if(VOICE_SOURCE==='browser') return;   // mode navigateur : rien à précharger côté serveur
   if(!text || ttsCache.has(text) || !document.getElementById('voice').checked) return;
-  // audio pré-généré à la création du cours : on précharge le fichier, pas de synthèse
+  // audio déjà généré lors d'un passage précédent : on précharge le fichier, pas de synthèse
   const preUrl=(lecon&&lecon.audioMap&&window.ccTextHash)?lecon.audioMap[window.ccTextHash(text)]:null;
   if(preUrl){
     fetch(preUrl).then(r=>r.ok?r.blob():null)
@@ -1498,7 +1513,7 @@ function prefetchTTS(text){
     return;
   }
   if(ttsServerDown && (Date.now()-ttsServerDown) < TTS_RETRY_MS) return;   // serveur KO : on ne précharge pas
-  fetch('/api/tts',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text,targetContext:(lecon&&lecon.targetContext)||null}) })
+  requestCourseTTS(text)
     .then(r=> (r.ok && r.status!==204) ? r.blob() : null)
     .then(blob=>{ if(blob && blob.size){ if(ttsCache.size>40) ttsCache.clear(); ttsCache.set(text, blob); } })
     .catch(()=>{});

@@ -859,7 +859,8 @@ async function finishGeminiCourseImport(parts,requestedMinutes,target){
   for(let index=0;index<COURSE_IMPORT_MODELS.length;index++){
     const model=COURSE_IMPORT_MODELS[index];
     const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-    const response=await fetch(url,{method:'POST',headers:geminiHeaders(),body:requestBody});
+    let response;try{response=await fetch(url,{method:'POST',headers:geminiHeaders(),body:requestBody,signal:AbortSignal.timeout(180000)});}
+    catch(error){lastError=new Error('Gemini injoignable ou trop lent ('+model+') : '+String(error.message||error).slice(0,180));if(index===COURSE_IMPORT_MODELS.length-1)throw lastError;continue}
     if(response.ok){
       data=await response.json();
       if(index>0) console.warn(`[import cours] analyse réussie avec le modèle de repli ${model}`);
@@ -905,11 +906,11 @@ async function callOpenAICourseImport(ctx){
   content.push({type:'input_text',text:buildCourseImportMission(ctx.request||{},target,requestedMinutes,requestedHours,inventory)});
   const courseModels=[...(process.env.OPENAI_COURSE_MODEL||'').split(',').map(x=>x.trim()).filter(Boolean),...OPENAI_MODELS]
     .filter((model,index,models)=>models.indexOf(model)===index);
-  // L'analyse d'un PDF complet en effort high peut durer plusieurs minutes : on journalise
-  // le départ/l'arrivée et on borne chaque modèle à 6 min avant de passer au suivant.
-  console.log('[import cours] analyse OpenAI démarrée ('+courseModels.join(' → ')+', effort high)');
+  // L'effort medium conserve la structuration pédagogique mais évite les temps de raisonnement
+  // excessifs du mode high. Une tentative est bornée à 4 min avant le modèle de repli.
+  console.log('[import cours] analyse OpenAI démarrée ('+courseModels.join(' → ')+', effort medium)');
   const importStartedAt=Date.now();
-  const raw=await callOpenAIResponses({instructions:COURSE_IMPORT_SYSTEM,content,maxTokens:24000,models:courseModels,schema:COURSE_IMPORT_SCHEMA,schemaName:'course_plan',effort:'high',timeoutMs:360000});
+  const raw=await callOpenAIResponses({instructions:COURSE_IMPORT_SYSTEM,content,maxTokens:24000,models:courseModels,schema:COURSE_IMPORT_SCHEMA,schemaName:'course_plan',effort:'medium',timeoutMs:240000});
   console.log('[import cours] analyse OpenAI terminée en '+Math.round((Date.now()-importStartedAt)/1000)+' s');
   let parsed;
   try{parsed=JSON.parse(raw.replace(/^```json\s*/i,'').replace(/```$/,''));}
@@ -1105,7 +1106,8 @@ async function callOpenAIImage(prompt,target,alt){
   const finalPrompt=`Illustration pédagogique exacte pour ${targetLabel||'le niveau indiqué par le professeur'}. ${cleanText(prompt,1200)}. Image claire, sobre, centrée sur un seul objectif d'observation, adaptée à l'âge, sans logo, sans filigrane, sans texte imprimé dans l'image, sans visage d'élève identifiable. Texte alternatif prévu : ${cleanText(alt,260)}.`;
   const response=await fetch('https://api.openai.com/v1/images/generations',{
     method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+getOpenAIKey()},
-    body:JSON.stringify({model:OPENAI_IMAGE_MODEL,prompt:finalPrompt,size:process.env.OPENAI_IMAGE_SIZE||'1536x1024',quality:process.env.OPENAI_IMAGE_QUALITY||'high',output_format:'png'})
+    body:JSON.stringify({model:OPENAI_IMAGE_MODEL,prompt:finalPrompt,size:process.env.OPENAI_IMAGE_SIZE||'1536x1024',quality:process.env.OPENAI_IMAGE_QUALITY||'high',output_format:'png'}),
+    signal:AbortSignal.timeout(120000)
   });
   if(!response.ok)throw new Error('OpenAI Image HTTP '+response.status+' : '+(await response.text()).slice(0,240));
   const result=await response.json(),data=result&&result.data&&result.data[0]&&result.data[0].b64_json;
@@ -1361,6 +1363,61 @@ function sendAudio(res, buf, mime){
   res.end(buf);
 }
 
+// Les voix des cours importés sont créées au fil de la lecture. La première réponse est
+// envoyée immédiatement au lecteur, puis la piste est conservée dans le bucket du cours.
+// Les sauvegardes d'un même cours sont sérialisées pour ne pas écraser audio_map lorsque
+// le préchargement de l'étape suivante termine presque en même temps que la voix courante.
+const courseAudioCacheQueues=new Map();
+function stableCourseAudioHash(text){
+  text=String(text||'').trim();let h=5381;
+  for(let i=0;i<text.length;i++)h=((h<<5)+h+text.charCodeAt(i))>>>0;
+  return 'h'+h.toString(36)+'-'+text.length;
+}
+function queueCourseAudioCache(courseId,work){
+  const previous=courseAudioCacheQueues.get(courseId)||Promise.resolve();
+  const current=previous.catch(()=>{}).then(work).finally(()=>{if(courseAudioCacheQueues.get(courseId)===current)courseAudioCacheQueues.delete(courseId)});
+  courseAudioCacheQueues.set(courseId,current);return current;
+}
+async function persistGeneratedCourseAudio(req,input,text,buf,mime){
+  const courseId=String(input&&input.courseId||''),textHash=String(input&&input.textHash||'');
+  if(input.persistCourseAudio!==true||!/^[0-9a-f-]{36}$/i.test(courseId)||textHash!==stableCourseAudioHash(text))return;
+  return queueCourseAudioCache(courseId,async()=>{
+    const config=getSupabasePublicConfig(),authorization=String(req.headers.authorization||'');
+    let apiHeaders,user=null;
+    if(/^Bearer\s+\S+$/i.test(authorization)){
+      user=await verifyCourseImportUser(req);
+      apiHeaders={apikey:config.anonKey,Authorization:authorization};
+    }else{
+      // Un élève anonyme peut amorcer le cache d'un cours publié. Cette branche utilise
+      // la clé serveur ; le professeur propriétaire, lui, n'en dépend pas.
+      const serviceKey=getSupabaseServiceKey();
+      apiHeaders={apikey:serviceKey,Authorization:'Bearer '+serviceKey};
+    }
+    const courseResponse=await fetch(config.url+'/rest/v1/courses?id=eq.'+encodeURIComponent(courseId)+'&select=id,teacher_id,status,settings&limit=1',{headers:apiHeaders});
+    if(!courseResponse.ok)throw new Error('lecture du cours '+courseResponse.status);
+    const course=(await courseResponse.json())[0];if(!course)throw new Error('cours introuvable');
+    if(user&&user.id!==course.teacher_id)throw new Error('seul le propriétaire peut enregistrer cette voix');
+    if(!user&&course.status!=='published')throw new Error('enregistrement audio anonyme réservé aux cours publiés');
+    const settings=course.settings&&typeof course.settings==='object'?course.settings:{};
+    const audioMap=settings.audio_map&&typeof settings.audio_map==='object'?settings.audio_map:{};
+    if(audioMap[textHash])return;
+    if(Object.keys(audioMap).length>=500)throw new Error('limite de 500 voix atteinte pour ce cours');
+    const extension=/wav/i.test(mime)?'wav':'mp3';
+    const storagePath=`${course.teacher_id}/courses/${courseId}/audio/${textHash}.${extension}`;
+    const objectPath=storagePath.split('/').map(encodeURIComponent).join('/');
+    const upload=await fetch(config.url+'/storage/v1/object/course-media/'+objectPath,{
+      method:'POST',headers:Object.assign({},apiHeaders,{'Content-Type':mime,'x-upsert':'true'}),body:buf
+    });
+    if(!upload.ok)throw new Error('stockage audio '+upload.status+' : '+(await upload.text()).slice(0,160));
+    const nextSettings=Object.assign({},settings,{audio_map:Object.assign({},audioMap,{[textHash]:storagePath})});
+    const update=await fetch(config.url+'/rest/v1/courses?id=eq.'+encodeURIComponent(courseId),{
+      method:'PATCH',headers:Object.assign({},apiHeaders,{'Content-Type':'application/json','Prefer':'return=minimal'}),body:JSON.stringify({settings:nextSettings})
+    });
+    if(!update.ok)throw new Error('mise à jour audio_map '+update.status+' : '+(await update.text()).slice(0,160));
+    console.log(`[TTS] voix enregistrée pour le cours ${courseId} (${textHash})`);
+  });
+}
+
 // ---- Voix OpenAI (primaire) : professeur chaleureux, débit posé, français ----
 const OPENAI_TTS_MODEL=(process.env.OPENAI_TTS_MODEL||'gpt-4o-mini-tts').trim();
 const OPENAI_TTS_VOICE=(process.env.OPENAI_TTS_VOICE||'coral').trim();
@@ -1374,7 +1431,8 @@ async function callOpenAITTS(text,targetContext){
     body:JSON.stringify({
       model:OPENAI_TTS_MODEL, voice:OPENAI_TTS_VOICE, input:text, response_format:'mp3',
       instructions:`Parle uniquement en français, comme un professeur marocain bienveillant qui enseigne ${subject||'la matière du cours'} à des élèves de ${grade||'la classe indiquée'}. Débit ${pace}, articulation très claire, ton chaleureux et encourageant. Ne dramatise pas et ne transforme pas le contenu.`
-    })
+    }),
+    signal:AbortSignal.timeout(60000)
   });
   if(!r.ok) throw new Error('OpenAI TTS HTTP '+r.status+' : '+(await r.text()).slice(0,200));
   return Buffer.from(await r.arrayBuffer());
@@ -1385,31 +1443,37 @@ function handleTTS(req, res){
   let body='';
   req.on('data', c=> body += c);
   req.on('end', async ()=>{
-    let clean = '',targetContext=null;
+    let clean = '',targetContext=null,input={};
     try{
-      const input=JSON.parse(body || '{}'),text=input.text;targetContext=input.targetContext;
+      input=JSON.parse(body || '{}');const text=input.text;targetContext=input.targetContext;
       if(!text || !text.trim()) throw new Error('texte manquant');
       clean = text.trim().slice(0, 2000);
     }catch(e){
       res.writeHead(400, { 'Content-Type':'application/json; charset=utf-8' });
       return res.end(JSON.stringify({ error: String(e.message || e) }));
     }
+    const reply=(audio,mime)=>{
+      sendAudio(res,audio,mime);
+      // L'enregistrement est volontairement effectué après res.end : l'avatar commence à
+      // parler sans attendre l'upload Supabase. Un échec de cache ne coupe jamais la voix.
+      persistGeneratedCourseAudio(req,input,clean,audio,mime).catch(error=>console.warn('[TTS] voix non enregistrée : '+String(error.message||error).slice(0,260)));
+    };
     // Chaîne de repli : 1) OpenAI  2) ElevenLabs  3) Gemini  4) Google Cloud  5) navigateur.
     // Indispensable : si le quota OpenAI est épuisé, la voix reste neurale au lieu de disparaître.
     const errs=[];
     if(hasOpenAIKey()){
-      try{return sendAudio(res,await callOpenAITTS(clean,targetContext),'audio/mpeg');}
+      try{return reply(await callOpenAITTS(clean,targetContext),'audio/mpeg');}
       catch(error){errs.push('OpenAI → '+String(error.message||error));}
     } else errs.push('OpenAI → clé absente');
     if(hasElevenKey()){
-      try{return sendAudio(res,await elEnqueue(()=>callElevenLabsTTS(clean)),'audio/mpeg');}
+      try{return reply(await elEnqueue(()=>callElevenLabsTTS(clean)),'audio/mpeg');}
       catch(error){errs.push('ElevenLabs → '+String(error.message||error));}
     } else errs.push('ElevenLabs → clé absente');
     if(USE_GEMINI_TTS){
-      try{return sendAudio(res,await callGeminiTTS(clean),'audio/wav');}
+      try{return reply(await callGeminiTTS(clean),'audio/wav');}
       catch(error){errs.push('Gemini → '+String(error.message||error));}
     } else errs.push('Gemini → désactivé');
-    try{const a=await callCloudTTS(clean);return sendAudio(res,a.buf,a.mime);}
+    try{const a=await callCloudTTS(clean);return reply(a.buf,a.mime);}
     catch(error){errs.push('Cloud → '+String(error.message||error));}
     console.warn('[TTS] repli navigateur : '+errs.join('  |  ').slice(0,500));
     res.writeHead(204, { 'Cache-Control':'no-store', 'X-TTS-Fallback':'browser' });
