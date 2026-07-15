@@ -415,11 +415,23 @@ async function callOpenAIResponses(options){
     // réponses temps réel (tuteur, intentions) ; 'high' pour la création de cours et
     // les contenus pédagogiques où la qualité prime sur la latence.
     if(/^(gpt-5|o\d)/.test(model)) payload.reasoning={effort:['low','medium','high'].includes(options.effort)?options.effort:'low'};
-    const response=await fetch('https://api.openai.com/v1/responses',{
-      method:'POST',
-      headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},
-      body:JSON.stringify(payload)
-    });
+    // DÉLAI LIMITE par tentative : sans lui, une connexion OpenAI qui s'enlise bloque la
+    // requête (et l'écran de chargement) pour toujours. Expiré → on essaie le modèle suivant.
+    const timeoutMs=Math.max(15000,Number(options.timeoutMs)||120000);
+    let response;
+    const startedAt=Date.now();
+    try{
+      response=await fetch('https://api.openai.com/v1/responses',{
+        method:'POST',
+        headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},
+        body:JSON.stringify(payload),
+        signal:AbortSignal.timeout(timeoutMs)
+      });
+    }catch(networkError){
+      lastError=new Error('OpenAI injoignable ('+model+', '+Math.round((Date.now()-startedAt)/1000)+' s) : '+String(networkError.message||networkError).slice(0,160));
+      console.warn('[openai] '+lastError.message+', essai du modèle suivant');
+      continue;
+    }
     if(response.ok){
       const data=await response.json();
       if(options.moderate&&((data.moderation&&data.moderation.input&&data.moderation.input.flagged)||(data.moderation&&data.moderation.output&&data.moderation.output.flagged))){
@@ -893,7 +905,12 @@ async function callOpenAICourseImport(ctx){
   content.push({type:'input_text',text:buildCourseImportMission(ctx.request||{},target,requestedMinutes,requestedHours,inventory)});
   const courseModels=[...(process.env.OPENAI_COURSE_MODEL||'').split(',').map(x=>x.trim()).filter(Boolean),...OPENAI_MODELS]
     .filter((model,index,models)=>models.indexOf(model)===index);
-  const raw=await callOpenAIResponses({instructions:COURSE_IMPORT_SYSTEM,content,maxTokens:24000,models:courseModels,schema:COURSE_IMPORT_SCHEMA,schemaName:'course_plan',effort:'high'});
+  // L'analyse d'un PDF complet en effort high peut durer plusieurs minutes : on journalise
+  // le départ/l'arrivée et on borne chaque modèle à 6 min avant de passer au suivant.
+  console.log('[import cours] analyse OpenAI démarrée ('+courseModels.join(' → ')+', effort high)');
+  const importStartedAt=Date.now();
+  const raw=await callOpenAIResponses({instructions:COURSE_IMPORT_SYSTEM,content,maxTokens:24000,models:courseModels,schema:COURSE_IMPORT_SCHEMA,schemaName:'course_plan',effort:'high',timeoutMs:360000});
+  console.log('[import cours] analyse OpenAI terminée en '+Math.round((Date.now()-importStartedAt)/1000)+' s');
   let parsed;
   try{parsed=JSON.parse(raw.replace(/^```json\s*/i,'').replace(/```$/,''));}
   catch(e){throw new Error('réponse IA illisible');}

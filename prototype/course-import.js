@@ -87,9 +87,9 @@
     return out;
   }
   function startLoading(){
-    $('loadingOverlay').hidden=false;let progress=10,index=0;const messages=['Lecture du PDF et repérage des ressources','Identification des objectifs pédagogiques','Découpage en blocs standardisés','Scénarisation avatar, tableau, médias et activités','Calcul du rythme et préparation de la supervision'];
+    $('loadingOverlay').hidden=false;let progress=10,index=0;const messages=['Lecture du PDF et repérage des ressources','Identification des objectifs pédagogiques','Découpage en blocs standardisés','Scénarisation avatar, tableau, médias et activités','Calcul du rythme et préparation de la supervision','L’IA rédige un cours de qualité : cela peut prendre plusieurs minutes, merci de patienter'];
     $('loadingMessage').textContent=messages[0];$('loadingProgress').style.width='10%';
-    startLoading.timer=setInterval(()=>{progress=Math.min(90,progress+Math.random()*13);index=Math.min(messages.length-1,Math.floor(progress/20));$('loadingProgress').style.width=progress+'%';$('loadingMessage').textContent=messages[index]},850);
+    startLoading.timer=setInterval(()=>{progress=Math.min(90,progress+Math.random()*13);index=Math.min(messages.length-1,Math.floor(progress/16));$('loadingProgress').style.width=progress+'%';$('loadingMessage').textContent=messages[index]},850);
   }
   function stopLoading(){clearInterval(startLoading.timer);$('loadingProgress').style.width='100%';setTimeout(()=>$('loadingOverlay').hidden=true,250)}
   function normalizePlan(raw){
@@ -105,7 +105,9 @@
       const pdfData=await fileAsBase64(state.pdf),budget={remaining:Math.max(0,15*1024*1024-state.pdf.size)},resources=[];
       for(const resource of state.resources)resources.push(await resourceForAnalysis(resource,budget));
       const token=window.currentTeacher&&window.currentTeacher.session&&window.currentTeacher.session.access_token;
-      const response=await fetch('/api/analyze-course-import',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({pdf:{name:state.pdf.name,mimeType:'application/pdf',data:pdfData},resources,request:{assignmentId:assignment.id,title:$('courseTitle').value.trim(),durationHours:Number($('durationHours').value),teacherInstructions:$('teacherInstructions').value.trim()}})});
+      // Délai limite global (13 min) : la génération de qualité peut être longue, mais
+      // l'écran ne doit jamais rester bloqué pour toujours si le serveur ne répond plus.
+      const response=await fetch('/api/analyze-course-import',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},signal:AbortSignal.timeout(13*60*1000),body:JSON.stringify({pdf:{name:state.pdf.name,mimeType:'application/pdf',data:pdfData},resources,request:{assignmentId:assignment.id,title:$('courseTitle').value.trim(),durationHours:Number($('durationHours').value),teacherInstructions:$('teacherInstructions').value.trim()}})}).catch(error=>{throw new Error(error&&(error.name==='TimeoutError'||error.name==='AbortError')?'L’analyse a dépassé le délai maximum. Réessayez, ou réduisez la taille du PDF / la durée demandée.':'Serveur inaccessible : vérifiez que le serveur tourne, puis réessayez.')});
       const body=await response.json();if(!response.ok)throw new Error(body.error||'Analyse impossible');state.plan=normalizePlan(body);
       await generateMissingImages(token);
       await generateMissingSimulations(token);
