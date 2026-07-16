@@ -10,21 +10,27 @@
 /* Confidentialité des comptes : les chapitres de démonstration (lecons.js) sont le contenu
    historique du prototype, réservé au compte démo (profiles.legacy_access). Un professeur
    connecté sans cet accès est renvoyé vers sa propre bibliothèque (courses.html, filtrée par
-   compte). Les visiteurs non connectés (élèves) gardent la démo publique, et l'ouverture d'un
-   cours précis (?course=<id>) reste vérifiée par published-course-loader.js (propriétaire ou publié). */
-(async function(){
+   compte). Les visiteurs non connectés (élèves) gardent la démo publique. Un administrateur
+   peut toutefois prévisualiser un chapitre précis depuis son dashboard avec ?chapitre=<id>.
+   L'ouverture d'un cours Supabase (?course=<id>) reste vérifiée par published-course-loader.js. */
+window.classesReaderAccessReady=(async function(){
   try{
-    if(/^[0-9a-f-]{36}$/i.test(new URLSearchParams(location.search).get('course')||''))return;
+    const params=new URLSearchParams(location.search);
+    if(/^[0-9a-f-]{36}$/i.test(params.get('course')||''))return null;
     const config=window.CLASSES_SUPABASE||{};
-    if(!window.supabase||!/^https:\/\//.test(config.url||'')||!config.anonKey)return;
+    if(!window.supabase||!/^https:\/\//.test(config.url||'')||!config.anonKey)return null;
     const sb=window.classesSupabase||(window.classesSupabase=window.supabase.createClient(config.url,config.anonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}));
     const {data:{session}}=await sb.auth.getSession();
-    if(!session||!session.user)return;
+    if(!session||!session.user)return null;
     const {data:profile}=await sb.from('profiles').select('role,legacy_access').eq('id',session.user.id).maybeSingle();
-    if(profile&&profile.role==='admin'){location.replace('admin.html');return}
-    if(profile&&profile.legacy_access)return;
+    if(profile&&profile.role==='admin'){
+      if(params.get('chapitre'))return profile;
+      location.replace('admin.html');return profile;
+    }
+    if(profile&&profile.legacy_access)return profile;
     location.replace('courses.html');
-  }catch(e){/* en cas d'erreur réseau, on conserve la démo publique */}
+    return profile||null;
+  }catch(e){return null;/* en cas d'erreur réseau, on conserve la démo publique */}
 })();
 </script>
 <script type="importmap">
@@ -874,6 +880,17 @@ let structure = {};        // { chapId: { order:[id…], hidden:[id…] } } (dé
 const REQUESTED_PUBLISHED_COURSE=new URLSearchParams(location.search).get('course')||'';
 const publishedCoursePromise=/^[0-9a-f-]{36}$/i.test(REQUESTED_PUBLISHED_COURSE)&&window.loadPublishedCourseLesson
   ? window.loadPublishedCourseLesson(REQUESTED_PUBLISHED_COURSE) : Promise.resolve(null);
+async function authorizedApiHeaders(base){
+  const sb=window.classesSupabase;
+  if(!sb||!sb.auth)throw new Error('Session professeur indisponible.');
+  const {data,error}=await sb.auth.getSession();
+  if(error)throw error;
+  const token=data&&data.session&&data.session.access_token;
+  if(!token)throw new Error('Session professeur indisponible.');
+  const headers=Object.assign({},base||{},{Authorization:'Bearer '+token});
+  if(/^[0-9a-f-]{36}$/i.test(REQUESTED_PUBLISHED_COURSE))headers['X-Course-Id']=REQUESTED_PUBLISHED_COURSE;
+  return headers;
+}
 
 /* PLAN D'ÉTAPES : l'ordre affiché d'un chapitre = étapes d'origine (lecons.js) + parties
    personnalisées, RÉORGANISÉES et éventuellement MASQUÉES selon `structure` (édité côté prof).
@@ -2285,7 +2302,7 @@ function effectiveBoard(board, cid, n){
 }
 async function setOverride(cid, n, patch){
   try{
-    const r=await fetch('/api/overrides',{ method:'POST', headers:{'Content-Type':'application/json'},
+    const r=await fetch('/api/overrides',{ method:'POST', headers:await authorizedApiHeaders({'Content-Type':'application/json'}),
       body:JSON.stringify({ chapterId:cid, step:n, patch }) });
     const j=await r.json(); if(!r.ok) throw new Error(j.error||'échec');
     lessonOverrides[cid]=lessonOverrides[cid]||{};
@@ -2301,7 +2318,7 @@ function replaceBuiltinMedia(n){
     const f=inp.files[0]; if(!f) return;
     try{
       const up=await fetch('/api/upload?name='+encodeURIComponent(f.name),
-        { method:'POST', headers:{'Content-Type':f.type||'application/octet-stream'}, body:f });
+        { method:'POST', headers:await authorizedApiHeaders({'Content-Type':f.type||'application/octet-stream'}), body:f });
       const uj=await up.json(); if(!up.ok||!uj.url) throw new Error(uj.error||'échec du téléversement');
       await setOverride(lecon.id, n, { mediaSrc:uj.url, mediaType:/^video\//.test(f.type)?'video':'image', hideMedia:null });
     }catch(e){ alert('Erreur : '+e.message); }
@@ -3179,14 +3196,31 @@ const chapSelect=document.getElementById('chapSelect');
 function fillChapterSelect(){
   const old=chapSelect.value || '0';
   chapSelect.innerHTML='';
+  if(!window.LECONS.length){
+    const option=document.createElement('option');option.textContent='Aucun cours prédéfini disponible';option.disabled=true;option.selected=true;
+    chapSelect.appendChild(option);chapSelect.disabled=true;return;
+  }
+  chapSelect.disabled=false;
   window.LECONS.forEach((c,idx)=>{ const o=document.createElement('option');
     o.value=idx; o.textContent=(idx+1)+'. '+c.titre; chapSelect.appendChild(o); });
   chapSelect.value=window.LECONS[Number(old)] ? old : '0';
   refreshChapterLabels();                 // ajoute ✅ score / ✓ vu selon la progression enregistrée
 }
 fillChapterSelect();
+function showNoAvailableLessons(){
+  i=-1;lecon=null;bar.style.width='0%';stopAudio();resumePlayback();compClear();
+  const strip=document.getElementById('phaseStrip'),badge=document.getElementById('phaseBadge');
+  strip.innerHTML='';badge.className='phase-badge hidden';badge.innerHTML='';
+  title.textContent='Aucun cours prédéfini disponible';
+  board.innerHTML='<div class="line def">Les cours prédéfinis ont été retirés de la bibliothèque par l’administrateur.</div>';
+  clearBoardFloatingBlocks();speech.textContent='Choisis un cours publié dans la bibliothèque pour commencer.';
+  document.getElementById('chips').innerHTML='';
+  ['start','next','nextTop','prev','replay','quizBtn'].forEach(id=>{const button=document.getElementById(id);if(button)button.disabled=true;});
+  setAvatarHeadMode(false);setAvatarSize(1);avatarExpress('welcome','neutral');
+}
 // Écran d'accueil du chapitre courant (avant « Démarrer », ou après « Arrêter »)
 function showChapterHome(){
+  if(!lecon){showNoAvailableLessons();return;}
   i=-1; bar.style.width='0%'; stopAudio(); renderPhase(-1); // coupe l'audio + masque le bandeau de phases
   resumePlayback();                                          // annule un éventuel état "pause"
   compClear();
@@ -3211,23 +3245,25 @@ Promise.all([
   fetch('/api/custom-steps').then(r=>r.ok?r.json():{}).catch(()=>({})),
   fetch('/api/course-structure').then(r=>r.ok?r.json():{}).catch(()=>({})),
   fetch('/api/default-courses').then(r=>r.ok?r.json():{}).catch(()=>({})),
-  publishedCoursePromise
-]).then(([cs, st, defaults, publishedLesson])=>{
+  publishedCoursePromise,
+  window.classesReaderAccessReady||Promise.resolve(null)
+]).then(([cs, st, defaults, publishedLesson, accessProfile])=>{
+    const requestedChapter=new URLSearchParams(location.search).get('chapitre')||'';
     if(publishedLesson) window.LECONS=[publishedLesson];
     else{
       // Cours de démonstration masqués par l'administrateur : retirés pour tout le monde.
-      // On garde au moins un chapitre pour que le lecteur reste utilisable.
+      // Un admin qui suit un lien ?chapitre= peut néanmoins prévisualiser CE chapitre masqué.
       const hidden=new Set(Array.isArray(defaults&&defaults.hidden)?defaults.hidden:[]);
-      const visible=window.LECONS.filter(c=>!hidden.has(c.id));
-      if(visible.length) window.LECONS=visible;
+      const adminPreview=!!(accessProfile&&accessProfile.role==='admin'&&requestedChapter);
+      window.LECONS=window.LECONS.filter(c=>!hidden.has(c.id)||(adminPreview&&c.id===requestedChapter));
     }
     document.body.classList.toggle('imported-course',!!publishedLesson);
     if(publishedLesson&&document.getElementById('courseFooter'))document.getElementById('courseFooter').textContent=`Classes Connectées · Programme marocain${publishedLesson.targetLabel?' · '+publishedLesson.targetLabel:''} · Voix générée par IA`;
     customSteps = cs||{}; structure = st||{};
     applyStepPlan();
     fillChapterSelect();
+    if(!window.LECONS.length){showNoAvailableLessons();return;}
     // ?chapitre=<id> : la page d'accueil (bibliothèque) ouvre directement ce chapitre.
-    const requestedChapter=new URLSearchParams(location.search).get('chapitre')||'';
     const requestedIndex=requestedChapter?window.LECONS.findIndex(c=>c.id===requestedChapter):-1;
     chapSelect.value=String(requestedIndex>=0?requestedIndex:0);lecon = window.LECONS[requestedIndex>=0?requestedIndex:0];
     if(i<0) showChapterHome();
@@ -3251,6 +3287,7 @@ const CHIP_QUESTIONS = {
 const CHIP_FALLBACK = ["Dessine le trajet d'un acte réflexe","C'est quoi un microbe ?","Dessine un schéma de la phagocytose","Différence entre vaccin et sérum ?"];
 function renderChips(){
   const boxc=document.getElementById('chips');
+  if(!lecon){boxc.innerHTML='';return;}
   const qs=(lecon&&Array.isArray(lecon.suggestedQuestions)&&lecon.suggestedQuestions.length?lecon.suggestedQuestions:null)||CHIP_QUESTIONS[lecon.id]||CHIP_FALLBACK;
   boxc.innerHTML='';
   qs.forEach(q=>{ const c=document.createElement('div'); c.className='chip'; c.textContent=q;
@@ -3815,7 +3852,7 @@ async function editMedia(cid, n, idx, m){
     media=Object.assign({}, m, { caption:caption.trim() });
   }
   try{
-    const sv=await fetch('/api/content',{ method:'POST', headers:{'Content-Type':'application/json'},
+    const sv=await fetch('/api/content',{ method:'POST', headers:await authorizedApiHeaders({'Content-Type':'application/json'}),
       body:JSON.stringify({ chapterId:cid, step:n, update:true, index:idx, media }) });
     const sj=await sv.json(); if(!sv.ok) throw new Error(sj.error||'échec');
     teacherContent[cid][String(n)]=sj.list; renderMedia(cid, n);
@@ -3844,11 +3881,11 @@ if(mediaFile) mediaFile.onchange=async ()=>{
   const old=addMediaBtn.textContent; addMediaBtn.disabled=true; addMediaBtn.textContent='⏳ Envoi…';
   try{
     const up=await fetch('/api/upload?name='+encodeURIComponent(f.name),
-      { method:'POST', headers:{'Content-Type': f.type||'application/octet-stream'}, body:f });
+      { method:'POST', headers:await authorizedApiHeaders({'Content-Type': f.type||'application/octet-stream'}), body:f });
     const uj=await up.json(); if(!up.ok || !uj.url) throw new Error(uj.error||'échec du téléversement');
     const caption=(prompt('Légende du média (facultatif) :','')||'').slice(0,140);
     const media={ type: /^video\//.test(f.type)?'video':'image', url:uj.url, caption, name:f.name };
-    const sv=await fetch('/api/content', { method:'POST', headers:{'Content-Type':'application/json'},
+    const sv=await fetch('/api/content', { method:'POST', headers:await authorizedApiHeaders({'Content-Type':'application/json'}),
       body:JSON.stringify({ chapterId:cid, step:n, media }) });
     const sj=await sv.json(); if(!sv.ok) throw new Error(sj.error||"échec de l'enregistrement");
     teacherContent[cid]=teacherContent[cid]||{}; teacherContent[cid][String(n)]=sj.list;
@@ -3859,7 +3896,7 @@ if(mediaFile) mediaFile.onchange=async ()=>{
 async function removeMedia(cid, n, idx){
   if(!confirm('Retirer ce média de l\'étape ?')) return;
   try{
-    const sv=await fetch('/api/content', { method:'POST', headers:{'Content-Type':'application/json'},
+    const sv=await fetch('/api/content', { method:'POST', headers:await authorizedApiHeaders({'Content-Type':'application/json'}),
       body:JSON.stringify({ chapterId:cid, step:n, remove:true, index:idx }) });
     const sj=await sv.json(); if(!sv.ok) throw new Error(sj.error||'échec');
     teacherContent[cid][String(n)]=sj.list; renderMedia(cid, n);

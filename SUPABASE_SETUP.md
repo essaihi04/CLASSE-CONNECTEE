@@ -11,6 +11,9 @@
    - [20260712_006_complete_subjects.sql](supabase/migrations/20260712_006_complete_subjects.sql)
    - [20260713_007_ai_course_imports.sql](supabase/migrations/20260713_007_ai_course_imports.sql)
    - [20260713_008_published_course_access.sql](supabase/migrations/20260713_008_published_course_access.sql)
+   - [20260713_009_teacher_course_privacy.sql](supabase/migrations/20260713_009_teacher_course_privacy.sql)
+   - [20260714_010_admin_dashboard.sql](supabase/migrations/20260714_010_admin_dashboard.sql)
+   - [20260716_011_admin_course_management.sql](supabase/migrations/20260716_011_admin_course_management.sql)
 2. Dans **Authentication > URL Configuration**, ajoutez les URL de redirection :
    - `http://localhost:3000/login.html`
    - l’URL HTTPS de production suivie de `/login.html`
@@ -44,6 +47,6 @@ La page de connexion protège l’accès à `prof.html`. Par défaut, un nouveau
 
 Pour donner l’accès exceptionnel aux données historiques au compte démo, créez/identifiez ce compte puis exécutez la requête commentée dans `20260712_002_legacy_demo_access.sql`, en remplaçant l’e-mail. Ne donnez jamais `legacy_access = true` aux nouveaux professeurs.
 
-Les anciennes routes JSON locales (`/api/content`, `/api/overrides`, etc.) restent utilisées uniquement par le compte démo du prototype : elles ne doivent pas être déployées en multi-professeurs.
+Les anciennes routes JSON locales (`/api/content`, `/api/overrides`, etc.) restent utilisées par le compte démo et par l’administrateur pour modifier les cours prédéfinis. Ces écritures exigent un jeton Supabase avec `role = 'admin'` ou `legacy_access = true`. Un professeur standard ne peut les utiliser que pour le chapitre de son propre cours Supabase, vérifié par UUID et par propriétaire. Comme leur persistance repose encore sur des fichiers locaux, elles ne conviennent pas à un déploiement stateless ou multi-instance.
 
 La prochaine étape consiste à remplacer ces routes par les tables Supabase créées ici, en chargeant les cours via `courses`, `course_sections`, `course_assets` et `course_quizzes`. Ainsi, l’isolation RLS deviendra aussi effective sur les contenus existants.

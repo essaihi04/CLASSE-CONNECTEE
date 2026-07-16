@@ -26,27 +26,20 @@
   async function unpublishCourse(course){
     if(!confirm('Dépublier « '+course.title+' » ?\nIl disparaîtra de cette page mais restera modifiable en brouillon.'))return;
     try{
-      const {error}=await window.classesSupabase.from('courses').update({status:'draft'}).eq('id',course.id);if(error)throw error;
+      if(!window.AdminCourseManager)throw new Error('module de gestion administrateur indisponible');
+      await window.AdminCourseManager.updateStatus(window.classesSupabase,course.id,'draft');
       state.courses=state.courses.filter(c=>c.id!==course.id);render();
     }catch(error){alert('Dépublication impossible : '+(error.message||error))}
   }
-  // Suppression complète : blocs, ressources (lignes + fichiers du stockage), import puis cours.
+  // La suppression du cours parent efface ses données enfants en cascade, puis le
+  // gestionnaire commun nettoie les fichiers privés associés dans Storage.
   async function deleteCourse(course){
     if(!confirm('SUPPRIMER définitivement « '+course.title+' » ?\nLes tableaux, ressources et voix associés seront effacés. Cette action est irréversible.'))return;
-    const sb=window.classesSupabase;
     try{
-      const [{data:sources},{data:imports}]=await Promise.all([
-        sb.from('course_sources').select('storage_path').eq('course_id',course.id),
-        sb.from('course_imports').select('source_pdf_path').eq('course_id',course.id)
-      ]);
-      const paths=[...(sources||[]).map(x=>x.storage_path),...(imports||[]).map(x=>x.source_pdf_path)].filter(Boolean);
-      const audioMap=course.settings&&course.settings.audio_map;if(audioMap&&typeof audioMap==='object')Object.values(audioMap).forEach(p=>{if(typeof p==='string'&&p)paths.push(p)});
-      let step='blocs';let {error}=await sb.from('course_blocks').delete().eq('course_id',course.id);if(error)throw new Error(step+' : '+error.message);
-      step='ressources';({error}=await sb.from('course_sources').delete().eq('course_id',course.id));if(error)throw new Error(step+' : '+error.message);
-      step='import';({error}=await sb.from('course_imports').delete().eq('course_id',course.id));if(error)throw new Error(step+' : '+error.message);
-      step='cours';({error}=await sb.from('courses').delete().eq('id',course.id));if(error)throw new Error(step+' : '+error.message);
-      if(paths.length)await sb.storage.from('course-media').remove(paths.slice(0,900)).catch(()=>{});
+      if(!window.AdminCourseManager)throw new Error('module de gestion administrateur indisponible');
+      const result=await window.AdminCourseManager.deleteCourse(window.classesSupabase,course);
       state.courses=state.courses.filter(c=>c.id!==course.id);render();
+      if(result.warning)alert(result.warning);
     }catch(error){alert('Suppression impossible ('+(error.message||error)+')')}
   }
 
@@ -90,7 +83,7 @@
       await window.teacherAuthReady;const sb=window.classesSupabase,{data:{session}}=await sb.auth.getSession();state.session=session||null;
       if(session&&session.user){const {data:profile}=await sb.from('profiles').select('role').eq('id',session.user.id).maybeSingle();state.admin=!!(profile&&profile.role==='admin')}
       // Tous les cours publiés sont visibles par tout le monde, connecté ou non.
-      const {data,error}=await sb.from('courses').select('id,subject_id,grade_level_id,title,description,settings,subjects(code,name,color),grade_levels(code,name,sort_order),course_blocks(count)').eq('status','published').order('updated_at',{ascending:false});if(error)throw error;state.courses=data||[];
+      const {data,error}=await sb.from('courses').select('id,teacher_id,subject_id,grade_level_id,title,description,settings,subjects(code,name,color),grade_levels(code,name,sort_order),course_blocks(count)').eq('status','published').order('updated_at',{ascending:false});if(error)throw error;state.courses=data||[];
       const subjects=[...new Map(state.courses.filter(x=>x.subjects).map(x=>[x.subject_id,x.subjects.name])).entries()].sort((a,b)=>a[1].localeCompare(b[1],'fr'));subjects.forEach(([id,name])=>{const option=document.createElement('option');option.value=id;option.textContent=name;$('subjectFilter').appendChild(option)});
       const grades=[...new Map(state.courses.filter(x=>x.grade_levels).map(x=>[x.grade_level_id,x.grade_levels])).entries()].sort((a,b)=>Number(a[1].sort_order||0)-Number(b[1].sort_order||0));grades.forEach(([id,grade])=>{const option=document.createElement('option');option.value=id;option.textContent=grade.name;$('gradeFilter').appendChild(option)});
       $('search').oninput=render;$('subjectFilter').onchange=render;$('gradeFilter').onchange=render;render();renderDemos();

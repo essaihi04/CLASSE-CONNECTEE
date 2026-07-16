@@ -41,7 +41,17 @@
     .badge.draft{background:#fef3c7;color:var(--amber)}
     .badge.archived{background:#f1f5f9;color:#64748b}
     .badge.admin{background:#ede9fe;color:#6d28d9}
-    .open{background:var(--green);color:#fff;text-decoration:none;border-radius:8px;padding:6px 10px;font-size:10px;font-weight:800;white-space:nowrap}
+    .actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:285px}
+    .action{border:1px solid var(--line);background:#fff;color:#3c4c44;text-decoration:none;border-radius:8px;padding:6px 9px;font-size:10px;font-weight:800;white-space:nowrap;cursor:pointer;font-family:inherit}
+    .action.primary{background:var(--green);border-color:var(--green);color:#fff}
+    .action.warn{border-color:#f3d39b;color:#92400e;background:#fffbeb}
+    .action.danger{border-color:#f3c1c1;color:#a02626;background:#fdf3f3}
+    .action:disabled{opacity:.5;cursor:wait}
+    tr.is-hidden td{background:#fafafa;color:#7b8580}
+    .badge.hidden{background:#fee2e2;color:var(--red)}
+    .course-notice{display:none;margin:0 0 14px;border-radius:10px;padding:10px 13px;font-size:12px}
+    .course-notice.ok{display:block;background:#e2f5ec;color:#065f46}
+    .course-notice.err{display:block;background:#fee2e2;color:var(--red)}
     form.create{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
     form.create label{display:grid;gap:5px;font-size:11px;font-weight:700;color:#3d4a44}
     form.create input,form.create select{height:40px;border:1px solid var(--line);border-radius:9px;padding:0 11px;font-size:13px;background:#fff}
@@ -72,9 +82,9 @@
 
     <div class="stats">
       <div class="stat"><b id="statTeachers">…</b><span>Professeurs</span></div>
-      <div class="stat"><b id="statCourses">…</b><span>Cours au total</span></div>
-      <div class="stat"><b id="statPublished">…</b><span>Cours publiés</span></div>
-      <div class="stat"><b id="statDrafts">…</b><span>Brouillons</span></div>
+      <div class="stat"><b id="statCourses">…</b><span>Cours des professeurs</span></div>
+      <div class="stat"><b id="statPublished">…</b><span>Publiés (professeurs)</span></div>
+      <div class="stat"><b id="statDrafts">…</b><span>Brouillons (professeurs)</span></div>
     </div>
 
     <section class="panel">
@@ -109,15 +119,28 @@
     </section>
 
     <section class="panel">
-      <h2>📚 Tous les cours (<span id="courseCount">0</span>)</h2>
-      <p class="hint">L'administrateur voit les cours de tous les professeurs, y compris les brouillons.</p>
+      <h2>🧩 Cours prédéfinis (<span id="defaultCourseCount">0</span>)</h2>
+      <p class="hint">Ces cours intégrés sont toujours visibles ici. « Retirer » les masque pour les élèves sans effacer leur contenu, afin de pouvoir les restaurer ou les modifier plus tard.</p>
+      <div class="course-notice" id="defaultCourseNotice" role="status" aria-live="polite"></div>
       <div class="table-scroll"><table>
-        <thead><tr><th>Titre</th><th>Professeur</th><th>Matière</th><th>Niveau</th><th>Statut</th><th>Mis à jour</th><th></th></tr></thead>
+        <thead><tr><th>Titre</th><th>Matière</th><th>Niveau</th><th>Étapes</th><th>Visibilité</th><th>Actions</th></tr></thead>
+        <tbody id="defaultCourseRows"><tr><td colspan="6" class="empty">Chargement…</td></tr></tbody>
+      </table></div>
+    </section>
+
+    <section class="panel">
+      <h2>📚 Tous les cours (<span id="courseCount">0</span>)</h2>
+      <p class="hint">L'administrateur voit et gère les cours de tous les professeurs, y compris les brouillons et les archives.</p>
+      <div class="course-notice" id="courseNotice" role="status" aria-live="polite"></div>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Titre</th><th>Professeur</th><th>Matière</th><th>Niveau</th><th>Statut</th><th>Mis à jour</th><th>Actions</th></tr></thead>
         <tbody id="courseRows"><tr><td colspan="7" class="empty">Chargement…</td></tr></tbody>
       </table></div>
     </section>
   </main>
 
+<script src="lecons.js"></script>
+<script src="admin-course-manager.js"></script>
 <script>
 (function(){
   'use strict';
@@ -125,22 +148,42 @@
   const safe=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const dateFr=v=>v?new Date(v).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}):'—';
   const STATUS_FR={published:'Publié',draft:'Brouillon',archived:'Archivé'};
+  const state={teacher:null,session:null,sb:null,teachers:[],courses:[],subjects:[],levels:[],hiddenDefaults:[],formReady:false};
 
   async function init(){
-    const teacher=await window.teacherAuthReady;
-    const sb=window.classesSupabase;
-    const [{data:teachers,error:teacherError},{data:courses,error:courseError},{data:subjects},{data:levels}]=await Promise.all([
+    state.teacher=await window.teacherAuthReady;
+    state.sb=window.classesSupabase;
+    const {data:{session}}=await state.sb.auth.getSession();
+    if(!session)throw new Error('Session administrateur expirée.');
+    state.session=session;
+    await refreshDashboard(true);
+    $('courseRows').onclick=handleCourseAction;
+    $('defaultCourseRows').onclick=handleDefaultCourseAction;
+  }
+
+  async function refreshDashboard(setupForm){
+    const sb=state.sb;
+    const defaultsPromise=fetch('/api/default-courses').then(r=>r.ok?r.json():{}).catch(()=>({}));
+    const [{data:teachers,error:teacherError},{data:courses,error:courseError},{data:subjects,error:subjectError},{data:levels,error:levelError},defaults]=await Promise.all([
       sb.rpc('admin_list_teachers'),
-      sb.from('courses').select('id,teacher_id,subject_id,grade_level_id,title,status,updated_at,subjects(name,color),grade_levels(name,sort_order)').order('updated_at',{ascending:false}),
+      sb.from('courses').select('id,teacher_id,subject_id,grade_level_id,title,status,settings,updated_at,subjects(name,color),grade_levels(name,sort_order)').order('updated_at',{ascending:false}),
       sb.from('subjects').select('code,name').order('name'),
-      sb.from('grade_levels').select('code,name,sort_order').order('sort_order')
+      sb.from('grade_levels').select('code,name,sort_order').order('sort_order'),
+      defaultsPromise
     ]);
-    if(teacherError)throw teacherError;if(courseError)throw courseError;
-    renderStats(teachers||[],courses||[]);
-    renderSubjectBars(courses||[]);
-    renderTeachers(teachers||[],courses||[]);
-    renderCourses(teachers||[],courses||[]);
-    setupCreateForm(sb,subjects||[],levels||[]);
+    if(teacherError)throw teacherError;if(courseError)throw courseError;if(subjectError)throw subjectError;if(levelError)throw levelError;
+    state.teachers=teachers||[];state.courses=courses||[];state.subjects=subjects||[];state.levels=levels||[];
+    state.hiddenDefaults=Array.isArray(defaults.hidden)?defaults.hidden:[];
+    renderDashboard();
+    if(setupForm&&!state.formReady){setupCreateForm(sb,state.subjects,state.levels);state.formReady=true}
+  }
+
+  function renderDashboard(){
+    renderStats(state.teachers,state.courses);
+    renderSubjectBars(state.courses);
+    renderTeachers(state.teachers,state.courses);
+    renderCourses(state.teachers,state.courses);
+    renderDefaultCourses();
   }
 
   function renderStats(teachers,courses){
@@ -180,8 +223,70 @@
       `<tr><td><b>${safe(c.title)}</b></td><td>${safe(names[c.teacher_id]||'—')}</td>`+
       `<td>${safe(c.subjects&&c.subjects.name||'—')}</td><td>${safe(c.grade_levels&&c.grade_levels.name||'—')}</td>`+
       `<td><span class="badge ${safe(c.status)}">${STATUS_FR[c.status]||safe(c.status)}</span></td><td>${dateFr(c.updated_at)}</td>`+
-      `<td><a class="open" href="index.html?course=${encodeURIComponent(c.id)}">▶ Ouvrir</a></td></tr>`
+      `<td><div class="actions"><a class="action primary" href="index.html?course=${encodeURIComponent(c.id)}">▶ Ouvrir</a>`+
+      `<a class="action" href="prof.html?course=${encodeURIComponent(c.id)}&boards=1">✏️ Modifier</a>`+
+      `<button class="action warn" type="button" data-course-action="status" data-course-id="${safe(c.id)}">${c.status==='published'?'⏸ Dépublier':'🚀 Publier'}</button>`+
+      `<button class="action danger" type="button" data-course-action="delete" data-course-id="${safe(c.id)}">🗑 Supprimer</button></div></td></tr>`
     ).join(''):'<tr><td colspan="7" class="empty">Aucun cours créé.</td></tr>';
+  }
+
+  function renderDefaultCourses(){
+    const lessons=Array.isArray(window.LECONS)?window.LECONS:[],hidden=new Set(state.hiddenDefaults);
+    $('defaultCourseCount').textContent=lessons.length;
+    $('defaultCourseRows').innerHTML=lessons.length?lessons.map(lesson=>{
+      const isHidden=hidden.has(lesson.id),steps=Array.isArray(lesson.etapes)?lesson.etapes.length:0;
+      return `<tr${isHidden?' class="is-hidden"':''}><td><b>${safe(lesson.titre||lesson.id)}</b></td><td>SVT</td><td>3e année collège</td><td>${steps}</td>`+
+        `<td>${isHidden?'<span class="badge hidden">Retiré des élèves</span>':'<span class="badge published">Visible</span>'}</td>`+
+        `<td><div class="actions"><a class="action primary" href="index.html?chapitre=${encodeURIComponent(lesson.id)}&admin=1">▶ Ouvrir</a>`+
+        `<a class="action" href="prof.html?chapitre=${encodeURIComponent(lesson.id)}">✏️ Modifier</a>`+
+        `<button class="action ${isHidden?'':'danger'}" type="button" data-default-action="${isHidden?'restore':'hide'}" data-chapter-id="${safe(lesson.id)}">${isHidden?'↩ Restaurer':'🗑 Retirer'}</button></div></td></tr>`;
+    }).join(''):'<tr><td colspan="6" class="empty">Aucun cours prédéfini.</td></tr>';
+  }
+
+  function setCourseNotice(message,kind,target){
+    const notice=$(target||'courseNotice');notice.className='course-notice '+(kind||'');notice.textContent=message||'';
+  }
+
+  async function handleCourseAction(event){
+    const button=event.target.closest('button[data-course-action]');if(!button)return;
+    const course=state.courses.find(c=>c.id===button.dataset.courseId);if(!course)return;
+    const manager=window.AdminCourseManager;if(!manager){setCourseNotice('Le module de gestion des cours est indisponible.','err');return}
+    const action=button.dataset.courseAction;
+    if(action==='status'){
+      const next=course.status==='published'?'draft':'published';
+      const question=next==='draft'?`Dépublier « ${course.title} » ? Le cours ne sera plus visible par les élèves.`:`Publier « ${course.title} » pour le rendre visible aux élèves ?`;
+      if(!confirm(question))return;
+      button.disabled=true;
+      try{await manager.updateStatus(state.sb,course.id,next);course.status=next;course.updated_at=new Date().toISOString();renderDashboard();setCourseNotice(next==='published'?'Cours publié avec succès.':'Cours dépublié et conservé en brouillon.','ok')}
+      catch(error){setCourseNotice('Modification impossible : '+(error.message||error),'err');button.disabled=false}
+      return;
+    }
+    if(action==='delete'){
+      if(!confirm(`Supprimer définitivement « ${course.title} » ?\nLes tableaux, ressources et médias associés seront supprimés. Cette action est irréversible.`))return;
+      button.disabled=true;
+      try{
+        const result=await manager.deleteCourse(state.sb,course);
+        state.courses=state.courses.filter(c=>c.id!==course.id);renderDashboard();
+        setCourseNotice(result&&result.warning?'Cours supprimé. Attention : '+result.warning:'Cours et ressources associés supprimés avec succès.',result&&result.warning?'err':'ok');
+      }catch(error){setCourseNotice('Suppression impossible : '+(error.message||error),'err');button.disabled=false}
+    }
+  }
+
+  async function handleDefaultCourseAction(event){
+    const button=event.target.closest('button[data-default-action]');if(!button)return;
+    const lesson=(Array.isArray(window.LECONS)?window.LECONS:[]).find(x=>x.id===button.dataset.chapterId);if(!lesson)return;
+    const hidden=button.dataset.defaultAction==='hide';
+    if(hidden&&!confirm(`Retirer « ${lesson.titre} » de la plateforme élève ?\nSon contenu restera sauvegardé et vous pourrez le restaurer ici.`))return;
+    button.disabled=true;
+    try{
+      const {data:{session}}=await state.sb.auth.getSession();
+      if(!session)throw new Error('session expirée');
+      state.session=session;
+      const response=await fetch('/api/default-courses',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token},body:JSON.stringify({chapterId:lesson.id,hidden})});
+      const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||'échec serveur');
+      state.hiddenDefaults=Array.isArray(result.hidden)?result.hidden:[];renderDefaultCourses();
+      setCourseNotice(hidden?'Cours retiré de la vue élève.':'Cours restauré et de nouveau visible.','ok','defaultCourseNotice');
+    }catch(error){setCourseNotice('Modification impossible : '+(error.message||error),'err','defaultCourseNotice');button.disabled=false}
   }
 
   function setupCreateForm(sb,subjects,levels){
@@ -213,7 +318,7 @@
         if(!response.ok)throw new Error(result.error||'Création impossible.');
         setNotice(`Compte créé ✓ — Identifiant : ${result.identifiant} · Mot de passe : ${result.password} — notez et transmettez ces identifiants au professeur (ils ne seront plus affichés).`,'ok');
         form.reset();syncStream();
-        setTimeout(init,1200);
+        await refreshDashboard(false);
       }catch(error){setNotice(error.message||'Création impossible.','err')}
       finally{submit.disabled=false}
     };
@@ -223,6 +328,7 @@
     console.error('Dashboard admin :',error);
     $('teacherRows').innerHTML='<tr><td colspan="8" class="empty">Chargement impossible. Vérifiez que la migration 20260714_010 est exécutée et que votre compte a le rôle admin.</td></tr>';
     $('courseRows').innerHTML='<tr><td colspan="7" class="empty">Chargement impossible.</td></tr>';
+    $('defaultCourseRows').innerHTML='<tr><td colspan="6" class="empty">Chargement impossible.</td></tr>';
     $('subjectBars').innerHTML='<div class="empty">Indisponible.</div>';
   });
 })();

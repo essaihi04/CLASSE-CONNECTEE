@@ -294,6 +294,21 @@ const PAGE_PARAMS=new URLSearchParams(location.search);
 const REQUESTED_IMPORTED_COURSE=PAGE_PARAMS.get('course')||'';
 let activeImportedCourseId='';
 let activeImportedCourseStatus='';
+function isPlatformAdmin(){
+  return !!(window.currentTeacher&&window.currentTeacher.profile&&window.currentTeacher.profile.role==='admin');
+}
+function canEditBuiltinLessons(){
+  return !!(window.currentTeacher&&window.currentTeacher.profile&&(window.currentTeacher.profile.legacy_access||isPlatformAdmin()));
+}
+async function authorizedApiHeaders(base){
+  let teacher=window.currentTeacher;
+  if(!teacher&&window.teacherAuthReady)teacher=await window.teacherAuthReady;
+  const token=teacher&&teacher.session&&teacher.session.access_token;
+  if(!token)throw new Error('Session professeur indisponible.');
+  const headers=Object.assign({},base||{},{Authorization:'Bearer '+token});
+  if(activeImportedCourseId)headers['X-Course-Id']=activeImportedCourseId;
+  return headers;
+}
 const PHASES = {
   situation:'Situation', rappel:'Rappel', probleme:'Problème', hypothese:'Hypothèse',
   concept:'Concept', structuration:'Structuration', bilan:'Bilan', reveal:'Quiz'
@@ -541,7 +556,7 @@ function remapSupports(chapId, oldIds, newIds){
 }
 async function saveStructure(chapId){
   const st = structure[chapId] || {order:[],hidden:[]};
-  const r = await fetch('/api/course-structure',{ method:'POST', headers:{'Content-Type':'application/json'},
+  const r = await fetch('/api/course-structure',{ method:'POST', headers:await authorizedApiHeaders({'Content-Type':'application/json'}),
     body:JSON.stringify({ chapterId:chapId, order:st.order||[], hidden:st.hidden||[],
       content: content[chapId]||{}, overrides: overrides[chapId]||{} }) });
   const j = await r.json(); if(!r.ok) throw new Error(j.error||'echec');
@@ -578,7 +593,7 @@ async function deleteStep(idx){
   const hidden=((structure[sel.chapter]&&structure[sel.chapter].hidden)||[]).slice();
   try{
     if(step.custom){
-      const r=await fetch('/api/custom-steps',{ method:'POST', headers:{'Content-Type':'application/json'},
+      const r=await fetch('/api/custom-steps',{ method:'POST', headers:await authorizedApiHeaders({'Content-Type':'application/json'}),
         body:JSON.stringify({ chapterId:sel.chapter, removeId:step.__id }) });
       const j=await r.json(); if(!r.ok) throw new Error(j.error||'echec');
       customSteps[sel.chapter]=j.steps||[];
@@ -602,7 +617,7 @@ async function addCustomCoursePart(insertAfterOverride){
     ? insertAfterOverride
     : ((typeof sel.step==='number') ? sel.step : ((chap.etapes||[]).length-1));
   try{
-    const r=await fetch('/api/custom-steps',{ method:'POST', headers:{'Content-Type':'application/json'},
+    const r=await fetch('/api/custom-steps',{ method:'POST', headers:await authorizedApiHeaders({'Content-Type':'application/json'}),
       body:JSON.stringify({ chapterId:sel.chapter, step:{ title:title.trim(), phase } }) });
     const j=await r.json(); if(!r.ok) throw new Error(j.error||'echec');
     customSteps[sel.chapter]=j.steps||[];
@@ -709,7 +724,7 @@ async function renderPrivateTeacherHome(){
 function stepOverride(chapId, step){ return (overrides[chapId] && overrides[chapId][String(step)]) || {}; }
 
 async function setOverride(chapId, step, patch){
-  const r=await fetch('/api/overrides',{ method:'POST', headers:{'Content-Type':'application/json'},
+  const r=await fetch('/api/overrides',{ method:'POST', headers:await authorizedApiHeaders({'Content-Type':'application/json'}),
     body:JSON.stringify({ chapterId:chapId, step:String(step), patch }) });
   const j=await r.json(); if(!r.ok) throw new Error(j.error||'échec');
   overrides[chapId]=overrides[chapId]||{};
@@ -773,7 +788,22 @@ function openCourseLayoutOverview(){
     const courses=document.createElement('a');courses.className='ghost';courses.style.cssText='padding:8px 12px;text-decoration:none';courses.href='prof.html?view=private';courses.textContent='← Mes cours';head.appendChild(courses);
     const preview=document.createElement('a');preview.className='ghost';preview.style.cssText='padding:8px 12px;text-decoration:none';preview.href='index.html?course='+encodeURIComponent(activeImportedCourseId);preview.textContent='▶ Tester avec l’avatar';head.appendChild(preview);
     const publish=document.createElement('button');publish.className='add-btn';publish.style.padding='8px 12px';publish.textContent=activeImportedCourseStatus==='published'?'✓ Cours publié':'Publier le cours';publish.disabled=activeImportedCourseStatus==='published';
-    publish.onclick=async()=>{if(!confirm('Publier ce cours pour le rendre disponible dans la vue élève ?'))return;publish.disabled=true;publish.textContent='Publication…';try{const sb=window.classesSupabase,teacher=window.currentTeacher;if(!sb||!teacher)throw new Error('Session professeur indisponible');const {error}=await sb.from('courses').update({status:'published'}).eq('id',activeImportedCourseId).eq('teacher_id',teacher.session.user.id);if(error)throw error;activeImportedCourseStatus='published';publish.textContent='✓ Cours publié';toast('Cours publié ✓')}catch(e){publish.disabled=false;publish.textContent='Publier le cours';toast('Erreur : '+(e.message||e),true)}};head.appendChild(publish);
+    publish.onclick=async()=>{
+      if(!confirm('Publier ce cours pour le rendre disponible dans la vue élève ?'))return;
+      publish.disabled=true;publish.textContent='Publication…';
+      try{
+        const sb=window.classesSupabase,teacher=window.currentTeacher;
+        if(!sb||!teacher)throw new Error('Session professeur indisponible');
+        let update=sb.from('courses').update({status:'published'}).eq('id',activeImportedCourseId);
+        // Un professeur reste limité à ses propres cours. Le rôle admin s'appuie sur la
+        // politique RLS administrateur et peut publier le cours explicitement ouvert par ID.
+        if(!isPlatformAdmin())update=update.eq('teacher_id',teacher.session.user.id);
+        const {data,error}=await update.select('id').maybeSingle();
+        if(error)throw error;
+        if(!data)throw new Error('Cours introuvable ou publication non autorisée.');
+        activeImportedCourseStatus='published';publish.textContent='✓ Cours publié';toast('Cours publié ✓');
+      }catch(e){publish.disabled=false;publish.textContent='Publier le cours';toast('Erreur : '+(e.message||e),true)}
+    };head.appendChild(publish);
     note.textContent='Le brouillon est enregistré. Clique sur un tableau pour modifier son texte, ses ressources, sa mise en page et l’avatar, puis publie ici.';
   }
   head.append(close,note); box.appendChild(head);
@@ -1642,7 +1672,7 @@ async function openLayoutEditor(step){
   function qArea(ph){ const e=document.createElement('textarea'); e.placeholder=ph||''; e.style.cssText='min-height:54px;padding:7px 9px'; return e; }
   async function saveQuickSupport(media, existing){
     if(!existing){ await saveSupport(media); return; }
-    const r=await fetch('/api/content',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    const r=await fetch('/api/content',{method:'POST',headers:await authorizedApiHeaders({'Content-Type':'application/json'}),body:JSON.stringify({
       chapterId:sel.chapter,step:String(existing.supportStepKey),update:true,index:existing.supportIndex,media
     })});
     const j=await r.json(); if(!r.ok) throw new Error(j.error||'Mise à jour impossible.');
@@ -1996,7 +2026,7 @@ async function openLayoutEditor(step){
       await persistCurrentLayout();
       const current=stepOverride(sel.chapter,step); const layout=JSON.parse(JSON.stringify(current.layout||{el:{},avatar:state.avatar})); layout.el=layout.el||{};
       if(item.support){
-        const r=await fetch('/api/content',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chapterId:sel.chapter,step:item.supportStepKey,remove:true,index:item.supportIndex})});
+        const r=await fetch('/api/content',{method:'POST',headers:await authorizedApiHeaders({'Content-Type':'application/json'}),body:JSON.stringify({chapterId:sel.chapter,step:item.supportStepKey,remove:true,index:item.supportIndex})});
         const j=await r.json(); if(!r.ok) throw new Error(j.error||'suppression impossible');
         content[sel.chapter]=content[sel.chapter]||{}; content[sel.chapter][String(item.supportStepKey)]=j.list||[];
         const prefix=item.whole?'support-all-':'support-'; const re=item.whole?/^support-all-(\d+)$/:/^support-(\d+)$/;
@@ -2206,7 +2236,7 @@ function replaceBuiltinMedia(step){
     const f=inp.files[0]; if(!f) return;
     try{
       const up=await fetch('/api/upload?name='+encodeURIComponent(f.name),
-        { method:'POST', headers:{'Content-Type':f.type||'application/octet-stream'}, body:f });
+        { method:'POST', headers:await authorizedApiHeaders({'Content-Type':f.type||'application/octet-stream'}), body:f });
       const uj=await up.json(); if(!up.ok||!uj.url) throw new Error(uj.error||'échec du téléversement');
       await setOverride(sel.chapter, step, { mediaSrc:uj.url, mediaType:/^video\//.test(f.type)?'video':'image', hideMedia:null });
       toast('Image remplacée ✓');
@@ -2222,7 +2252,7 @@ function replaceBuiltinMedia(step){
 //    Stocké en override `mediaSlides` = [{ src|svg, desc, say }]. ──
 async function uploadFile(f){
   const up=await fetch('/api/upload?name='+encodeURIComponent(f.name),
-    { method:'POST', headers:{'Content-Type':f.type||'application/octet-stream'}, body:f });
+    { method:'POST', headers:await authorizedApiHeaders({'Content-Type':f.type||'application/octet-stream'}), body:f });
   const uj=await up.json(); if(!up.ok||!uj.url) throw new Error(uj.error||'échec du téléversement');
   return uj.url;
 }
@@ -2379,7 +2409,7 @@ document.querySelectorAll('.type-tab').forEach(tab=>{
 async function saveSupport(media, opts){
   opts=opts||{};
   const payload=Object.assign({ chapterId:sel.chapter, step:String(sel.step), media }, opts);
-  const r=await fetch('/api/content',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+  const r=await fetch('/api/content',{ method:'POST', headers:await authorizedApiHeaders({'Content-Type':'application/json'}), body:JSON.stringify(payload) });
   const j=await r.json(); if(!r.ok) throw new Error(j.error||'échec');
   content[sel.chapter]=content[sel.chapter]||{}; content[sel.chapter][String(sel.step)]=j.list;
   renderSupports(); renderSteps();
@@ -2400,7 +2430,7 @@ $('addBtn').onclick=async ()=>{
       const f=$('mediaFile').files[0]; if(!f){ toast('Choisis un fichier.',true); return; }
       $('busy').textContent='Téléversement…';
       const up=await fetch('/api/upload?name='+encodeURIComponent(f.name),
-        { method:'POST', headers:{'Content-Type':f.type||'application/octet-stream'}, body:f });
+        { method:'POST', headers:await authorizedApiHeaders({'Content-Type':f.type||'application/octet-stream'}), body:f });
       const uj=await up.json(); if(!up.ok||!uj.url) throw new Error(uj.error||'échec du téléversement');
       await saveSupport({ type:/^video\//.test(f.type)?'video':'image', url:uj.url, caption:$('mediaCaption').value.trim(), name:f.name });
       $('mediaFile').value=''; $('mediaCaption').value='';
@@ -2453,11 +2483,11 @@ $('courseBoardsBtn').onclick=()=>openCourseLayoutOverview();
   const privateLink=$('privateCoursesLink');
   if(privateLink){
     if(openImported){privateLink.style.display='';privateLink.href='prof.html?view=private';privateLink.textContent='Mes cours PDF + IA';}
-    else if(!window.currentTeacher || !window.currentTeacher.profile.legacy_access) privateLink.style.display='none';
+    else if(!canEditBuiltinLessons()) privateLink.style.display='none';
     else if(forcePrivate){privateLink.href='prof.html';privateLink.textContent='Cours prototype';}
   }
   if(openImported){
-    const legacyLink=$('legacyModelsLink');if(legacyLink&&!window.currentTeacher.profile.legacy_access)legacyLink.style.display='none';
+    const legacyLink=$('legacyModelsLink');if(legacyLink&&!canEditBuiltinLessons())legacyLink.style.display='none';
     return Promise.all([
       window.loadPublishedCourseLesson(REQUESTED_IMPORTED_COURSE),
       fetch('/api/content').then(r=>r.ok?r.json():{}).catch(()=>({})),
@@ -2469,7 +2499,7 @@ $('courseBoardsBtn').onclick=()=>openCourseLayoutOverview();
       LECONS.splice(0,LECONS.length,lesson);return [c,o,cs,st];
     });
   }
-  if(!window.currentTeacher || !window.currentTeacher.profile.legacy_access || forcePrivate) return renderPrivateTeacherHome();
+  if(!canEditBuiltinLessons() || forcePrivate) return renderPrivateTeacherHome();
   return Promise.all([
   fetch('/api/content').then(r=>r.ok?r.json():{}).catch(()=>({})),
   fetch('/api/overrides').then(r=>r.ok?r.json():{}).catch(()=>({})),

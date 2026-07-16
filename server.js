@@ -7,6 +7,7 @@ const { PROGRAMME_SVT_3AC } = require('./programme_svt_3ac');   // plan officiel
 const { COURS_SVT_3AC_S2 } = require('./cours_svt_3ac');        // cours détaillé S2 (RAG)
 const { getCourseTarget, sanitizeSourceAssessment, assertSourceCompatible, buildTargetPrompt } = require('./course-targeting');
 const { sanitizeSimulationSpec, sanitizeSvgAsset, buildSimulationHtml } = require('./simulation-builder');
+const { planLocalCourseCleanup } = require('./course-local-cleanup');
 
 const ROOT = path.join(__dirname, 'prototype');
 const PORT = process.env.PORT || 3000;
@@ -89,6 +90,7 @@ function handleCustomStepsPost(req, res){
       const { chapterId, step, removeId } = JSON.parse(body || '{}');
       const chapId = cleanText(chapterId, 80);
       if(!chapId) throw new Error('chapitre manquant');
+      assertLegacyMutationChapter(req,chapId);
       const all = ensureCustomIds(readCustomSteps());
       all[chapId] = Array.isArray(all[chapId]) ? all[chapId] : [];
       let clean=null;
@@ -102,7 +104,7 @@ function handleCustomStepsPost(req, res){
       res.writeHead(200, {'Content-Type':'application/json; charset=utf-8'});
       res.end(JSON.stringify({ ok:true, steps:all[chapId], step:clean }));
     }catch(e){
-      res.writeHead(400, {'Content-Type':'application/json; charset=utf-8'});
+      res.writeHead(e.status||400, {'Content-Type':'application/json; charset=utf-8'});
       res.end(JSON.stringify({ error:String(e.message||e) }));
     }
   });
@@ -124,6 +126,7 @@ function handleStructurePost(req, res){
       const { chapterId, order, hidden, content, overrides } = JSON.parse(body || '{}');
       const chapId = cleanText(chapterId, 80);
       if(!chapId) throw new Error('chapitre manquant');
+      assertLegacyMutationChapter(req,chapId);
       const clean = a => (Array.isArray(a)?a:[]).map(x=>cleanText(x,60)).filter(Boolean).slice(0,300);
       const all = readStructure();
       all[chapId] = { order:clean(order), hidden:clean(hidden) };
@@ -139,7 +142,7 @@ function handleStructurePost(req, res){
       res.writeHead(200, {'Content-Type':'application/json; charset=utf-8'});
       res.end(JSON.stringify({ ok:true, structure: all[chapId] || {order:[],hidden:[]} }));
     }catch(e){
-      res.writeHead(400, {'Content-Type':'application/json; charset=utf-8'});
+      res.writeHead(e.status||400, {'Content-Type':'application/json; charset=utf-8'});
       res.end(JSON.stringify({ error:String(e.message||e) }));
     }
   });
@@ -169,6 +172,71 @@ async function verifyAdminUser(req){
   const rows=response.ok?await response.json():[];
   if(!rows[0] || rows[0].role!=='admin'){ const error=new Error('Réservé au compte administrateur.'); error.status=403; throw error; }
   return user;
+}
+
+// Les contenus historiques (lecons.js + fichiers JSON locaux) sont partagés par
+// toute la plateforme : seuls admin/legacy peuvent les modifier. Un professeur
+// standard est limité au chapitre `published-<uuid>` de son propre cours Supabase.
+async function verifyLegacyCourseEditor(req){
+  const user=await verifyCourseImportUser(req);
+  const config=getSupabasePublicConfig();
+  const params=new URLSearchParams({
+    id:'eq.'+user.id,
+    select:'role,legacy_access',
+    limit:'1'
+  });
+  const response=await fetch(config.url+'/rest/v1/profiles?'+params.toString(),{
+    headers:{ Authorization:String(req.headers.authorization), apikey:config.anonKey }
+  });
+  const rows=response.ok?await response.json():[];
+  const profile=rows[0];
+  if(!profile){const error=new Error('Profil professeur introuvable.');error.status=403;throw error;}
+  if(profile.role==='admin')return { user, profile, access:'admin', courseId:'' };
+  if(profile.legacy_access===true)return { user, profile, access:'legacy', courseId:'' };
+
+  // Un professeur standard peut encore modifier les tableaux de SON cours Supabase.
+  // Le client annonce l'UUID ouvert ; la RLS et le filtre teacher_id vérifient la propriété.
+  const courseId=cleanText(req.headers['x-course-id'],80);
+  if(/^[0-9a-f-]{36}$/i.test(courseId)){
+    const courseParams=new URLSearchParams({id:'eq.'+courseId,teacher_id:'eq.'+user.id,select:'id',limit:'1'});
+    const courseResponse=await fetch(config.url+'/rest/v1/courses?'+courseParams.toString(),{
+      headers:{ Authorization:String(req.headers.authorization), apikey:config.anonKey }
+    });
+    const courses=courseResponse.ok?await courseResponse.json():[];
+    if(courses[0])return { user, profile, access:'owner', courseId };
+  }
+  const error=new Error('Accès réservé à votre propre cours ou aux administrateurs des cours prédéfinis.');
+  error.status=403;
+  throw error;
+}
+
+function assertLegacyMutationChapter(req,chapterId){
+  const scope=req.legacyCourseMutationScope;
+  if(!scope){const error=new Error('Autorisation de modification manquante.');error.status=403;throw error;}
+  if(scope.access==='admin')return;
+  const key=String(chapterId);
+  const publishedKey=/^published-[0-9a-f-]{36}$/i.test(key);
+  if((scope.access==='owner' && key!=='published-'+scope.courseId) || (scope.access==='legacy' && publishedKey)){
+    const error=new Error('Ce contenu ne correspond pas au cours autorisé.');
+    error.status=403;
+    throw error;
+  }
+}
+
+// Vérifie l'accès avant de laisser le gestionnaire de route lire le corps de la
+// requête. Les refus d'authentification restent toujours des réponses JSON claires.
+function withLegacyCourseMutationAuth(handler){
+  return async function handleAuthorizedLegacyMutation(req,res){
+    try{
+      req.legacyCourseMutationScope=await verifyLegacyCourseEditor(req);
+      return handler(req,res);
+    }catch(error){
+      if(res.headersSent) return;
+      const status=error && error.status===401 ? 401 : 403;
+      res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
+      res.end(JSON.stringify({ error:String(error && error.message || (status===401?'Session requise.':'Accès refusé.')) }));
+    }
+  };
 }
 
 // POST /api/default-courses { chapterId, hidden:true|false }
@@ -267,6 +335,7 @@ function handleOverridesPost(req, res){
     try{
       const { chapterId, step, patch } = JSON.parse(body || '{}');
       if(!chapterId || step===undefined || step===null || typeof patch!=='object') throw new Error('paramètres manquants');
+      assertLegacyMutationChapter(req,String(chapterId));
       const all = readOverrides();
       all[chapterId] = all[chapterId] || {};
       const key = String(step);
@@ -277,7 +346,7 @@ function handleOverridesPost(req, res){
       res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});
       res.end(JSON.stringify({ ok:true, override: all[chapterId][key] || {} }));
     }catch(e){
-      res.writeHead(400,{'Content-Type':'application/json; charset=utf-8'});
+      res.writeHead(e.status||400,{'Content-Type':'application/json; charset=utf-8'});
       res.end(JSON.stringify({ error:String(e.message||e) }));
     }
   });
@@ -332,6 +401,7 @@ function handleContentPost(req, res){
     try{
       const { chapterId, step, media, remove, update, index } = JSON.parse(body || '{}');
       if(!chapterId || step===undefined || step===null) throw new Error('paramètres manquants');
+      assertLegacyMutationChapter(req,String(chapterId));
       const all = readContent();
       all[chapterId] = all[chapterId] || {};
       const key = String(step);
@@ -349,9 +419,48 @@ function handleContentPost(req, res){
       res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});
       res.end(JSON.stringify({ ok:true, list }));
     }catch(e){
-      res.writeHead(400,{'Content-Type':'application/json; charset=utf-8'});
+      res.writeHead(e.status||400,{'Content-Type':'application/json; charset=utf-8'});
       res.end(JSON.stringify({ error:String(e.message||e) }));
     }
+  });
+}
+
+function cleanupPublishedCourseLocalData(courseId){
+  const stores={
+    content:readContent(),
+    customSteps:ensureCustomIds(readCustomSteps()),
+    structure:readStructure(),
+    overrides:readOverrides(),
+    protected:fs.readFileSync(path.join(ROOT,'lecons.js'),'utf8')
+  };
+  const plan=planLocalCourseCleanup(courseId,stores);
+  const files={content:CONTENT_FILE,customSteps:CUSTOM_STEPS_FILE,structure:STRUCTURE_FILE,overrides:OVERRIDES_FILE};
+  plan.changed.forEach(name=>fs.writeFileSync(files[name],JSON.stringify(plan.stores[name],null,2)));
+  const fileErrors=[];
+  plan.uploadFiles.forEach(name=>{
+    try{fs.unlinkSync(path.join(UPLOAD_DIR,name));}
+    catch(error){if(error&&error.code!=='ENOENT')fileErrors.push(name+' : '+String(error.message||error));}
+  });
+  return {
+    ok:true,
+    key:plan.key,
+    clearedStores:plan.changed,
+    deletedUploads:plan.uploadFiles.length-fileErrors.length,
+    warning:fileErrors.length?'Certains téléversements locaux n’ont pas pu être supprimés : '+fileErrors.join(' ; '):''
+  };
+}
+
+function handleAdminCourseLocalDataDelete(req,res){
+  let body='',tooLarge=false;
+  req.on('data',chunk=>{if(tooLarge)return;body+=chunk;if(Buffer.byteLength(body)>16*1024){tooLarge=true;body='';}});
+  req.on('end',async()=>{
+    const answer=(status,payload)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(payload));};
+    try{
+      if(tooLarge)return answer(413,{error:'Requête trop volumineuse.'});
+      await verifyAdminUser(req);
+      const {courseId}=JSON.parse(body||'{}');
+      answer(200,cleanupPublishedCourseLocalData(courseId));
+    }catch(error){answer(error.status||500,{error:String(error.message||error)});}
   });
 }
 
@@ -2240,6 +2349,12 @@ function handleGenerateExperience(req, res){
   });
 }
 
+const handleAuthorizedUpload=withLegacyCourseMutationAuth(handleUpload);
+const handleAuthorizedContentPost=withLegacyCourseMutationAuth(handleContentPost);
+const handleAuthorizedCustomStepsPost=withLegacyCourseMutationAuth(handleCustomStepsPost);
+const handleAuthorizedStructurePost=withLegacyCourseMutationAuth(handleStructurePost);
+const handleAuthorizedOverridesPost=withLegacyCourseMutationAuth(handleOverridesPost);
+
 const server = http.createServer((req, res) => {
   try {
     // ---- API IA ----
@@ -2250,6 +2365,7 @@ const server = http.createServer((req, res) => {
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/generate-experience') return handleGenerateExperience(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/analyze-course-import') return handleAnalyzeCourseImport(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/admin/create-teacher') return handleAdminCreateTeacher(req, res);
+    if (req.method === 'DELETE' && req.url.split('?')[0] === '/api/admin/course-local-data') return handleAdminCourseLocalDataDelete(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/generate-course-image') return handleGenerateCourseImage(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/generate-simulation') return handleGenerateSimulation(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/reexplain') return handleReexplain(req, res);
@@ -2258,17 +2374,17 @@ const server = http.createServer((req, res) => {
     // ---- API voix (Gemini TTS → Cloud TTS → navigateur) ----
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/tts') return handleTTS(req, res);
     // ---- API espace prof : upload de médias + contenu par étape ----
-    if (req.method === 'POST' && req.url.split('?')[0] === '/api/upload')  return handleUpload(req, res);
+    if (req.method === 'POST' && req.url.split('?')[0] === '/api/upload')  return handleAuthorizedUpload(req, res);
     if (req.method === 'GET'  && req.url.split('?')[0] === '/api/content')  return handleContentGet(req, res);
-    if (req.method === 'POST' && req.url.split('?')[0] === '/api/content')  return handleContentPost(req, res);
+    if (req.method === 'POST' && req.url.split('?')[0] === '/api/content')  return handleAuthorizedContentPost(req, res);
     if (req.method === 'GET'  && req.url.split('?')[0] === '/api/custom-steps') return handleCustomStepsGet(req, res);
-    if (req.method === 'POST' && req.url.split('?')[0] === '/api/custom-steps') return handleCustomStepsPost(req, res);
+    if (req.method === 'POST' && req.url.split('?')[0] === '/api/custom-steps') return handleAuthorizedCustomStepsPost(req, res);
     if (req.method === 'GET'  && req.url.split('?')[0] === '/api/course-structure') return handleStructureGet(req, res);
-    if (req.method === 'POST' && req.url.split('?')[0] === '/api/course-structure') return handleStructurePost(req, res);
+    if (req.method === 'POST' && req.url.split('?')[0] === '/api/course-structure') return handleAuthorizedStructurePost(req, res);
     if (req.method === 'GET'  && req.url.split('?')[0] === '/api/default-courses') return handleDefaultCoursesGet(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/default-courses') return handleDefaultCoursesPost(req, res);
     if (req.method === 'GET'  && req.url.split('?')[0] === '/api/overrides') return handleOverridesGet(req, res);
-    if (req.method === 'POST' && req.url.split('?')[0] === '/api/overrides') return handleOverridesPost(req, res);
+    if (req.method === 'POST' && req.url.split('?')[0] === '/api/overrides') return handleAuthorizedOverridesPost(req, res);
     if (req.method === 'GET'  && req.url.split('?')[0] === '/api/models3d') return handleModels3DGet(req, res);
     if (req.method === 'GET'  && req.url.split('?')[0].startsWith('/download-models3d/')) return serveDownloadsModel(req, res);
     // ---- Autorisation OAuth Google Cloud TTS (consentement unique) ----
