@@ -6,6 +6,9 @@
   };
   const MEDIA_KINDS=new Set(['image','schema','video','simulation','audio','other']);
   const SCENES=new Set(['avatar_only','split_left','split_right','board_focus','media_focus','activity_focus','question_focus','summary_focus']);
+  // Première diapositive : avatar entier, centré, avec 7 % de marge verticale. Ces bornes
+  // restent valables dans le cadre 16/9 de référence, y compris en plein écran.
+  const INTRO_LAYOUT={avatar:{x:32,y:7,w:36,h:86,mode:'full',z:6},el:{}};
 
   function html(value){return String(value??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
   function attr(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -119,6 +122,13 @@
     if(/^&lt;\s*(?:!doctype|html)\b/i.test(document)){
       document=document.replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&quot;/gi,'"').replace(/&#0*39;|&#x0*27;/gi,"'").replace(/&amp;/gi,'&');
     }
+    // Migration sans republication : les premières simulations SVG avaient bien les écouteurs
+    // de glisser-déposer sur le groupe, mais leur dessin ignorait les clics. Ce petit correctif
+    // ajoute une surface de saisie à chaque ancien objet après chaque nouveau rendu de la scène.
+    if(/window\.CourseSimulation\s*=/.test(document)&&/data-element/.test(document)&&!/drag-hit/.test(document)&&/<\/body>/i.test(document)){
+      const legacyDragPatch=`<script id="ccLegacyDragPatch">(()=>{const NS='http://www.w3.org/2000/svg',scene=document.getElementById('scene');if(!scene)return;const patch=()=>scene.querySelectorAll('g.draggable[data-element]').forEach(group=>{if(Array.from(group.children).some(node=>node.classList&&node.classList.contains('drag-hit')))return;const holder=Array.from(group.children).find(node=>node.tagName&&node.tagName.toLowerCase()==='g'&&node.getAttribute('pointer-events')==='none'),art=holder&&holder.querySelector('svg');if(!art)return;const hit=document.createElementNS(NS,'rect');hit.setAttribute('x',art.getAttribute('x')||'0');hit.setAttribute('y',art.getAttribute('y')||'0');hit.setAttribute('width',art.getAttribute('width')||'16');hit.setAttribute('height',art.getAttribute('height')||'16');hit.setAttribute('rx','2');hit.setAttribute('fill','transparent');hit.setAttribute('pointer-events','all');hit.setAttribute('class','drag-hit');group.insertBefore(hit,group.firstChild)});new MutationObserver(patch).observe(scene,{childList:true,subtree:true});patch()})();<\/script>`;
+      document=document.replace(/<\/body>/i,legacyDragPatch+'</body>');
+    }
     return /^<\s*(?:!doctype|html)\b/i.test(document)?document:'';
   }
   function standaloneResourceStep(source,mediaIndex){
@@ -168,9 +178,17 @@
     const title=vagueTitle&&objective?compact(objective,90):rawTitle;
     const shownTitle=chunkCount>1?`${title} (${chunkIndex+1}/${chunkCount})`:title;
     const presentation=normalizePresentation(content.presentation,type,source,source?mediaIndex:visualIndex);
-    const board={title:html(shownTitle),lines:boardLines(chunk,presentation.scene==='media_focus'?2:5)};
+    // Double piste produite par l'import : content.say = script oral du professeur,
+    // content.board_lines = trace écrite. Sans elles (anciens cours), le texte unique
+    // est à la fois parlé et découpé en lignes comme avant.
+    const spokenScript=plain(content.say,1900);
+    const customBoard=(Array.isArray(content.board_lines)?content.board_lines:[])
+      .map(line=>({t:plain(line&&line.t,170),cls:['def','ex','imp','sub'].includes(line&&line.cls)?line.cls:''}))
+      .filter(line=>line.t).slice(0,6);
+    const writtenSource=spokenScript?plain(content.text||row.objective||chunk,2200):chunk;
+    const board={title:html(shownTitle),lines:customBoard.length?customBoard.map(line=>({t:html(line.t),cls:line.cls})):boardLines(writtenSource,presentation.scene==='media_focus'?2:5)};
     if(type==='question'){
-      board.probleme=html(chunk);board.lines=[];
+      board.probleme=html(customBoard.length?customBoard.map(line=>line.t).join(' '):(spokenScript?compact(writtenSource,300):chunk));board.lines=[];
       board.problemeTag=/situation\s*[-–—]?\s*probl[èe]me/i.test(`${title} ${objective}`)?'Situation-problème':'Question à la classe';
     }
     const inlineSimulation=type==='simulation'?simulationDocument(content.simulation_html):'';
@@ -188,7 +206,10 @@
     const lead=type==='image'?'Observe attentivement cette image. ':type==='schema'?'Regardons comment ce schéma est organisé. ':type==='video'?'Observe cette vidéo avant de retenir l’explication. ':type==='simulation'?'Manipule la simulation et observe le résultat. ':type==='activity'?'À toi de participer au tableau. ':type==='question'||type==='evaluation'?'Je te laisse quelques instants pour répondre. ':type==='summary'?'Retenons l’essentiel. ':'';
     const holdForResource=!!(board.media&&['video','simulation','audio','link'].includes(board.media.type));
     const phase=type==='question'&&board.problemeTag!=='Situation-problème'?'structuration':(PHASE_BY_TYPE[type]||'concept');
-    return {phase,say:`${shownTitle}. ${lead}${chunk}`.slice(0,1950),board,presentation,pauseForAnswer:type==='question'||holdForResource};
+    // Le script oral écrit par l'IA contient déjà accroche, consigne et renvois au tableau :
+    // il est prononcé tel quel, sans re-préfixer mécaniquement le titre du bloc.
+    const say=spokenScript||`${shownTitle}. ${lead}${chunk}`;
+    return {phase,say:say.slice(0,1950),board,presentation,pauseForAnswer:type==='question'||holdForResource};
   }
   async function loadPublishedCourseLesson(courseId){
     if(!/^[0-9a-f-]{36}$/i.test(courseId||''))throw new Error('Identifiant de cours invalide.');
@@ -212,8 +233,7 @@
     const target=analysis.targetContext||(course.settings&&course.settings.target_context)||{subjectName:course.subjects&&course.subjects.name,gradeLevelName:course.grade_levels&&course.grade_levels.name,streamName:course.study_streams&&course.study_streams.name};
     const gameMode=/préscolaire|primaire|apep|grande\s+section|\bcp\b/i.test(`${target.cycle||''} ${target.gradeLevelName||''} ${target.gradeLevelCode||''}`);
     const sessionNames={};(analysis.sessions||[]).forEach((item,index)=>sessionNames[index]=plain(item&&item.title,180));
-    const introLayout={avatar:{x:31,y:2,w:38,h:96,mode:'full',z:6},el:{}};
-    const etapes=[{intro:true,say:`Bienvenue dans le cours ${plain(course.title,180)}. ${plain(course.description||analysis.summary,1200)} Aujourd'hui, je vais te guider avec des explications, des ressources à observer et des moments où tu participeras au tableau.`,board:{title:'',lines:[]},presentation:{scene:'avatar_only',avatarSize:'full',layout:introLayout}}];
+    const etapes=[{intro:true,say:`Bienvenue dans le cours ${plain(course.title,180)}. ${plain(course.description||analysis.summary,1200)} Aujourd'hui, je vais te guider avec des explications, des ressources à observer et des moments où tu participeras au tableau.`,board:{title:'',lines:[]},presentation:{scene:'avatar_only',avatarSize:'full',layout:INTRO_LAYOUT}}];
     const grouped={};(blocks||[]).forEach(row=>(grouped[row.session_position]||(grouped[row.session_position]=[])).push(row));
     const quizSets=[];
     let visualIndex=0,mediaIndex=0;
@@ -225,7 +245,10 @@
         // créait autant de faux cadres « situation-problème » dans la leçon.
         if(row.block_type==='evaluation')return;
         const content=row.content&&typeof row.content==='object'?row.content:{};
-        const text=plain(content.text||row.objective||row.title,12000),parts=chunks(text);
+        // Un bloc avec script oral dédié devient UNE étape (le say est déjà calibré) ;
+        // sinon l'ancien texte unique est découpé en morceaux parlables.
+        const spoken=plain(content.say,1900);
+        const text=plain(content.text||row.objective||row.title,12000),parts=spoken?[spoken]:chunks(text);
         const source=sourceForRow(row,sourceMap,allSources);if(source)usedSourceIds.add(source.id);
         parts.forEach((part,index)=>{etapes.push(stepFromBlock(row,source,part,index,parts.length,sessionTitle,visualIndex++,source?mediaIndex++:mediaIndex,sessionRows));});
       });
@@ -266,5 +289,5 @@
     window.ccTextHash=ccTextHash;
     window.loadPublishedCourseLesson=loadPublishedCourseLesson;
   }
-  if(typeof module!=='undefined'&&module.exports)module.exports={layoutForScene,normalizePresentation,evaluationQuestion,simulationDocument,stepFromBlock,ccTextHash};
+  if(typeof module!=='undefined'&&module.exports)module.exports={INTRO_LAYOUT,layoutForScene,normalizePresentation,evaluationQuestion,simulationDocument,stepFromBlock,ccTextHash};
 })();

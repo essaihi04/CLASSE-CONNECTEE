@@ -2,7 +2,15 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizePresentation, evaluationQuestion, simulationDocument, stepFromBlock } = require('../prototype/published-course-loader');
+const { INTRO_LAYOUT, normalizePresentation, evaluationQuestion, simulationDocument, stepFromBlock } = require('../prototype/published-course-loader');
+
+test('garde le grand avatar d’introduction entièrement dans le plein écran', () => {
+  const avatar=INTRO_LAYOUT.avatar;
+  assert.ok(avatar.y>=5);
+  assert.ok(avatar.y+avatar.h<=95);
+  assert.ok(avatar.x>=0);
+  assert.ok(avatar.x+avatar.w<=100);
+});
 
 test('réserve une vraie zone média aux simulations même si l’IA demande activity_focus', () => {
   const source={kind:'simulation',url:'https://example.test/simulation.html',file_name:'simulation.html',mime_type:'text/html'};
@@ -28,6 +36,38 @@ test('remplace un titre vague répété par l’objectif précis de la fiche', (
   assert.doesNotMatch(step.say,/J'écoute/i);
 });
 
+test('sépare le script oral (say) de la trace écrite (board_lines)', () => {
+  const step=stepFromBlock({block_type:'text',title:'Le son de M',objective:'Produire le son [m]',content:{
+    text:'M fait le son [m], un son continu.',
+    say:'Regarde le gâteau. Dis « Mmmm ! C’est bon ! ». Ferme tes lèvres et fais durer le son : mmmm. Tu vois au tableau : M fait mmmm, pas émé.',
+    board_lines:[{t:'M fait [m] — « mmmm »',cls:'def'},{t:'mouton · moto · pyjama',cls:'ex'},{t:'M ne fait pas « émé »',cls:'imp'}]
+  }},null,'Regarde le gâteau. Dis « Mmmm ! C’est bon ! ». Ferme tes lèvres et fais durer le son : mmmm. Tu vois au tableau : M fait mmmm, pas émé.',0,1,'Séance',1,0,[]);
+  // La voix prononce le script oral tel quel, sans re-préfixer le titre.
+  assert.match(step.say,/^Regarde le gâteau/);
+  assert.doesNotMatch(step.say,/^Le son de M\./);
+  // Le tableau montre la trace écrite structurée, pas la parole recopiée.
+  assert.equal(step.board.lines.length,3);
+  assert.equal(step.board.lines[0].cls,'def');
+  assert.match(step.board.lines[0].t,/M fait \[m\]/);
+  assert.doesNotMatch(step.board.lines.map(l=>l.t).join(' '),/Regarde le gâteau/);
+});
+
+test('retombe sur l’ancien texte unique quand say/board_lines sont absents', () => {
+  const step=stepFromBlock({block_type:'text',title:'Le son de M',objective:'',content:{text:'M fait le son [m].'}},null,'M fait le son [m].',0,1,'Séance',1,0,[]);
+  assert.match(step.say,/^Le son de M\. M fait le son \[m\]\./);
+  assert.equal(step.board.lines[0].cls,'def');
+});
+
+test('affiche la question écrite au tableau, pas le script parlé', () => {
+  const step=stepFromBlock({block_type:'question',title:'Où est [m] ?',objective:'Localiser le son',content:{
+    text:'Où entends-tu [m] dans PLUME ?',
+    say:'Écoute bien : pluuume. Où entends-tu mmm ? Au début, au milieu ou à la fin ? Montre au tableau.',
+    board_lines:[{t:'PLUME : où est [m] ?',cls:''}]
+  }},null,'Écoute bien : pluuume.',0,1,'Séance',1,0,[]);
+  assert.equal(step.board.probleme,'PLUME : où est [m] ?');
+  assert.match(step.say,/^Écoute bien/);
+});
+
 test('conserve les SVG générés pour un mini-jeu visuel', () => {
   const item=evaluationQuestion({kind:'qcm',question:'Choisis le mouton.',questionSvg:'<svg viewBox="0 0 100 100"></svg>',options:['mouton','ballon'],optionSvgs:['<svg viewBox="0 0 100 100"></svg>',''],correctIndex:0},'');
   assert.equal(item.type,'qcm');
@@ -47,4 +87,12 @@ test('donne la priorité à la simulation inline même si une ressource distante
 test('répare une ancienne simulation dont toute la page HTML est encodée', () => {
   const encoded='&lt;!doctype html&gt;&lt;html&gt;&lt;title&gt;Jeu &amp; sons&lt;/title&gt;&lt;/html&gt;';
   assert.equal(simulationDocument(encoded),'<!doctype html><html><title>Jeu & sons</title></html>');
+});
+
+test('ajoute une surface de saisie aux anciens SVG déplaçables sans republier le cours', () => {
+  const legacy='<!doctype html><html><body><svg id="scene"><g data-element="mouton" class="draggable"></g></svg><script>window.CourseSimulation={};const marker="data-element";</script></body></html>';
+  const upgraded=simulationDocument(legacy);
+  assert.match(upgraded,/id="ccLegacyDragPatch"/);
+  assert.match(upgraded,/pointer-events/);
+  assert.match(upgraded,/drag-hit/);
 });

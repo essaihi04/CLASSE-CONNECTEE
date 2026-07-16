@@ -751,7 +751,7 @@ function courseLayoutSlides(chap){
   let midIndex=quizOv.evalDisabled ? -1 : steps.findIndex(e=>e.__id===quizOv.evalAfterId);
   if(midIndex<0 && !quizOv.evalDisabled && !Object.prototype.hasOwnProperty.call(quizOv,'evalAfterId')) midIndex=steps.findIndex(e=>e.evalHere);
   steps.forEach((e,index)=>{
-    slides.push({step:index,name:(e.board&&e.board.title)||('Partie '+(index+1)),phase:PHASES[e.phase]||'Partie'});
+    slides.push({step:index,name:(e.board&&e.board.title)||(e.intro?'Introduction (avatar seul)':'Partie '+(index+1)),phase:e.intro?'Accueil':(PHASES[e.phase]||'Partie')});
     if(index===midIndex) slides.push({step:'quiz-mid',name:'Évaluation 1 — intermédiaire',phase:'Évaluation'});
   });
   if(!quizOv.hideQuiz) slides.push({step:'quiz',name:'Évaluation 2 — fin du chapitre',phase:'Évaluation'});

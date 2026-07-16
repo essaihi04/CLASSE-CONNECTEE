@@ -649,9 +649,14 @@ const COURSE_IMPORT_SCHEMA={
     warnings:{type:'array',items:{type:'string'}},
     sessions:{type:'array',items:{type:'object',additionalProperties:false,required:['title','durationMinutes','explanationMinutes','objective','blocks'],properties:{
       title:{type:'string'},durationMinutes:{type:'number'},explanationMinutes:{type:'number'},objective:{type:'string'},
-      blocks:{type:'array',items:{type:'object',additionalProperties:false,required:['type','title','durationMinutes','objective','content','resourceName','presentation','activity','simulation','image','evaluation'],properties:{
+      blocks:{type:'array',items:{type:'object',additionalProperties:false,required:['type','title','durationMinutes','objective','content','say','board','resourceName','presentation','activity','simulation','image','evaluation'],properties:{
         type:{type:'string',enum:['text','image','video','simulation','activity','question','summary','evaluation','schema']},
-        title:{type:'string'},durationMinutes:{type:'number'},objective:{type:'string'},content:{type:'string'},resourceName:{type:'string'},
+        title:{type:'string'},durationMinutes:{type:'number'},objective:{type:'string'},content:{type:'string'},
+        say:{type:'string'},
+        board:{type:'array',items:{type:'object',additionalProperties:false,required:['t','cls'],properties:{
+          t:{type:'string'},cls:{type:'string',enum:['','def','ex','imp','sub']}
+        }}},
+        resourceName:{type:'string'},
         presentation:{type:['object','null'],additionalProperties:false,required:['scene','avatarSize','mediaPosition'],properties:{
           scene:{type:'string',enum:['auto','avatar_only','split_left','split_right','board_focus','media_focus','activity_focus','question_focus','summary_focus']},
           avatarSize:{type:'string',enum:['full','reduced']},mediaPosition:{type:'string',enum:['auto','left','right','wide']}
@@ -667,11 +672,11 @@ const COURSE_IMPORT_SCHEMA={
           interactionType:{type:'string',enum:['variable','drag_drop','free_move']},
           enonce:{type:'string'},goal:{type:'string'},observe:{type:'string'},visual:{type:'string'},conclusionQuestion:{type:'string'},successMessage:{type:'string'},retryMessage:{type:'string'},
           variables:{type:'array',items:{type:'object',additionalProperties:false,required:['name','unit','min','max','step','initial'],properties:{name:{type:'string'},unit:{type:'string'},min:{type:'number'},max:{type:'number'},step:{type:'number'},initial:{type:'number'}}}},
-          elements:{type:'array',items:{type:'object',additionalProperties:false,required:['id','label','shape','x','y','width','height','color','bindVariable','bindProperty','outputMin','outputMax','draggable','svg'],properties:{
-            id:{type:'string'},label:{type:'string'},shape:{type:'string',enum:['circle','rect','bar','arrow']},x:{type:'number'},y:{type:'number'},width:{type:'number'},height:{type:'number'},color:{type:'string'},bindVariable:{type:'string'},bindProperty:{type:'string',enum:['','x','y','width','height','opacity','rotation']},outputMin:{type:'number'},outputMax:{type:'number'},draggable:{type:'boolean'},svg:{type:'string'}
+          elements:{type:'array',items:{type:'object',additionalProperties:false,required:['id','label','word','imagePrompt','shape','x','y','width','height','color','bindVariable','bindProperty','outputMin','outputMax','draggable','svg'],properties:{
+            id:{type:'string'},label:{type:'string'},word:{type:'string'},imagePrompt:{type:'string'},shape:{type:'string',enum:['circle','rect','bar','arrow']},x:{type:'number'},y:{type:'number'},width:{type:'number'},height:{type:'number'},color:{type:'string'},bindVariable:{type:'string'},bindProperty:{type:'string',enum:['','x','y','width','height','opacity','rotation']},outputMin:{type:'number'},outputMax:{type:'number'},draggable:{type:'boolean'},svg:{type:'string'}
           }}},
-          zones:{type:'array',items:{type:'object',additionalProperties:false,required:['id','label','x','y','width','height','color','accepts','svg'],properties:{
-            id:{type:'string'},label:{type:'string'},x:{type:'number'},y:{type:'number'},width:{type:'number'},height:{type:'number'},color:{type:'string'},accepts:{type:'array',items:{type:'string'}},svg:{type:'string'}
+          zones:{type:'array',items:{type:'object',additionalProperties:false,required:['id','label','imagePrompt','x','y','width','height','color','accepts','svg'],properties:{
+            id:{type:'string'},label:{type:'string'},imagePrompt:{type:'string'},x:{type:'number'},y:{type:'number'},width:{type:'number'},height:{type:'number'},color:{type:'string'},accepts:{type:'array',items:{type:'string'}},svg:{type:'string'}
           }}},
           rules:{type:'array',items:{type:'object',additionalProperties:false,required:['variable','operator','threshold','thresholdMax','observation'],properties:{variable:{type:'string'},operator:{type:'string',enum:['lt','lte','gt','gte','eq','between']},threshold:{type:'number'},thresholdMax:{type:'number'},observation:{type:'string'}}}},
           imageUseful:{type:'boolean'},imagePrompt:{type:'string'},imageAlt:{type:'string'}
@@ -759,6 +764,13 @@ function cleanGeneratedCourse(value, requestedMinutes, target){
           criteria:(Array.isArray(block.evaluation.criteria)?block.evaluation.criteria:[]).map(x=>cleanText(x,180)).filter(Boolean).slice(0,8)};
         if(!evaluation.question)evaluation=null;
       }
+      // Double piste dit/écrit : "say" est le script oral prononcé par l'avatar,
+      // "board" la trace écrite affichée au tableau. Les deux voyagent avec le bloc
+      // jusqu'au lecteur ; sans elles, le lecteur retombe sur l'ancien texte unique.
+      const say=cleanText(block&&block.say,1900);
+      const boardLines=(Array.isArray(block&&block.board)?block.board:[]).slice(0,6)
+        .map(line=>({t:cleanText(line&&line.t,160),cls:['def','ex','imp','sub'].includes(line&&line.cls)?line.cls:''}))
+        .filter(line=>line.t);
       const cleanBlock={
         id:'s'+(sessionIndex+1)+'-b'+(blockIndex+1), type,
         title:cleanText(block&&block.title,220)||'Bloc '+(blockIndex+1),
@@ -766,6 +778,8 @@ function cleanGeneratedCourse(value, requestedMinutes, target){
         objective:cleanText(block&&block.objective,400), content:cleanText(content,8000),
         resourceName:cleanText(block&&block.resourceName,220), teacherNote:'', validated:false
       };
+      if(say)cleanBlock.say=say;
+      if(boardLines.length)cleanBlock.boardLines=boardLines;
       if(presentation) cleanBlock.presentation=presentation;
       if(activity) cleanBlock.activity=activity;
       if(simulation) cleanBlock.simulation=simulation;
@@ -820,6 +834,21 @@ CONTROLE DE COMPATIBILITE OBLIGATOIRE AVANT GENERATION
 4. Si le PDF indique clairement une autre matière ou une autre année, renvoie sourceAssessment, warnings et sessions:[] ; n'essaie pas de convertir un cours incompatible.
 5. Si le PDF ne précise pas assez la matière ou le niveau, utilise "uncertain", puis adapte strictement le contenu disponible à la cible sans inventer de notions.
 
+EXPLOITATION FIDÈLE ET COMPLÈTE DE LA SOURCE
+La fiche du professeur est ton scénario : exploite CHAQUE rubrique, ne laisse rien de côté.
+- Chaque étape du déroulement (ou chaque section du document) devient un ou plusieurs blocs, dans le même ordre, avec un titre concret repris de la source.
+- La colonne « déroulement / consigne » nourrit le script oral "say" ; la colonne « rôle de l'élève » définit le GESTE demandé (écouter, montrer, classer, déplacer, répondre) et donc le type de bloc (simulation, activity, question).
+- Les durées indiquées par la source guident durationMinutes de chaque bloc ; les objectifs d'apprentissage deviennent les objective des blocs concernés.
+- Les critères de réussite nourrissent les évaluations et leurs feedback ; la différenciation nourrit retryMessage et les rétroactions (reformuler plus lentement, exagérer l'articulation, proposer un mot de plus…).
+- Le matériel cité (diaporama, images, comptine…) est associé si le fichier existe dans l'inventaire ; sinon ajoute un avertissement, sans inventer de fichier.
+
+DOUBLE PISTE OBLIGATOIRE : CE QUI EST DIT N'EST PAS CE QUI EST ÉCRIT
+Pour CHAQUE bloc, remplis séparément "say" (la voix du professeur) et "board" (la trace écrite au tableau) :
+- "say" : le script oral COMPLET que l'avatar prononce, comme un vrai professeur devant sa classe : une accroche, l'explication vivante, la consigne du geste attendu, une question à la classe. Il commente EXPLICITEMENT ce qui est affiché au tableau ou dans le média au moment où on le voit (« Regarde le mot MOTO au tableau… », « Prends le mouton et pose-le dans le panier »). Il ne lit JAMAIS le tableau mot à mot. 3 à 8 phrases adaptées à l'âge (primaire : phrases de 12 mots maximum, tutoiement, ton joueur).
+- "board" : 1 à 5 lignes courtes, exactement ce qu'un professeur écrirait à la craie : mots-clés, règle, exemples — jamais des phrases orales recopiées. cls vaut "def" pour une définition ou une règle, "ex" pour un exemple, "imp" pour l'essentiel à retenir, "" sinon. Au primaire : 3 lignes maximum, mots très simples, mots-cibles en MAJUSCULES quand on travaille leur forme écrite (ex : MOTO, PLUME, PYJAMA).
+- Cohérence stricte : chaque ligne du tableau est nommée ou commentée dans "say" ; rien n'apparaît au tableau sans être expliqué à l'oral, et rien d'important n'est dit sans appui visible (tableau ou média).
+- "content" reste un court texte de référence pour le professeur (ce que le bloc enseigne), pas un doublon du say ni du tableau.
+
 REGLES PEDAGOGIQUES STRICTES
 1. Le total des durées des séances doit être exactement ${requestedMinutes} minutes. Fais des séances de 60 minutes au maximum, sauf nécessité clairement justifiée.
 2. Prévois entre 15 et 20 minutes d'explication magistrale par heure : sur l'ensemble du cours, entre ${Math.ceil(requestedHours*15)} et ${Math.floor(requestedHours*20)} minutes. Renseigne explanationMinutes dans chaque séance.
@@ -839,22 +868,25 @@ REGLES PEDAGOGIQUES STRICTES
 16. IMAGES GÉNÉRÉES : pour un bloc image/schema utile sans fichier associé, fournis "image" avec useful=true, une raison pédagogique, un prompt visuel précis sans texte à imprimer dans l'image, un texte alternatif et une légende. Si l'image n'est pas indispensable, ne crée pas le bloc. N'utilise jamais l'image comme simple décoration.
 17. SIMULATIONS GÉNÉRÉES — TU CONÇOIS TOI-MÊME LA MANIPULATION : ne transforme jamais automatiquement une notion en liste de boutons ou en QCM. Choisis le geste cognitif et physique adapté à la matière, au niveau exact et à l'objectif :
     - interactionType="variable" pour expérimenter une relation cause→effet : 1 à 3 variables, règles d'observation et éléments dont bindVariable recopie exactement le nom d'une variable ;
-    - interactionType="drag_drop" pour trier, associer, ordonner ou placer : variables et rules vides, objets draggable=true, zones avec accepts contenant les id exacts des objets corrects ;
+    - interactionType="drag_drop" pour trier, associer, ordonner ou placer : variables et rules vides, 2 à 6 objets tous draggable=true, au moins une zone de dépôt, et zones.accepts contenant les id exacts des objets corrects. Ce n'est jamais une image statique : l'élève doit saisir chaque objet avec la souris ou le doigt et le déposer ;
     - interactionType="free_move" pour construire librement un schéma ou explorer l'espace : objets draggable=true, zones facultatives.
-    Pour chaque objet concret nécessaire (animal, vêtement, aliment, organe, nombre, forme, outil, etc.) et chaque cible concrète (panier, boîte, partie d'un schéma, axe, ensemble, etc.), crée toi-même une petite illustration dans "svg". Le champ contient un <svg viewBox="0 0 100 100"> composé uniquement de g/path/rect/circle/ellipse/line/polyline/polygon, sans texte, HTML, JavaScript, style, image, lien, filtre ni événement. Le moteur ajoute les libellés et exécute le geste. Coordonnées de la scène : x 0–100, y 0–70 ; objets grands, séparés, saisissables au doigt et zones non superposées. Fournis successMessage et retryMessage courts et bienveillants. Aucun HTML ni JavaScript. "imageUseful" vaut true seulement si une image de fond apporte un contexte irremplaçable. Une simulation est interdite si la manipulation n'apporte rien de plus qu'une activité simple, une image ou du texte.
+    Pour chaque objet concret nécessaire (animal, vêtement, aliment, organe, nombre, forme, outil, etc.) et chaque cible concrète (panier, boîte, partie d'un schéma, axe, ensemble, etc.), crée toi-même une petite illustration dans "svg". Le champ contient un <svg viewBox="0 0 100 100"> composé uniquement de g/path/rect/circle/ellipse/line/polyline/polygon, sans texte, HTML, JavaScript, style, image, lien, filtre ni événement. Pour une lettre, un chiffre ou un symbole à reconnaître, DESSINE sa forme en grand avec des path/line épais (stroke-width 8 à 12) : c'est l'objet lui-même, pas une décoration. Le moteur ajoute les libellés et exécute le geste. Coordonnées de la scène : x 0–100, y 0–70 ; objets grands, séparés, saisissables au doigt et zones non superposées.
+    CARTES-IMAGES RÉELLES : chaque objet et chaque zone possèdent un champ "imagePrompt". S'il est rempli, une VRAIE illustration est générée par IA et affichée en grande carte-image à la place du SVG (le SVG reste le repli obligatoire). Décris précisément UN sujet concret, sans texte : imagePrompt="un mouton blanc laineux debout dans l'herbe, dessin plat enfantin". AU PRIMAIRE ET AU PRÉSCOLAIRE, remplis imagePrompt pour CHAQUE objet concret et chaque contenant : la simulation doit être un jeu d'images avant tout, comme un imagier tactile — 2 à 6 grandes cartes (largeur 18 à 28), le texte se limitant à la consigne d'une phrase et à un libellé d'un mot par carte. Aux niveaux collège/lycée, remplis imagePrompt seulement quand une photo/illustration réaliste apporte plus qu'un schéma (objets réels, êtres vivants) ; laisse "" pour les formes abstraites, lettres, chiffres et symboles (le SVG suffit).
+    AUDIO DE LA MANIPULATION : chaque objet possède un champ "word" = ce que la voix prononce à voix haute quand l'élève touche l'objet. En langue et en phonologie, c'est OBLIGATOIRE : l'élève doit ENTENDRE le mot qu'il classe (word="mouton", word="ballon"…). Ailleurs, word porte le nom exact de l'objet si l'entendre aide (primaire), sinon une chaîne vide.
+    Fournis successMessage et retryMessage courts, bienveillants et PRÉCIS (ils sont aussi lus à voix haute aux non-lecteurs) : reprends la différenciation de la source pour retryMessage (ex. « Redis le mot lentement : mmm-outon. Entends-tu mmm ? »). Aucun HTML ni JavaScript. "imageUseful" vaut true seulement si une image de fond apporte un contexte irremplaçable. Une simulation est interdite si la manipulation n'apporte rien de plus qu'une activité simple, une image ou du texte.
 18. ÉVALUATIONS OBLIGATOIRES : termine chaque séance par au moins une question formative structurée dans "evaluation" et termine le cours par une évaluation générale couvrant toutes les séances. Utilise qcm, vf, libre ou association ; fournis réponse correcte, rétroaction et critères de réussite tirés du PDF. Les distracteurs doivent être plausibles pour l'âge sans introduire de nouvelle notion. Une évaluation est un jeu final, pas une nouvelle situation-problème et pas une répétition du cours.
 19. DÉVELOPPEMENT DE L'ÉLÈVE : primaire = manipulation, exemples concrets du quotidien, phrases très courtes ; collège = passage progressif du concret vers l'abstrait, schématisation guidée ; lycée = formalisation, raisonnement hypothético-déductif, autonomie. Applique le niveau exact de la cible, avec des méthodes actives (investigation, situation-problème, évaluation formative) et jamais un cours magistral continu.
     EXIGENCES SPÉCIFIQUES AU PRIMAIRE (préscolaire à 6APEP) — obligatoires si la cible est une année du primaire :
     - phrases parlées de 12 mots MAXIMUM, un seul mot nouveau par bloc, toujours expliqué avec un objet du quotidien marocain (pain, thé, cartable, ballon…) ;
     - ton joueur et encourageant, tutoiement, questions fréquentes « et toi, qu'est-ce que tu vois ? » ;
     - beaucoup de visuel et de manipulation, très peu de texte au tableau (3 lignes maximum, mots simples) ;
-    - simulations avec UN seul geste à comprendre : soit UNE variable, soit 2 à 6 grands objets SVG à déplacer ; éléments très colorés, libellés lisibles et consigne d'une phrase ;
+    - simulations avec UN seul geste à comprendre : soit UNE variable, soit 2 à 6 grandes cartes-images à déplacer (imagePrompt ET word remplis pour chacune, SVG de repli) ; l'image domine, le texte se limite à la consigne d'une phrase et à un libellé d'un mot ;
     - évaluations sous forme de 3 à 4 MINI-JEUX distincts couvrant les objectifs réellement présents dans la source : par exemple reconnaître, classer/localiser, puis identifier une forme ou un symbole. Crée un bloc evaluation séparé par mini-jeu, avec un titre concret. Utilise qcm, vf ou association, jamais "libre" ni question rédigée longue ;
     - rends ces mini-jeux visuels : questionSvg et optionSvgs contiennent, quand utile, de petits SVG créés par toi et adaptés aux objets du document. Même sous-ensemble SVG sûr que pour les simulations, sans texte, script, style, image, lien, filtre ni événement. Si aucun visuel n'est utile, utilise une chaîne vide ou un tableau vide ;
     - aucun terme technique du collège : adapte chaque notion avec les mots d'un enfant de cet âge.
 ${(()=>{const memory=classMemoryInstruction(target.subjectName,target.gradeLevelName);return memory?'20. '+memory.replace(/\n/g,'\n    ')+'\n':'';})()}
 Réponds en français avec un unique objet JSON :
-{"courseTitle":"...","summary":"...","targetAudience":"${target.gradeLevelName}","sourceSummary":"...","sourceAssessment":{"detectedSubject":"...","detectedCycle":"...","detectedGradeLevel":"...","subjectMatch":"match|mismatch|uncertain","gradeLevelMatch":"match|mismatch|uncertain","evidence":["indice bref tiré du PDF"]},"warnings":["..."],"sessions":[{"title":"...","durationMinutes":60,"explanationMinutes":18,"objective":"...","blocks":[{"type":"activity","title":"Activité de structuration","durationMinutes":8,"objective":"Organiser les notions","content":"Consigne fidèle au PDF.","resourceName":"","presentation":{"scene":"activity_focus","avatarSize":"full"},"activity":{"kind":"association","instruction":"Associe chaque notion à sa description.","items":[{"prompt":"notion 1 du PDF","answer":"description 1 fidèle au PDF","options":[]},{"prompt":"notion 2 du PDF","answer":"description 2 fidèle au PDF","options":[]}]}}]}]}
+{"courseTitle":"...","summary":"...","targetAudience":"${target.gradeLevelName}","sourceSummary":"...","sourceAssessment":{"detectedSubject":"...","detectedCycle":"...","detectedGradeLevel":"...","subjectMatch":"match|mismatch|uncertain","gradeLevelMatch":"match|mismatch|uncertain","evidence":["indice bref tiré du PDF"]},"warnings":["..."],"sessions":[{"title":"...","durationMinutes":60,"explanationMinutes":18,"objective":"...","blocks":[{"type":"activity","title":"Activité de structuration","durationMinutes":8,"objective":"Organiser les notions","content":"Ce que ce bloc enseigne, en une ou deux phrases.","say":"Script oral complet du professeur : accroche, explication, consigne du geste, question à la classe.","board":[{"t":"Mot-clé ou règle courte","cls":"def"},{"t":"Exemple fidèle au PDF","cls":"ex"}],"resourceName":"","presentation":{"scene":"activity_focus","avatarSize":"full"},"activity":{"kind":"association","instruction":"Associe chaque notion à sa description.","items":[{"prompt":"notion 1 du PDF","answer":"description 1 fidèle au PDF","options":[]},{"prompt":"notion 2 du PDF","answer":"description 2 fidèle au PDF","options":[]}]}}]}]}
 Respecte exactement le schéma JSON imposé. Dans chaque bloc, les objets presentation, activity, simulation, image et evaluation qui ne s'appliquent pas valent null.`;
 }
 
@@ -919,11 +951,13 @@ async function callOpenAICourseImport(ctx){
   content.push({type:'input_text',text:buildCourseImportMission(ctx.request||{},target,requestedMinutes,requestedHours,inventory)});
   const courseModels=[...(process.env.OPENAI_COURSE_MODEL||'').split(',').map(x=>x.trim()).filter(Boolean),...OPENAI_MODELS]
     .filter((model,index,models)=>models.indexOf(model)===index);
-  // L'effort medium conserve la structuration pédagogique mais évite les temps de raisonnement
-  // excessifs du mode high. Une tentative est bornée à 4 min avant le modèle de repli.
-  console.log('[import cours] analyse OpenAI démarrée ('+courseModels.join(' → ')+', effort medium)');
+  // La création du cours est le moment où la qualité prime sur la latence : effort de
+  // raisonnement élevé par défaut (OPENAI_COURSE_EFFORT pour le baisser), une tentative
+  // bornée à 5 min avant le modèle de repli, puis Gemini en dernier recours.
+  const courseEffort=['low','medium','high'].includes(process.env.OPENAI_COURSE_EFFORT)?process.env.OPENAI_COURSE_EFFORT:'high';
+  console.log('[import cours] analyse OpenAI démarrée ('+courseModels.join(' → ')+', effort '+courseEffort+')');
   const importStartedAt=Date.now();
-  const raw=await callOpenAIResponses({instructions:COURSE_IMPORT_SYSTEM,content,maxTokens:24000,models:courseModels,schema:COURSE_IMPORT_SCHEMA,schemaName:'course_plan',effort:'medium',timeoutMs:240000});
+  const raw=await callOpenAIResponses({instructions:COURSE_IMPORT_SYSTEM,content,maxTokens:32000,models:courseModels,schema:COURSE_IMPORT_SCHEMA,schemaName:'course_plan',effort:courseEffort,timeoutMs:300000});
   console.log('[import cours] analyse OpenAI terminée en '+Math.round((Date.now()-importStartedAt)/1000)+' s');
   let parsed;
   try{parsed=JSON.parse(raw.replace(/^```json\s*/i,'').replace(/```$/,''));}
@@ -1029,7 +1063,7 @@ Un élève vient de dire qu'il N'A PAS COMPRIS une étape du cours. Réexplique-
 - change complètement d'angle (analogie du quotidien marocain, décomposition pas à pas, exemple concret chiffré) au lieu de répéter les mêmes phrases ;
 - adapte vocabulaire et rythme à la classe (matière et année fournies) ;
 - choisis UN support si utile : "svg" (schéma style craie, viewBox="0 0 240 180", traits #f8fafc, textes français ≤12px, sans <script>), "table" ({"title","headers","rows"} court), "chart" ({"type":"line|bar","title","xLabel","yLabel","series":[{"name","points":[[x,y]]}]}), OU "simulation" si un geste de manipulation aide vraiment à comprendre ;
-- pour "simulation", choisis interactionType="variable" (relation cause→effet), "drag_drop" (trier/associer/placer) ou "free_move" (construire/explorer). Format exact : {"interactionType":"variable|drag_drop|free_move","enonce":"...","goal":"...","observe":"...","visual":"...","conclusionQuestion":"...","successMessage":"...","retryMessage":"...","variables":[{"name":"...","min":0,"max":100,"step":1,"unit":"...","initial":20}],"elements":[{"id":"objet-1","label":"...","shape":"rect","x":5,"y":10,"width":18,"height":18,"color":"#2563eb","bindVariable":"","bindProperty":"","outputMin":0,"outputMax":0,"draggable":true,"svg":"<svg viewBox=\"0 0 100 100\">...</svg>"}],"zones":[{"id":"zone-1","label":"...","x":60,"y":10,"width":28,"height":24,"color":"#16a34a","accepts":["objet-1"],"svg":"<svg viewBox=\"0 0 100 100\">...</svg>"}],"rules":[{"variable":"...","operator":"lt|lte|gt|gte|eq|between","threshold":0,"thresholdMax":0,"observation":"..."}],"imageUseful":false,"imagePrompt":"","imageAlt":""}. Pour drag_drop, variables/rules sont vides et les SVG représentent réellement les objets nécessaires ; pour variable, zones est vide et draggable=false ; sinon "simulation":null ;
+- pour "simulation", choisis interactionType="variable" (relation cause→effet), "drag_drop" (trier/associer/placer) ou "free_move" (construire/explorer). Format exact : {"interactionType":"variable|drag_drop|free_move","enonce":"...","goal":"...","observe":"...","visual":"...","conclusionQuestion":"...","successMessage":"...","retryMessage":"...","variables":[{"name":"...","min":0,"max":100,"step":1,"unit":"...","initial":20}],"elements":[{"id":"objet-1","label":"...","word":"mot prononcé à voix haute quand l'élève touche l'objet (vide si inutile)","shape":"rect","x":5,"y":10,"width":18,"height":18,"color":"#2563eb","bindVariable":"","bindProperty":"","outputMin":0,"outputMax":0,"draggable":true,"svg":"<svg viewBox=\"0 0 100 100\">...</svg>"}],"zones":[{"id":"zone-1","label":"...","x":60,"y":10,"width":28,"height":24,"color":"#16a34a","accepts":["objet-1"],"svg":"<svg viewBox=\"0 0 100 100\">...</svg>"}],"rules":[{"variable":"...","operator":"lt|lte|gt|gte|eq|between","threshold":0,"thresholdMax":0,"observation":"..."}],"imageUseful":false,"imagePrompt":"","imageAlt":""}. Pour drag_drop, variables/rules sont vides et les SVG représentent réellement les objets nécessaires ; pour variable, zones est vide et draggable=false ; sinon "simulation":null ;
 - un seul support à la fois (svg OU table OU chart OU simulation), les autres vides/null.
 Réponds uniquement par un objet JSON valide :
 {"answer":"réexplication parlée, chaleureuse, 4 à 8 phrases courtes","lines":[{"t":"ligne courte pour le tableau","cls":"def|ex|imp|"}],"svg":"","table":null,"chart":null,"simulation":null,"gesture":"explain","emotion":"curious"}`;
@@ -1101,13 +1135,35 @@ function handleGenerateSimulation(req,res){
       const data=JSON.parse(body||'{}');
       const spec=sanitizeSimulationSpec(data.simulation);
       const target=data.targetContext&&typeof data.targetContext==='object'?data.targetContext:{};
-      let imageDataUrl='',warning='';
+      const warnings=[];
+      let imageDataUrl='';
       if(spec.imageUseful&&spec.imagePrompt){
         try{const generated=await callOpenAIImage(spec.imagePrompt,target,spec.imageAlt);imageDataUrl='data:'+generated.mimeType+';base64,'+generated.data;}
-        catch(error){warning='Illustration de simulation non générée : '+String(error.message||error).slice(0,220);}
+        catch(error){warnings.push('Illustration de simulation non générée : '+String(error.message||error).slice(0,220));}
+      }
+      // CARTES-IMAGES : chaque objet/zone dont l'IA a décrit l'image (imagePrompt) reçoit
+      // une vraie illustration générée, intégrée en data URL. Le SVG dessiné par l'IA reste
+      // le repli si la génération échoue. Deux images avancent en parallèle, plafonnées
+      // par simulation (OPENAI_MAX_SIM_CARD_IMAGES) pour maîtriser coût et durée.
+      const cardImages={};
+      const cardBudget=Math.max(0,Number(process.env.OPENAI_MAX_SIM_CARD_IMAGES)||8);
+      const cardTargets=[...spec.elements,...spec.zones].filter(item=>item.imagePrompt).slice(0,cardBudget);
+      if(cardTargets.length){
+        const queue=cardTargets.slice();
+        const worker=async()=>{
+          while(queue.length){
+            const item=queue.shift();
+            try{
+              const generated=await callOpenAIImage(item.imagePrompt,target,item.label,{card:true});
+              cardImages[item.id]='data:'+generated.mimeType+';base64,'+generated.data;
+            }catch(error){warnings.push('Carte-image non générée pour « '+(item.label||item.id)+' » : '+String(error.message||error).slice(0,160));}
+          }
+        };
+        await Promise.all([worker(),worker()]);
       }
       const targetLabel=[cleanText(target.subjectName,160),cleanText(target.gradeLevelName,160),cleanText(target.streamName,120)].filter(x=>x&&x!=='Sans filière').join(' · ');
-      const html=buildSimulationHtml({title:cleanText(data.title,220)||'Simulation',targetLabel,spec,imageDataUrl});
+      const html=buildSimulationHtml({title:cleanText(data.title,220)||'Simulation',targetLabel,spec,imageDataUrl,cardImages});
+      const warning=warnings.join(' ');
       const fileName='simulation-'+(cleanText(data.title,60).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'experience')+'-'+Date.now()+'.html';
       answer(200,{html,fileName,warning});
     }catch(e){
@@ -1117,18 +1173,26 @@ function handleGenerateSimulation(req,res){
 }
 
 const OPENAI_IMAGE_MODEL=(process.env.OPENAI_IMAGE_MODEL||'gpt-image-2').trim();
-async function callOpenAIImage(prompt,target,alt){
+// options.card=true : carte-image d'un objet de simulation — carrée, style jeu d'enfants,
+// WebP compressé pour rester intégrable en data URL dans la page de la simulation.
+async function callOpenAIImage(prompt,target,alt,options){
+  options=options||{};
   const targetLabel=[cleanText(target&&target.subjectName,160),cleanText(target&&target.gradeLevelName,160),cleanText(target&&target.streamName,120)].filter(x=>x&&x!=='Sans filière').join(' · ');
-  const finalPrompt=`Illustration pédagogique exacte pour ${targetLabel||'le niveau indiqué par le professeur'}. ${cleanText(prompt,1200)}. Image claire, sobre, centrée sur un seul objectif d'observation, adaptée à l'âge, sans logo, sans filigrane, sans texte imprimé dans l'image, sans visage d'élève identifiable. Texte alternatif prévu : ${cleanText(alt,260)}.`;
+  const finalPrompt=options.card
+    ? `Carte illustrée pour un jeu éducatif tactile (${targetLabel||'primaire'}). Sujet unique : ${cleanText(prompt,600)}. Style dessin plat enfantin, couleurs vives, contours nets, sujet centré et occupant presque toute l'image, fond blanc uni, sans texte, sans lettre, sans chiffre, sans logo, sans filigrane, sans bordure décorative.`
+    : `Illustration pédagogique exacte pour ${targetLabel||'le niveau indiqué par le professeur'}. ${cleanText(prompt,1200)}. Image claire, sobre, centrée sur un seul objectif d'observation, adaptée à l'âge, sans logo, sans filigrane, sans texte imprimé dans l'image, sans visage d'élève identifiable. Texte alternatif prévu : ${cleanText(alt,260)}.`;
+  const payload=options.card
+    ? {model:OPENAI_IMAGE_MODEL,prompt:finalPrompt,size:'1024x1024',quality:process.env.OPENAI_CARD_IMAGE_QUALITY||'medium',output_format:'webp',output_compression:60}
+    : {model:OPENAI_IMAGE_MODEL,prompt:finalPrompt,size:process.env.OPENAI_IMAGE_SIZE||'1536x1024',quality:process.env.OPENAI_IMAGE_QUALITY||'high',output_format:'png'};
   const response=await fetch('https://api.openai.com/v1/images/generations',{
     method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+getOpenAIKey()},
-    body:JSON.stringify({model:OPENAI_IMAGE_MODEL,prompt:finalPrompt,size:process.env.OPENAI_IMAGE_SIZE||'1536x1024',quality:process.env.OPENAI_IMAGE_QUALITY||'high',output_format:'png'}),
+    body:JSON.stringify(payload),
     signal:AbortSignal.timeout(120000)
   });
   if(!response.ok)throw new Error('OpenAI Image HTTP '+response.status+' : '+(await response.text()).slice(0,240));
   const result=await response.json(),data=result&&result.data&&result.data[0]&&result.data[0].b64_json;
   if(!data)throw new Error('OpenAI n’a renvoyé aucune image.');
-  return {data,mimeType:'image/png'};
+  return {data,mimeType:options.card?'image/webp':'image/png'};
 }
 
 function handleGenerateCourseImage(req,res){

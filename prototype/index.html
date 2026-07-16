@@ -445,7 +445,7 @@
     border-radius:12px;border:1px solid #334155;background:#000}
   .lesson-media iframe{display:block;width:100%;height:330px;border:1px solid #334155;border-radius:12px;background:#fff}
   .lesson-media.simulation-embedded{min-height:260px}
-  .lesson-media.simulation-embedded iframe{flex:1 1 auto;min-height:220px}
+  .lesson-media.simulation-embedded iframe{flex:1 1 auto;min-height:220px;pointer-events:auto;touch-action:none}
   .lesson-media audio{display:block;width:min(100%,560px);margin:28px auto}
   .lesson-media .lm-cap{font-size:13px;color:#94a3b8;margin-top:6px}
   .lesson-media .lm-open{display:inline-flex;align-items:center;justify-content:center;gap:8px;margin-top:9px;
@@ -2503,7 +2503,9 @@ function render(n){ const e=lecon.etapes[n];
   if(!isIntro){ avBox.classList.remove('intro-center'); document.body.classList.remove('avatar-intro'); }
   if(isIntro){
     setAvatarHeadMode(false);                        // corps entier
-    avBox.classList.add('intro-center');             // grand + centré (via CSS)
+    // Une introduction importée possède déjà sa taille dans activeLayout. Lui ajouter
+    // intro-center appliquait encore scale(1.28), ce qui faisait sortir l'avatar du plein écran.
+    avBox.classList.toggle('intro-center', !manualAvatar);
     document.body.classList.add('avatar-intro');     // masque tout texte du tableau
     avatarEmotion(emotion);
     avatarWalkTo(false, gesture);                     // salue (geste 'wave' à l'étape 0)
