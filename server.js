@@ -679,12 +679,22 @@ const COURSE_BLOCK_TYPES = new Set(['text','image','video','simulation','activit
 const COURSE_SCENES = new Set(['auto','avatar_only','split_left','split_right','board_focus','media_focus','activity_focus','question_focus','summary_focus']);
 const COURSE_ACTIVITY_KINDS = new Set(['association','tableau']);
 const COURSE_EVALUATION_KINDS = new Set(['qcm','vf','libre','association']);
+const COURSE_EVALUATION_QUESTION_REQUIRED=['kind','enonce','question','questionSvg','options','optionSvgs','correctIndex','correctBoolean','expectedKeywords','expectedAnswer','pairs','feedback','criteria'];
+const COURSE_EVALUATION_QUESTION_PROPERTIES={
+  kind:{type:'string',enum:['qcm','vf','libre','association']},
+  enonce:{type:'string'},question:{type:'string'},questionSvg:{type:'string'},
+  options:{type:'array',items:{type:'string'}},optionSvgs:{type:'array',items:{type:'string'}},
+  correctIndex:{type:'number'},correctBoolean:{type:'boolean'},
+  expectedKeywords:{type:'array',items:{type:'string'}},expectedAnswer:{type:'string'},
+  pairs:{type:'array',items:{type:'object',additionalProperties:false,required:['left','right','leftSvg','rightSvg'],properties:{left:{type:'string'},right:{type:'string'},leftSvg:{type:'string'},rightSvg:{type:'string'}}}},
+  feedback:{type:'string'},criteria:{type:'array',items:{type:'string'}}
+};
 
 // Sortie contractuelle de l'analyse PDF. Tous les sous-objets sont présents ou null :
 // le modèle ne peut donc ni inventer un type de bloc ni injecter du code exécutable.
 const COURSE_IMPORT_SCHEMA={
   type:'object',additionalProperties:false,
-  required:['courseTitle','summary','targetAudience','sourceSummary','sourceAssessment','warnings','sessions'],
+  required:['courseTitle','summary','targetAudience','sourceSummary','sourceAssessment','warnings','evaluationSets','sessions'],
   properties:{
     courseTitle:{type:'string'},summary:{type:'string'},targetAudience:{type:'string'},sourceSummary:{type:'string'},
     sourceAssessment:{type:'object',additionalProperties:false,required:['detectedSubject','detectedCycle','detectedGradeLevel','subjectMatch','gradeLevelMatch','evidence'],properties:{
@@ -693,6 +703,9 @@ const COURSE_IMPORT_SCHEMA={
       evidence:{type:'array',items:{type:'string'}}
     }},
     warnings:{type:'array',items:{type:'string'}},
+    evaluationSets:{type:'array',minItems:0,maxItems:3,items:{type:'object',additionalProperties:false,required:['label','intro','questions'],properties:{
+      label:{type:'string'},intro:{type:'string'},questions:{type:'array',minItems:3,maxItems:5,items:{type:'object',additionalProperties:false,required:COURSE_EVALUATION_QUESTION_REQUIRED,properties:COURSE_EVALUATION_QUESTION_PROPERTIES}}
+    }}},
     sessions:{type:'array',items:{type:'object',additionalProperties:false,required:['title','durationMinutes','explanationMinutes','objective','blocks'],properties:{
       title:{type:'string'},durationMinutes:{type:'number'},explanationMinutes:{type:'number'},objective:{type:'string'},
       blocks:{type:'array',items:{type:'object',additionalProperties:false,required:['type','title','durationMinutes','objective','content','say','board','resourceName','presentation','activity','simulation','image','evaluation'],properties:{
@@ -727,9 +740,7 @@ const COURSE_IMPORT_SCHEMA={
           rules:{type:'array',items:{type:'object',additionalProperties:false,required:['variable','operator','threshold','thresholdMax','observation'],properties:{variable:{type:'string'},operator:{type:'string',enum:['lt','lte','gt','gte','eq','between']},threshold:{type:'number'},thresholdMax:{type:'number'},observation:{type:'string'}}}},
           imageUseful:{type:'boolean'},imagePrompt:{type:'string'},imageAlt:{type:'string'}
         }},
-        evaluation:{type:['object','null'],additionalProperties:false,required:['kind','enonce','question','questionSvg','options','optionSvgs','correctIndex','correctBoolean','expectedKeywords','expectedAnswer','pairs','feedback','criteria'],properties:{
-          kind:{type:'string',enum:['qcm','vf','libre','association']},enonce:{type:'string'},question:{type:'string'},questionSvg:{type:'string'},options:{type:'array',items:{type:'string'}},optionSvgs:{type:'array',items:{type:'string'}},correctIndex:{type:'number'},correctBoolean:{type:'boolean'},expectedKeywords:{type:'array',items:{type:'string'}},expectedAnswer:{type:'string'},pairs:{type:'array',items:{type:'object',additionalProperties:false,required:['left','right','leftSvg','rightSvg'],properties:{left:{type:'string'},right:{type:'string'},leftSvg:{type:'string'},rightSvg:{type:'string'}}}},feedback:{type:'string'},criteria:{type:'array',items:{type:'string'}}
-        }}
+        evaluation:{type:['object','null'],additionalProperties:false,required:COURSE_EVALUATION_QUESTION_REQUIRED,properties:COURSE_EVALUATION_QUESTION_PROPERTIES}
       }}}
     }}}
   }
@@ -740,6 +751,35 @@ function geminiHeaders(){
   if(/^ya29\./.test(key)) headers.Authorization='Bearer '+key;
   else headers['x-goog-api-key']=key;
   return headers;
+}
+
+function cleanCourseEvaluationQuestion(raw){
+  if(!raw||typeof raw!=='object'||!COURSE_EVALUATION_KINDS.has(raw.kind))return null;
+  const options=(Array.isArray(raw.options)?raw.options:[]).map(x=>cleanText(x,180)).filter(Boolean).slice(0,6);
+  const optionSvgs=(Array.isArray(raw.optionSvgs)?raw.optionSvgs:[]).slice(0,6).map(svg=>sanitizeSvgAsset(svg));
+  const pairs=(Array.isArray(raw.pairs)?raw.pairs:[]).map(pair=>({left:cleanText(pair&&pair.left,160),right:cleanText(pair&&pair.right,160),leftSvg:sanitizeSvgAsset(pair&&pair.leftSvg),rightSvg:sanitizeSvgAsset(pair&&pair.rightSvg)})).filter(pair=>pair.left&&pair.right).slice(0,6);
+  const question=cleanText(raw.question,500);
+  if(!question||(raw.kind==='qcm'&&options.length<2)||(raw.kind==='association'&&pairs.length<2))return null;
+  return {kind:raw.kind,enonce:cleanText(raw.enonce,500),question,questionSvg:sanitizeSvgAsset(raw.questionSvg),options,optionSvgs,
+    correctIndex:Math.max(0,Math.min(Math.max(0,options.length-1),Number(raw.correctIndex)||0)),correctBoolean:raw.correctBoolean===true,
+    expectedKeywords:(Array.isArray(raw.expectedKeywords)?raw.expectedKeywords:[]).map(x=>cleanText(x,100)).filter(Boolean).slice(0,10),
+    expectedAnswer:cleanText(raw.expectedAnswer,400),pairs,feedback:cleanText(raw.feedback,500),
+    criteria:(Array.isArray(raw.criteria)?raw.criteria:[]).map(x=>cleanText(x,180)).filter(Boolean).slice(0,8)};
+}
+
+function cleanCourseEvaluationSets(rawSets){
+  const seen=new Set();
+  const sets=(Array.isArray(rawSets)?rawSets:[]).slice(0,3).map((set,index)=>{
+    const questions=(Array.isArray(set&&set.questions)?set.questions:[]).map(cleanCourseEvaluationQuestion).filter(question=>{
+      if(!question)return false;
+      const key=question.question.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr').replace(/[^a-z0-9]+/g,' ').trim();
+      if(!key||seen.has(key))return false;seen.add(key);return true;
+    }).slice(0,5);
+    if(questions.length<3)throw new Error(`L’évaluation ${index+1} doit contenir au moins trois questions différentes.`);
+    return {label:cleanText(set&&set.label,120)||`Evaluation ${index+1}`,intro:cleanText(set&&set.intro,300),questions};
+  });
+  if(sets.length!==3)throw new Error('Le cours doit proposer exactement trois évaluations finales différentes.');
+  return sets;
 }
 
 function cleanGeneratedCourse(value, requestedMinutes, target){
@@ -755,6 +795,7 @@ function cleanGeneratedCourse(value, requestedMinutes, target){
     targetContext:target,
     sourceAssessment,
     warnings:Array.isArray(value.warnings)?value.warnings.map(x=>cleanText(x,300)).filter(Boolean).slice(0,8):[],
+    evaluationSets:cleanCourseEvaluationSets(value.evaluationSets),
     sessions:[]
   };
   if(sourceAssessment.subjectMatch==='uncertain') clean.warnings.push(`La matière n’a pas pu être confirmée dans le PDF ; le contenu a été cadré sur « ${target.subjectName} » et doit être vérifié par le professeur.`);
@@ -799,17 +840,7 @@ function cleanGeneratedCourse(value, requestedMinutes, target){
         if(!image.prompt)image=null;
       }
       let evaluation=null;
-      if(type==='evaluation'&&block&&block.evaluation&&typeof block.evaluation==='object'&&COURSE_EVALUATION_KINDS.has(block.evaluation.kind)){
-        const options=(Array.isArray(block.evaluation.options)?block.evaluation.options:[]).map(x=>cleanText(x,180)).filter(Boolean).slice(0,6);
-        const optionSvgs=(Array.isArray(block.evaluation.optionSvgs)?block.evaluation.optionSvgs:[]).slice(0,6).map(svg=>sanitizeSvgAsset(svg));
-        const pairs=(Array.isArray(block.evaluation.pairs)?block.evaluation.pairs:[]).map(pair=>({left:cleanText(pair&&pair.left,160),right:cleanText(pair&&pair.right,160),leftSvg:sanitizeSvgAsset(pair&&pair.leftSvg),rightSvg:sanitizeSvgAsset(pair&&pair.rightSvg)})).filter(pair=>pair.left&&pair.right).slice(0,6);
-        evaluation={kind:block.evaluation.kind,enonce:cleanText(block.evaluation.enonce,500),question:cleanText(block.evaluation.question,500),questionSvg:sanitizeSvgAsset(block.evaluation.questionSvg),options,optionSvgs,
-          correctIndex:Math.max(0,Math.min(Math.max(0,options.length-1),Number(block.evaluation.correctIndex)||0)),correctBoolean:block.evaluation.correctBoolean===true,
-          expectedKeywords:(Array.isArray(block.evaluation.expectedKeywords)?block.evaluation.expectedKeywords:[]).map(x=>cleanText(x,100)).filter(Boolean).slice(0,10),
-          expectedAnswer:cleanText(block.evaluation.expectedAnswer,400),pairs,feedback:cleanText(block.evaluation.feedback,500),
-          criteria:(Array.isArray(block.evaluation.criteria)?block.evaluation.criteria:[]).map(x=>cleanText(x,180)).filter(Boolean).slice(0,8)};
-        if(!evaluation.question)evaluation=null;
-      }
+      if(type==='evaluation')evaluation=cleanCourseEvaluationQuestion(block&&block.evaluation);
       // Double piste dit/écrit : "say" est le script oral prononcé par l'avatar,
       // "board" la trace écrite affichée au tableau. Les deux voyagent avec le bloc
       // jusqu'au lecteur ; sans elles, le lecteur retombe sur l'ancien texte unique.
@@ -877,7 +908,7 @@ CONTROLE DE COMPATIBILITE OBLIGATOIRE AVANT GENERATION
 1. Classe le contenu réel du PDF, sans te fier au titre saisi ni à la cible ci-dessus. Renseigne sourceAssessment avec la matière, le cycle et l'année détectés.
 2. subjectMatch et gradeLevelMatch valent seulement "match", "mismatch" ou "uncertain". Une autre année du même cycle est un mismatch : 1re primaire n'est pas 2e primaire ; primaire n'est pas collège ; collège n'est pas lycée.
 3. Une autre matière est un mismatch, même si elle appartient à la même famille : mathématiques, SVT, histoire-géographie, langue et éducation islamique restent des matières distinctes.
-4. Si le PDF indique clairement une autre matière ou une autre année, renvoie sourceAssessment, warnings et sessions:[] ; n'essaie pas de convertir un cours incompatible.
+4. Si le PDF indique clairement une autre matière ou une autre année, renvoie sourceAssessment, warnings, evaluationSets:[] et sessions:[] ; n'essaie pas de convertir un cours incompatible.
 5. Si le PDF ne précise pas assez la matière ou le niveau, utilise "uncertain", puis adapte strictement le contenu disponible à la cible sans inventer de notions.
 
 EXPLOITATION FIDÈLE ET COMPLÈTE DE LA SOURCE
@@ -890,8 +921,9 @@ La fiche du professeur est ton scénario : exploite CHAQUE rubrique, ne laisse r
 
 DOUBLE PISTE OBLIGATOIRE : CE QUI EST DIT N'EST PAS CE QUI EST ÉCRIT
 Pour CHAQUE bloc, remplis séparément "say" (la voix du professeur) et "board" (la trace écrite au tableau) :
-- "say" : le script oral COMPLET que l'avatar prononce, comme un vrai professeur devant sa classe : une accroche, l'explication vivante, la consigne du geste attendu, une question à la classe. Il commente EXPLICITEMENT ce qui est affiché au tableau ou dans le média au moment où on le voit (« Regarde le mot MOTO au tableau… », « Prends le mouton et pose-le dans le panier »). Il ne lit JAMAIS le tableau mot à mot. 3 à 8 phrases adaptées à l'âge (primaire : phrases de 12 mots maximum, tutoiement, ton joueur).
+- "say" : le script oral COMPLET que l'avatar prononce, comme un vrai professeur devant sa classe : une accroche, l'explication vivante et la consigne du geste attendu. Il commente EXPLICITEMENT ce qui est affiché au tableau ou dans le média au moment où on le voit (« Regarde le mot MOTO au tableau… », « Prends le mouton et pose-le dans le panier »). Il ne lit JAMAIS le tableau mot à mot. 3 à 8 phrases adaptées à l'âge (primaire : phrases de 12 mots maximum, tutoiement, ton joueur). SEUL un bloc de type "question" pose à la fin une question directe à laquelle l'élève doit répondre et attend sa réponse ; les autres blocs ne se terminent pas par une question exigeant une réponse.
 - "board" : 1 à 5 lignes courtes, exactement ce qu'un professeur écrirait à la craie : mots-clés, règle, exemples — jamais des phrases orales recopiées. cls vaut "def" pour une définition ou une règle, "ex" pour un exemple, "imp" pour l'essentiel à retenir, "" sinon. Au primaire : 3 lignes maximum, mots très simples, mots-cibles en MAJUSCULES quand on travaille leur forme écrite (ex : MOTO, PLUME, PYJAMA).
+- EXCEPTION SIMULATION : board vaut toujours [] et aucun autre texte n'est affiché sur le tableau. La consigne, les cartes, les libellés et les retours appartiennent uniquement à la simulation ; l'avatar les explique oralement avec "say".
 - Cohérence stricte : chaque ligne du tableau est nommée ou commentée dans "say" ; rien n'apparaît au tableau sans être expliqué à l'oral, et rien d'important n'est dit sans appui visible (tableau ou média).
 - "content" reste un court texte de référence pour le professeur (ce que le bloc enseigne), pas un doublon du say ni du tableau.
 
@@ -910,8 +942,8 @@ REGLES PEDAGOGIQUES STRICTES
 12. Garde une présentation visuelle sobre et uniforme : titres courts, texte lisible, un seul objectif par écran et ressources montrées en grand au moment où elles sont expliquées.
 13. Applique les méthodes propres à la matière sélectionnée. Un cours de sciences repose sur observation, raisonnement, mesure ou preuve selon la discipline ; un cours de langue sur compréhension et expression ; l'histoire-géographie sur sources, repères et espace ; l'éducation islamique sur ses textes, notions, valeurs et applications. Ne transpose jamais automatiquement le modèle d'une matière scientifique aux matières littéraires, humaines ou religieuses.
 14. targetAudience doit nommer exactement « ${target.gradeLevelName} » et le cours ne doit supposer aucun acquis d'une année ultérieure.
-15. UTILITÉ DES MÉDIAS : pour chaque notion, décide explicitement si un support visuel est UTILE. Ajoute un bloc image/schema seulement si l'observation apporte quelque chose que le texte ne donne pas (structure, organisation spatiale, phénomène difficile à décrire). Ajoute un bloc simulation seulement si une MANIPULATION réelle aide à apprendre : faire varier un paramètre, déplacer/classer des objets ou construire une organisation spatiale. Sinon, un texte clair suffit : aucun média décoratif.
-16. IMAGES GÉNÉRÉES : pour un bloc image/schema utile sans fichier associé, fournis "image" avec useful=true, une raison pédagogique, un prompt visuel précis sans texte à imprimer dans l'image, un texte alternatif et une légende. Si l'image n'est pas indispensable, ne crée pas le bloc. N'utilise jamais l'image comme simple décoration.
+15. UTILITÉ DES MÉDIAS : pour chaque notion, décide explicitement si un support visuel est UTILE. Hors primaire, ajoute un bloc image/schema seulement si l'observation apporte quelque chose que le texte ne donne pas. AU PRIMAIRE, l'association mot-image est elle-même un apprentissage : chaque mot concret important introduit ou expliqué pour la première fois doit donc avoir un bloc image, même si l'objet semble familier. Ajoute un bloc simulation seulement si une MANIPULATION réelle aide à apprendre : faire varier un paramètre, déplacer/classer des objets ou construire une organisation spatiale. Sinon, un texte clair suffit : aucun média décoratif.
+16. IMAGES GÉNÉRÉES : pour un bloc image/schema utile sans fichier associé, fournis "image" avec useful=true, une raison pédagogique, un prompt visuel précis sans texte à imprimer dans l'image, un texte alternatif et une légende. AU PRIMAIRE, quand "say" prononce et explique un mot concret nouveau (animal, objet, vêtement, aliment, lieu, action observable), le même écran doit montrer son illustration ET le mot écrit : crée un bloc image, mets le mot exact en MAJUSCULES dans board et dans image.caption, et fais nommer explicitement l'image par say. N'illustre pas les mots-outils ni les mots abstraits sans apport pédagogique.
 17. SIMULATIONS GÉNÉRÉES — TU CONÇOIS TOI-MÊME LA MANIPULATION : ne transforme jamais automatiquement une notion en liste de boutons ou en QCM. Choisis le geste cognitif et physique adapté à la matière, au niveau exact et à l'objectif :
     - interactionType="variable" pour expérimenter une relation cause→effet : 1 à 3 variables, règles d'observation et éléments dont bindVariable recopie exactement le nom d'une variable ;
     - interactionType="drag_drop" pour trier, associer, ordonner ou placer : variables et rules vides, 2 à 6 objets tous draggable=true, au moins une zone de dépôt, et zones.accepts contenant les id exacts des objets corrects. Ce n'est jamais une image statique : l'élève doit saisir chaque objet avec la souris ou le doigt et le déposer ;
@@ -920,19 +952,19 @@ REGLES PEDAGOGIQUES STRICTES
     CARTES-IMAGES RÉELLES : chaque objet et chaque zone possèdent un champ "imagePrompt". S'il est rempli, une VRAIE illustration est générée par IA et affichée en grande carte-image à la place du SVG (le SVG reste le repli obligatoire). Décris précisément UN sujet concret, sans texte : imagePrompt="un mouton blanc laineux debout dans l'herbe, dessin plat enfantin". AU PRIMAIRE ET AU PRÉSCOLAIRE, remplis imagePrompt pour CHAQUE objet concret et chaque contenant : la simulation doit être un jeu d'images avant tout, comme un imagier tactile — 2 à 6 grandes cartes (largeur 18 à 28), le texte se limitant à la consigne d'une phrase et à un libellé d'un mot par carte. Aux niveaux collège/lycée, remplis imagePrompt seulement quand une photo/illustration réaliste apporte plus qu'un schéma (objets réels, êtres vivants) ; laisse "" pour les formes abstraites, lettres, chiffres et symboles (le SVG suffit).
     AUDIO DE LA MANIPULATION : chaque objet possède un champ "word" = ce que la voix prononce à voix haute quand l'élève touche l'objet. En langue et en phonologie, c'est OBLIGATOIRE : l'élève doit ENTENDRE le mot qu'il classe (word="mouton", word="ballon"…). Ailleurs, word porte le nom exact de l'objet si l'entendre aide (primaire), sinon une chaîne vide.
     Fournis successMessage et retryMessage courts, bienveillants et PRÉCIS (ils sont aussi lus à voix haute aux non-lecteurs) : reprends la différenciation de la source pour retryMessage (ex. « Redis le mot lentement : mmm-outon. Entends-tu mmm ? »). Aucun HTML ni JavaScript. "imageUseful" vaut true seulement si une image de fond apporte un contexte irremplaçable. Une simulation est interdite si la manipulation n'apporte rien de plus qu'une activité simple, une image ou du texte.
-18. ÉVALUATIONS OBLIGATOIRES : termine chaque séance par au moins une question formative structurée dans "evaluation" et termine le cours par une évaluation générale couvrant toutes les séances. Utilise qcm, vf, libre ou association ; fournis réponse correcte, rétroaction et critères de réussite tirés du PDF. Les distracteurs doivent être plausibles pour l'âge sans introduire de nouvelle notion. Une évaluation est un jeu final, pas une nouvelle situation-problème et pas une répétition du cours.
+18. ÉVALUATIONS OBLIGATOIRES : utilise les blocs "question" ou "evaluation" pour les contrôles formatifs des séances. En plus, remplis evaluationSets avec EXACTEMENT 3 évaluations finales au choix. Chacune contient 3 à 5 questions différentes couvrant les objectifs réels de toutes les séances. Aucune question ne doit être dupliquée ou simplement reformulée entre les trois variantes. Varie les gestes cognitifs et les formats (reconnaître, classer/associer, localiser, vrai/faux ou QCM selon la matière). Chaque entrée de questions est un OBJET COMPLET de forme {"kind":"qcm|vf|libre|association","enonce":"","question":"...","questionSvg":"","options":["..."],"optionSvgs":[],"correctIndex":0,"correctBoolean":false,"expectedKeywords":[],"expectedAnswer":"","pairs":[],"feedback":"...","criteria":["..."]} ; jamais une chaîne. Fournis réponse correcte, rétroaction et critères tirés du PDF. Les distracteurs sont plausibles pour l'âge sans introduire de nouvelle notion. Une évaluation est un jeu final, pas une nouvelle situation-problème et pas une répétition du cours.
 19. DÉVELOPPEMENT DE L'ÉLÈVE : primaire = manipulation, exemples concrets du quotidien, phrases très courtes ; collège = passage progressif du concret vers l'abstrait, schématisation guidée ; lycée = formalisation, raisonnement hypothético-déductif, autonomie. Applique le niveau exact de la cible, avec des méthodes actives (investigation, situation-problème, évaluation formative) et jamais un cours magistral continu.
     EXIGENCES SPÉCIFIQUES AU PRIMAIRE (préscolaire à 6APEP) — obligatoires si la cible est une année du primaire :
     - phrases parlées de 12 mots MAXIMUM, un seul mot nouveau par bloc, toujours expliqué avec un objet du quotidien marocain (pain, thé, cartable, ballon…) ;
     - ton joueur et encourageant, tutoiement, questions fréquentes « et toi, qu'est-ce que tu vois ? » ;
     - beaucoup de visuel et de manipulation, très peu de texte au tableau (3 lignes maximum, mots simples) ;
     - simulations avec UN seul geste à comprendre : soit UNE variable, soit 2 à 6 grandes cartes-images à déplacer (imagePrompt ET word remplis pour chacune, SVG de repli) ; l'image domine, le texte se limite à la consigne d'une phrase et à un libellé d'un mot ;
-    - évaluations sous forme de 3 à 4 MINI-JEUX distincts couvrant les objectifs réellement présents dans la source : par exemple reconnaître, classer/localiser, puis identifier une forme ou un symbole. Crée un bloc evaluation séparé par mini-jeu, avec un titre concret. Utilise qcm, vf ou association, jamais "libre" ni question rédigée longue ;
+    - evaluationSets contient exactement 3 MINI-JEUX distincts ; chaque mini-jeu contient 3 à 5 questions courtes et toutes différentes. Par exemple : jeu 1 reconnaître, jeu 2 classer/localiser, jeu 3 identifier une forme ou un symbole. Utilise qcm, vf ou association, jamais "libre" ni question rédigée longue ;
     - rends ces mini-jeux visuels : questionSvg et optionSvgs contiennent, quand utile, de petits SVG créés par toi et adaptés aux objets du document. Même sous-ensemble SVG sûr que pour les simulations, sans texte, script, style, image, lien, filtre ni événement. Si aucun visuel n'est utile, utilise une chaîne vide ou un tableau vide ;
     - aucun terme technique du collège : adapte chaque notion avec les mots d'un enfant de cet âge.
 ${(()=>{const memory=classMemoryInstruction(target.subjectName,target.gradeLevelName);return memory?'20. '+memory.replace(/\n/g,'\n    ')+'\n':'';})()}
-Réponds en français avec un unique objet JSON :
-{"courseTitle":"...","summary":"...","targetAudience":"${target.gradeLevelName}","sourceSummary":"...","sourceAssessment":{"detectedSubject":"...","detectedCycle":"...","detectedGradeLevel":"...","subjectMatch":"match|mismatch|uncertain","gradeLevelMatch":"match|mismatch|uncertain","evidence":["indice bref tiré du PDF"]},"warnings":["..."],"sessions":[{"title":"...","durationMinutes":60,"explanationMinutes":18,"objective":"...","blocks":[{"type":"activity","title":"Activité de structuration","durationMinutes":8,"objective":"Organiser les notions","content":"Ce que ce bloc enseigne, en une ou deux phrases.","say":"Script oral complet du professeur : accroche, explication, consigne du geste, question à la classe.","board":[{"t":"Mot-clé ou règle courte","cls":"def"},{"t":"Exemple fidèle au PDF","cls":"ex"}],"resourceName":"","presentation":{"scene":"activity_focus","avatarSize":"full"},"activity":{"kind":"association","instruction":"Associe chaque notion à sa description.","items":[{"prompt":"notion 1 du PDF","answer":"description 1 fidèle au PDF","options":[]},{"prompt":"notion 2 du PDF","answer":"description 2 fidèle au PDF","options":[]}]}}]}]}
+Réponds en français avec un unique objet JSON. Voici un exemple structurel ; remplace chaque question générique par une question unique et fidèle au PDF :
+{"courseTitle":"...","summary":"...","targetAudience":"${target.gradeLevelName}","sourceSummary":"...","sourceAssessment":{"detectedSubject":"...","detectedCycle":"...","detectedGradeLevel":"...","subjectMatch":"match|mismatch|uncertain","gradeLevelMatch":"match|mismatch|uncertain","evidence":["indice bref tiré du PDF"]},"warnings":["..."],"evaluationSets":[{"label":"Jeu final 1","intro":"Consigne courte","questions":[{"kind":"qcm","enonce":"Observe puis choisis.","question":"Question unique 1A fidèle au PDF","questionSvg":"","options":["Réponse correcte","Distracteur plausible"],"optionSvgs":[],"correctIndex":0,"correctBoolean":false,"expectedKeywords":[],"expectedAnswer":"Réponse correcte","pairs":[],"feedback":"Retour court fidèle au PDF.","criteria":["Critère 1A"]},{"kind":"vf","enonce":"Dis si c'est vrai ou faux.","question":"Affirmation unique 1B fidèle au PDF","questionSvg":"","options":[],"optionSvgs":[],"correctIndex":0,"correctBoolean":true,"expectedKeywords":[],"expectedAnswer":"Vrai","pairs":[],"feedback":"Retour court fidèle au PDF.","criteria":["Critère 1B"]},{"kind":"association","enonce":"Relie les éléments.","question":"Association unique 1C fidèle au PDF","questionSvg":"","options":[],"optionSvgs":[],"correctIndex":0,"correctBoolean":false,"expectedKeywords":[],"expectedAnswer":"","pairs":[{"left":"Élément A","right":"Réponse A","leftSvg":"","rightSvg":""},{"left":"Élément B","right":"Réponse B","leftSvg":"","rightSvg":""}],"feedback":"Retour court fidèle au PDF.","criteria":["Critère 1C"]}]},{"label":"Jeu final 2","intro":"Autre parcours","questions":[{"kind":"qcm","enonce":"Observe puis choisis.","question":"Question unique 2A fidèle au PDF","questionSvg":"","options":["Réponse correcte","Distracteur plausible"],"optionSvgs":[],"correctIndex":0,"correctBoolean":false,"expectedKeywords":[],"expectedAnswer":"Réponse correcte","pairs":[],"feedback":"Retour court fidèle au PDF.","criteria":["Critère 2A"]},{"kind":"vf","enonce":"Dis si c'est vrai ou faux.","question":"Affirmation unique 2B fidèle au PDF","questionSvg":"","options":[],"optionSvgs":[],"correctIndex":0,"correctBoolean":false,"expectedKeywords":[],"expectedAnswer":"Faux","pairs":[],"feedback":"Retour court fidèle au PDF.","criteria":["Critère 2B"]},{"kind":"association","enonce":"Relie les éléments.","question":"Association unique 2C fidèle au PDF","questionSvg":"","options":[],"optionSvgs":[],"correctIndex":0,"correctBoolean":false,"expectedKeywords":[],"expectedAnswer":"","pairs":[{"left":"Élément C","right":"Réponse C","leftSvg":"","rightSvg":""},{"left":"Élément D","right":"Réponse D","leftSvg":"","rightSvg":""}],"feedback":"Retour court fidèle au PDF.","criteria":["Critère 2C"]}]},{"label":"Jeu final 3","intro":"Troisième parcours","questions":[{"kind":"qcm","enonce":"Observe puis choisis.","question":"Question unique 3A fidèle au PDF","questionSvg":"","options":["Réponse correcte","Distracteur plausible"],"optionSvgs":[],"correctIndex":0,"correctBoolean":false,"expectedKeywords":[],"expectedAnswer":"Réponse correcte","pairs":[],"feedback":"Retour court fidèle au PDF.","criteria":["Critère 3A"]},{"kind":"vf","enonce":"Dis si c'est vrai ou faux.","question":"Affirmation unique 3B fidèle au PDF","questionSvg":"","options":[],"optionSvgs":[],"correctIndex":0,"correctBoolean":true,"expectedKeywords":[],"expectedAnswer":"Vrai","pairs":[],"feedback":"Retour court fidèle au PDF.","criteria":["Critère 3B"]},{"kind":"association","enonce":"Relie les éléments.","question":"Association unique 3C fidèle au PDF","questionSvg":"","options":[],"optionSvgs":[],"correctIndex":0,"correctBoolean":false,"expectedKeywords":[],"expectedAnswer":"","pairs":[{"left":"Élément E","right":"Réponse E","leftSvg":"","rightSvg":""},{"left":"Élément F","right":"Réponse F","leftSvg":"","rightSvg":""}],"feedback":"Retour court fidèle au PDF.","criteria":["Critère 3C"]}]}],"sessions":[{"title":"...","durationMinutes":60,"explanationMinutes":18,"objective":"...","blocks":[{"type":"activity","title":"Activité de structuration","durationMinutes":8,"objective":"Organiser les notions","content":"Ce que ce bloc enseigne, en une ou deux phrases.","say":"Script oral complet du professeur : accroche, explication, consigne du geste, question à la classe.","board":[{"t":"Mot-clé ou règle courte","cls":"def"},{"t":"Exemple fidèle au PDF","cls":"ex"}],"resourceName":"","presentation":{"scene":"activity_focus","avatarSize":"full","mediaPosition":"auto"},"activity":{"kind":"association","instruction":"Associe chaque notion à sa description.","items":[{"prompt":"notion 1 du PDF","answer":"description 1 fidèle au PDF","options":[]},{"prompt":"notion 2 du PDF","answer":"description 2 fidèle au PDF","options":[]}]} ,"simulation":null,"image":null,"evaluation":null}]}]}
 Respecte exactement le schéma JSON imposé. Dans chaque bloc, les objets presentation, activity, simulation, image et evaluation qui ne s'appliquent pas valent null.`;
 }
 

@@ -35,6 +35,9 @@ test('produit une page autonome avec le contrat de pilotage IA', () => {
   assert.match(html, /^<!doctype html>/i);
   assert.match(html, /window\.CourseSimulation/);
   assert.match(html, /cc-sim-state/);
+  assert.match(html, /cc-sim-complete/);
+  assert.match(html, /id="finish"/);
+  assert.match(html, /m\.action==='finish'/);
   assert.match(html, /m\.type==='cc-sim'/);
   assert.doesNotMatch(html, /<script[^>]+src=/i);
   assert.doesNotMatch(html, /fetch\(|XMLHttpRequest|WebSocket/);
@@ -71,6 +74,8 @@ test('construit une activité de glisser-déposer SVG sans variable numérique',
   assert.match(html, /class:'drag-hit'/);
   assert.match(html, /pointer-events:all/);
   assert.match(html, /placeInZone/);
+  assert.match(html, /if\(complete\)publishComplete\(\)/);
+  assert.match(html, /completed:naturalComplete\(\)/);
   assert.match(html, /actions:S\.interactionType===/);
 });
 

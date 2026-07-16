@@ -8,7 +8,7 @@
   const SCENES=new Set(['avatar_only','split_left','split_right','board_focus','media_focus','activity_focus','question_focus','summary_focus']);
   // Première diapositive : avatar entier, centré, avec 7 % de marge verticale. Ces bornes
   // restent valables dans le cadre 16/9 de référence, y compris en plein écran.
-  const INTRO_LAYOUT={avatar:{x:32,y:7,w:36,h:86,mode:'full',z:6},el:{}};
+  const INTRO_LAYOUT={avatar:{x:30,y:7,w:40,h:86,mode:'full',z:9},el:{}};
 
   function html(value){return String(value??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
   function attr(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -35,6 +35,13 @@
     const text=plain(value,max+40);if(text.length<=max)return text;
     const cut=text.slice(0,max).replace(/\s+\S*$/,'');return (cut||text.slice(0,max))+'…';
   }
+  function studentQuestionReturnStep(index){return Math.max(0,Math.floor(Number(index)||0)-1)}
+  function simulationStateCompleted(data,elements,zones){
+    data=data&&typeof data==='object'?data:{};elements=Array.isArray(elements)?elements:[];zones=Array.isArray(zones)?zones:[];
+    if(data.completed===true)return true;if(data.mode!=='drag_drop')return false;
+    const expected=elements.filter(element=>zones.some(zone=>Array.isArray(zone.accepts)&&zone.accepts.includes(element.id)));
+    return expected.length>0&&expected.every(element=>{const zoneId=data.state&&data.state[element.id]&&String(data.state[element.id].zoneId||'');return !!zoneId&&zones.some(zone=>zone.id===zoneId&&zone.accepts.includes(element.id))});
+  }
   function client(){
     const config=window.CLASSES_SUPABASE||{};
     if(!window.supabase||!/^https:\/\//.test(config.url||'')||!config.anonKey)throw new Error('Configuration Supabase indisponible.');
@@ -57,19 +64,19 @@
       left:{avatar:{x:83,y:72,w:12,h:12,mode:'head',z:7},el:{title:{x:59,y:6,w:36,h:12,fs:28,z:3},media:{x:4,y:15,w:52,h:72,z:3},body:{x:60,y:23,w:34,h:44,fs:19,z:4}}},
       right:{avatar:{x:3,y:4,w:11,h:11,mode:'head',z:7},el:{title:{x:18,y:6,w:76,h:12,fs:28,z:3},body:{x:5,y:23,w:29,h:60,fs:19,z:4},media:{x:38,y:15,w:57,h:72,z:3}}},
       wide:{avatar:{x:3,y:72,w:12,h:12,mode:'head',z:7},el:{title:{x:4,y:5,w:91,h:11,fs:28,z:3},body:{x:4,y:20,w:25,h:46,fs:18,z:4},media:{x:32,y:17,w:64,h:70,z:3}}},
-      // Simulation : PAS de bloc de texte — seulement le titre et la simulation qui remplit
+      // Simulation : PAS de bloc de texte — la simulation remplit
       // le cadre, avec l'avatar ENTIER à côté : il énonce la consigne, félicite, corrige et
       // peut jouer à la place de l'élève via le contrat cc-sim.
-      sim:{avatar:{x:1,y:20,w:18,h:72,mode:'full',z:6},el:{title:{x:21,y:4,w:74,h:10,fs:26,z:3},media:{x:21,y:16,w:75,h:79,z:3}}}
+      sim:{avatar:{x:0,y:20,w:33,h:72,mode:'full',z:9},el:{media:{x:27,y:3,w:70,h:94,z:3}}}
     };
     const layouts={
-      split_left:{avatar:{x:1,y:7,w:full?27:14,h:full?88:14,mode:full?'full':'head',z:5},el:{title:{x:31,y:8,w:64,h:12,fs:31,z:3},body:{x:31,y:23,w:63,h:66,fs:22,z:3}}},
-      split_right:{avatar:{x:72,y:7,w:full?27:14,h:full?88:14,mode:full?'full':'head',z:5},el:{title:{x:5,y:8,w:64,h:12,fs:31,z:3},body:{x:5,y:23,w:63,h:66,fs:22,z:3}}},
+      split_left:{avatar:{x:0,y:7,w:full?40:14,h:full?88:14,mode:full?'full':'head',z:full?9:6},el:{title:{x:full?36:31,y:8,w:full?59:64,h:12,fs:31,z:3},body:{x:full?36:31,y:23,w:full?59:63,h:66,fs:22,z:3}}},
+      split_right:{avatar:{x:full?60:72,y:7,w:full?40:14,h:full?88:14,mode:full?'full':'head',z:full?9:6},el:{title:{x:5,y:8,w:full?58:64,h:12,fs:31,z:3},body:{x:5,y:23,w:full?58:63,h:66,fs:22,z:3}}},
       board_focus:{avatar:{x:83,y:4,w:13,h:13,mode:'head',z:6},el:{title:{x:5,y:7,w:74,h:12,fs:32,z:3},body:{x:5,y:23,w:74,h:66,fs:23,z:3}}},
       media_focus:mediaLayouts[mediaPosition]||mediaLayouts.right,
-      activity_focus:{avatar:{x:1,y:23,w:18,h:65,mode:'full',z:6},el:{title:{x:21,y:5,w:73,h:12,fs:30,z:3},body:{x:21,y:82,w:72,h:10,fs:17,z:3},sim:{x:21,y:19,w:72,h:60,fs:17,z:4},media:{x:21,y:19,w:72,h:60,fs:17,z:4}}},
-      question_focus:{avatar:{x:67,y:13,w:26,h:80,mode:'full',z:5},el:{title:{x:5,y:7,w:58,h:12,fs:29,z:3},probleme:{x:5,y:23,w:56,h:50,fs:25,z:3},body:{x:5,y:76,w:56,h:12,fs:18,z:3}}},
-      summary_focus:{avatar:{x:1,y:12,w:24,h:80,mode:'full',z:5},el:{title:{x:28,y:7,w:66,h:12,fs:31,z:3},body:{x:28,y:23,w:65,h:65,fs:22,z:3}}}
+      activity_focus:{avatar:{x:0,y:23,w:30,h:65,mode:'full',z:9},el:{title:{x:26,y:5,w:68,h:12,fs:30,z:3},body:{x:26,y:82,w:67,h:10,fs:17,z:3},sim:{x:26,y:19,w:67,h:60,fs:17,z:4},media:{x:26,y:19,w:67,h:60,fs:17,z:4}}},
+      question_focus:{avatar:{x:64,y:13,w:36,h:80,mode:'full',z:9},el:{title:{x:5,y:7,w:58,h:12,fs:29,z:3},probleme:{x:5,y:23,w:56,h:50,fs:25,z:3},body:{x:5,y:76,w:56,h:12,fs:18,z:3}}},
+      summary_focus:{avatar:{x:0,y:12,w:36,h:80,mode:'full',z:9},el:{title:{x:34,y:7,w:61,h:12,fs:31,z:3},body:{x:34,y:23,w:60,h:65,fs:22,z:3}}}
     };
     return layouts[scene]||layouts.board_focus;
   }
@@ -141,7 +148,7 @@
     const presentation=normalizePresentation({scene:'media_focus',avatarSize:'reduced'},source.kind,source,mediaIndex);
     const media=sourceMedia(source,source.file_name,objective),hold=['video','simulation','audio','link'].includes(media.type);
     return {phase:'concept',say:`Regardons maintenant le support ${plain(source.file_name,180)}. ${objective}`,pauseForAnswer:hold,
-      board:{title:html(source.file_name||'Support pédagogique'),lines:boardLines(objective,2),media},presentation};
+      board:{title:media.type==='simulation'?'':html(source.file_name||'Support pédagogique'),lines:media.type==='simulation'?[]:boardLines(objective,2),media},presentation};
   }
   function activityBoard(activity,fallbackRows){
     let kind=activity&&activity.kind,instruction=plain(activity&&activity.instruction,300);
@@ -176,6 +183,12 @@
     const attendus=(Array.isArray(raw.expectedKeywords)?raw.expectedKeywords:[]).map(x=>plain(x,100)).filter(Boolean).slice(0,10);
     return {type:'libre',enonce,q,svg,attendus:attendus.length?attendus:[plain(raw.expectedAnswer,120)||'réponse attendue'],reponse:html(plain(raw.expectedAnswer,400)),fb};
   }
+  function plannedQuizSets(rawSets){
+    return (Array.isArray(rawSets)?rawSets:[]).slice(0,3).map((set,index)=>{
+      const quiz=(Array.isArray(set&&set.questions)?set.questions:[]).map((question,questionIndex)=>evaluationQuestion(question,`Question ${questionIndex+1}`)).filter(Boolean).slice(0,5);
+      return {label:plain(set&&set.label,120)||`Evaluation ${index+1}`,intro:plain(set&&set.intro,300),quiz};
+    }).filter(set=>set.quiz.length);
+  }
   function stepFromBlock(row,source,chunk,chunkIndex,chunkCount,sessionTitle,visualIndex,mediaIndex,sessionRows){
     const type=row.block_type||'text',content=row.content&&typeof row.content==='object'?row.content:{};
     const rawTitle=plain(row.title||'Partie du cours',180),objective=plain(row.objective,300);
@@ -205,6 +218,13 @@
     }else if(source&&source.url){
       board.media=sourceMedia(source,title,chunk);if(!board.media.objective)board.media.objective=objective;
     }
+    if(type==='image'&&board.media&&content.image&&typeof content.image==='object'){
+      board.media.desc=plain(content.image.caption,220)||title;
+      board.media.alt=plain(content.image.alt,260)||board.media.desc;
+    }
+    // La simulation est le tableau : aucun titre ni aucune ligne du bloc ne doit se superposer
+    // à l'iframe. La consigne et les libellés vivent déjà dans la simulation et dans la voix.
+    if(hasSimMedia){board.title='';board.lines=[];delete board.probleme;delete board.problemeTag;}
     if(type==='activity'){
       const interactive=activityBoard(content.activity,sessionRows);if(interactive)Object.assign(board,interactive);
     }
@@ -215,7 +235,7 @@
     // Le script oral écrit par l'IA contient déjà accroche, consigne et renvois au tableau :
     // il est prononcé tel quel, sans re-préfixer mécaniquement le titre du bloc.
     const say=spokenScript||`${shownTitle}. ${lead}${chunk}`;
-    return {phase,say:say.slice(0,1950),board,presentation,pauseForAnswer:type==='question'||holdForResource};
+    return {phase,say:say.slice(0,1950),board,presentation,pauseForAnswer:type==='question'||holdForResource,studentQuestion:type==='question'};
   }
   async function loadPublishedCourseLesson(courseId){
     if(!/^[0-9a-f-]{36}$/i.test(courseId||''))throw new Error('Identifiant de cours invalide.');
@@ -241,7 +261,8 @@
     const sessionNames={};(analysis.sessions||[]).forEach((item,index)=>sessionNames[index]=plain(item&&item.title,180));
     const etapes=[{intro:true,say:`Bienvenue dans le cours ${plain(course.title,180)}. ${plain(course.description||analysis.summary,1200)} Aujourd'hui, je vais te guider avec des explications, des ressources à observer et des moments où tu participeras au tableau.`,board:{title:'',lines:[]},presentation:{scene:'avatar_only',avatarSize:'full',layout:INTRO_LAYOUT}}];
     const grouped={};(blocks||[]).forEach(row=>(grouped[row.session_position]||(grouped[row.session_position]=[])).push(row));
-    const quizSets=[];
+    const quizSets=plannedQuizSets(analysis.evaluationSets);
+    const hasPlannedQuizSets=quizSets.length>0;
     let visualIndex=0,mediaIndex=0;
     Object.keys(grouped).map(Number).sort((a,b)=>a-b).forEach(sessionPosition=>{
       const rows=grouped[sessionPosition],sessionTitle=plain((rows[0]&&rows[0].content&&rows[0].content.session_title)||sessionNames[sessionPosition]||`Séance ${sessionPosition+1}`,180);
@@ -260,9 +281,9 @@
       });
       const evaluationRows=rows.filter(row=>row.block_type==='evaluation');
       const sessionQuiz=evaluationRows.map(row=>evaluationQuestion(row.content&&row.content.evaluation,(row.content&&row.content.text)||row.title)).filter(Boolean);
-      if(gameMode){
+      if(!hasPlannedQuizSets&&gameMode){
         sessionQuiz.forEach((question,index)=>{const row=evaluationRows[index]||{};quizSets.push({label:`Jeu · ${plain(row.title,100)||sessionTitle}`,intro:plain(row.objective,220)||`Joue pour vérifier ce que tu as appris.`,quiz:[question]})});
-      }else if(sessionQuiz.length)quizSets.push({label:`Évaluation · ${sessionTitle}`,intro:`Vérifie les objectifs de ${sessionTitle}.`,quiz:sessionQuiz});
+      }else if(!hasPlannedQuizSets&&sessionQuiz.length)quizSets.push({label:`Évaluation · ${sessionTitle}`,intro:`Vérifie les objectifs de ${sessionTitle}.`,quiz:sessionQuiz});
     });
     const unusedSources=allSources.filter(source=>source.url&&!usedSourceIds.has(source.id));
     unusedSources.forEach(source=>etapes.push(standaloneResourceStep(source,mediaIndex++)));
@@ -293,7 +314,9 @@
   }
   if(typeof window!=='undefined'){
     window.ccTextHash=ccTextHash;
+    window.ccStudentQuestionReturnStep=studentQuestionReturnStep;
+    window.ccSimulationStateCompleted=simulationStateCompleted;
     window.loadPublishedCourseLesson=loadPublishedCourseLesson;
   }
-  if(typeof module!=='undefined'&&module.exports)module.exports={INTRO_LAYOUT,layoutForScene,normalizePresentation,evaluationQuestion,simulationDocument,stepFromBlock,ccTextHash};
+  if(typeof module!=='undefined'&&module.exports)module.exports={INTRO_LAYOUT,layoutForScene,normalizePresentation,evaluationQuestion,plannedQuizSets,simulationDocument,simulationStateCompleted,stepFromBlock,studentQuestionReturnStep,ccTextHash};
 })();

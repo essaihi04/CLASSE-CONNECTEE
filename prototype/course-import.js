@@ -145,7 +145,15 @@
     return new File([array],fileName,{type:mimeType||'application/octet-stream'});
   }
   async function generateMissingImages(token){
-    const targets=allBlocks().filter(block=>(block.type==='image'||block.type==='schema')&&!block.resourceName&&block.image&&block.image.useful===true).slice(0,Math.max(0,Number(window.OPENAI_MAX_COURSE_IMAGES)||4));
+    const candidates=allBlocks().filter(block=>(block.type==='image'||block.type==='schema')&&!block.resourceName&&block.image&&block.image.useful===true);
+    const target=state.plan&&state.plan.targetContext||{};
+    const primary=/préscolaire|primaire|apep|grande\s+section|\bcp\b/i.test(`${target.cycle||''} ${target.gradeLevelName||''} ${target.gradeLevelCode||''}`);
+    const configured=Number(window.OPENAI_MAX_COURSE_IMAGES);
+    // Au primaire, chaque mot concret utile doit garder son couple mot + image : ne tronque
+    // donc plus silencieusement la liste à quatre illustrations. Une configuration explicite
+    // peut toujours imposer un plafond à l'établissement.
+    const limit=Number.isFinite(configured)&&configured>=0?configured:(primary?candidates.length:4);
+    const targets=candidates.slice(0,Math.max(0,limit));
     if(!targets.length){skipLoadingStage('images','Aucune image manquante jugée indispensable');return}
     let completed=0;setLoadingStage('images','Génération des illustrations utiles',`${targets.length} image${targets.length>1?'s':''} pédagogique${targets.length>1?'s':''} à créer. Deux générations peuvent avancer en parallèle.`,52);
     await runPool(targets,2,async block=>{

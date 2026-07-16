@@ -115,16 +115,16 @@
     let camMode='body';                 // 'body' = corps ENTIER (pieds compris) ; 'bust' = tête+buste ; 'head' = visage
     function headY(){ const head=vrm?.humanoid?.getNormalizedBoneNode('head');
       if(head){ const v=new THREE.Vector3(); head.getWorldPosition(v); return v.y; } return 1.35; }
-    // CORPS ENTIER : du dessus de la tête jusqu'aux PIEDS (toujours visibles),
-    // distance calculée pour que tout tienne dans le cadre quel que soit le format de la boîte
+    const FULL_BODY_HALF_WIDTH=0.72, FULL_BODY_MARGIN=1.10;
+    // CORPS ENTIER : du dessus de la tête jusqu'aux PIEDS, avec assez de largeur pour
+    // les mains pendant point/write/wave/welcome, même dans une scène avec un média.
     function frameFull(){
-      const top = headY()+0.24, bottom = -0.06;          // marge au-dessus de la tête / sous les pieds
+      const top = headY()+0.28, bottom = -0.08;          // marge au-dessus de la tête / sous les pieds
       const mid = (top+bottom)/2, half=(top-bottom)/2;
       const vHalf = Math.tan(camera.fov*Math.PI/360);
-      // le corps REMPLIT la hauteur de la boîte (agrandir verticalement agrandit vraiment l'avatar) ;
-      // la limite en largeur ne joue que si la boîte est très étroite (épaules coupées sinon)
-      let dist = half*1.04/vHalf;
-      dist = Math.max(dist, 0.42/(vHalf*camera.aspect));
+      // La hauteur garde l'avatar grand ; l'enveloppe horizontale réserve les bras et les mains.
+      let dist = half*FULL_BODY_MARGIN/vHalf;
+      dist = Math.max(dist, FULL_BODY_HALF_WIDTH/(vHalf*Math.max(0.1,camera.aspect)));
       camera.position.set(0, mid, dist);
       camera.lookAt(0, mid, 0);
     }

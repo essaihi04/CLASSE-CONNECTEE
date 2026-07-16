@@ -215,12 +215,12 @@
 
   /* ====== AVATAR (iframe 3D) DANS LE TABLEAU ====== */
   /* grande zone transparente, SANS cadre : la main n'est jamais coupée */
-  .avatarBox{position:absolute;left:0;bottom:0;width:470px;height:630px;z-index:5;
+  .avatarBox{position:absolute;left:0;bottom:0;width:470px;height:630px;z-index:9;
     overflow:visible;background:transparent;pointer-events:none;transform-origin:left bottom;
     transition:top .4s ease, left .4s ease, width .4s ease, height .4s ease}
   /* MODE VISAGE : bulle ronde qui parle, en haut à DROITE du tableau */
   .avatarBox.headmode{top:12px;right:16px;left:auto;bottom:auto;width:190px;height:190px;
-    transform:none!important;border-radius:50%;overflow:hidden;z-index:8;
+    transform:none!important;border-radius:50%;overflow:hidden;z-index:10;
     border:3px solid var(--accent2);background:radial-gradient(circle at 50% 42%, rgba(30,41,59,.65), rgba(2,6,23,.25));
     box-shadow:0 8px 24px rgba(0,0,0,.45)}
   /* le contenu démarre EN HAUT ; on réserve juste la colonne de droite pour la bulle */
@@ -371,7 +371,7 @@
   #micBtn.listening{background:#ef4444;color:#fff;animation:micPulse 1s infinite}
   @keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.6)}50%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
   /* barre du haut du tableau : questions (gauche) + Suivant (droite), collée en haut */
-  .boardtop{position:sticky;top:0;z-index:8;display:flex;align-items:flex-start;gap:10px;pointer-events:none;
+  .boardtop{position:sticky;top:0;z-index:12;display:flex;align-items:flex-start;gap:10px;pointer-events:none;
     margin:0 0 14px;padding-right:120px}      /* réserve la place du bouton ✏️ Dessiner à droite */
   .chips{display:flex;flex-wrap:wrap;gap:7px;flex:1 1 auto;min-width:0;pointer-events:none}
   .nextTop{flex:0 0 auto;white-space:nowrap;pointer-events:auto}
@@ -970,7 +970,7 @@ function loadAvatar(src){
   if(isVideo(src)){
     const v=document.createElement('video');
     v.src=src; v.autoplay=true; v.loop=true; v.muted=true; v.playsInline=true;
-    v.setAttribute('playsinline',''); v.style.cssText="width:100%;height:100%;object-fit:cover;display:block";
+    v.setAttribute('playsinline',''); v.style.cssText="width:100%;height:100%;object-fit:contain;background:transparent;display:block";
     v.onerror=()=>{ v.remove(); fallback2d.style.display='flex'; };
     avatarBox.appendChild(v); fallback2d.style.display='none';
     v.play().catch(()=>{});
@@ -1186,6 +1186,7 @@ function splitForSpeech(t){
 /* voix de secours / principale : synthèse vocale du navigateur (web).
    On lit PHRASE PAR PHRASE : rythme plus naturel + évite la coupure ~15 s de Chrome. */
 function speakBrowser(text){
+  ttsLoading=false;
   window.speechSynthesis.cancel();
   const my=ttsToken;
   const v=bestVoice||pickFrenchVoice();
@@ -1228,7 +1229,7 @@ function speakBrowser(text){
   };
   next();
 }
-let currentAudio=null, ttsToken=0, ttsAbort=null, afterSpeakCb=null;
+let currentAudio=null, ttsToken=0, ttsAbort=null, afterSpeakCb=null, ttsLoading=false;
 const ttsCache=new Map();   // text -> Blob (rejoue instantanément, sans refaire la requête)
 let curSchemaEl=null, highlightTimers=[];   // schéma courant + minuteries d'allumage
 let ttsServerDown=0;                        // disjoncteur : si >0, le serveur TTS est KO (timestamp)
@@ -1240,6 +1241,7 @@ const TTS_RETRY_MS=45*1000;                 // on redonne sa chance au serveur a
    ET annule la requête Gemini précédente encore en vol (jeton + AbortController). */
 function stopAudio(){
   ttsToken++;                                       // invalide toute requête/audio précédent
+  ttsLoading=false;
   if(ttsAbort){ try{ ttsAbort.abort(); }catch(e){} ttsAbort=null; }
   if(currentAudio){ try{ currentAudio.pause(); currentAudio.src=''; }catch(e){} currentAudio=null; }
   try{ window.speechSynthesis.cancel(); }catch(e){}
@@ -1338,14 +1340,15 @@ function startLipLevel(a, my){
 }
 function playBlob(blob, text, my){
   if(my!==ttsToken) return;                          // une parole plus récente a pris la main
+  ttsLoading=true;                                  // attend aussi le démarrage réel du lecteur audio
   const url=URL.createObjectURL(blob);
   const a=new Audio(url); currentAudio=a;
   const schemaEl=curSchemaEl;                        // le schéma associé à CETTE parole
-  a.onplay =()=>{ if(my===ttsToken){ animateMouth(true); startLipLevel(a, my); scheduleHighlights(schemaEl, text, a, my); schedule3DTour(text, a, my); } };
-  a.onended=()=>{ stopLipLevel(); animateMouth(false); URL.revokeObjectURL(url); if(currentAudio===a) currentAudio=null;
+  a.onplay =()=>{ if(my===ttsToken){ ttsLoading=false; animateMouth(true); startLipLevel(a, my); scheduleHighlights(schemaEl, text, a, my); schedule3DTour(text, a, my); } };
+  a.onended=()=>{ if(my===ttsToken)ttsLoading=false; stopLipLevel(); animateMouth(false); URL.revokeObjectURL(url); if(currentAudio===a) currentAudio=null;
     const cb=afterSpeakCb; afterSpeakCb=null; if(my===ttsToken && cb) cb(); };
-  a.onerror=()=>{ stopLipLevel(); URL.revokeObjectURL(url); if(my===ttsToken) speakBrowser(text); };
-  a.play().catch(()=>{ if(my===ttsToken) speakBrowser(text); });
+  a.onerror=()=>{ stopLipLevel(); URL.revokeObjectURL(url); if(my===ttsToken){ ttsLoading=false; speakBrowser(text); } };
+  a.play().catch(()=>{ if(my===ttsToken){ ttsLoading=false; speakBrowser(text); } });
 }
 
 /* ---- allumage des parties du schéma au rythme de la voix ----
@@ -1415,8 +1418,8 @@ function speak(text, then){
   speech.textContent=text;
   stopAudio();                                       // coupe TOUT l'audio précédent (remet afterSpeakCb à null)
   afterSpeakCb = then || null;                       // callback joué à la fin de CETTE parole (ex : "As-tu compris ?")
-  if(!document.getElementById('voice').checked){ afterSpeakCb=null; return; }
-  if(VOICE_SOURCE==='browser'){ speakBrowser(text); return; }   // narrateur = voix web du navigateur
+  if(!document.getElementById('voice').checked){ afterSpeakCb=null; ttsLoading=false; return; }
+  if(VOICE_SOURCE==='browser'){ ttsLoading=false; speakBrowser(text); return; }   // narrateur = voix web du navigateur
   const my=ttsToken;                                 // jeton de CETTE prise de parole
   const cached=ttsCache.get(text);
   if(cached){ playBlob(cached, text, my); return; }  // déjà généré → instantané
@@ -1424,12 +1427,14 @@ function speak(text, then){
   // avec le cours au lieu de la synthétiser une nouvelle fois.
   const preUrl=(lecon&&lecon.audioMap&&window.ccTextHash)?lecon.audioMap[window.ccTextHash(text)]:null;
   if(preUrl){
+    ttsLoading=true;
     const ctrlPre=new AbortController(); ttsAbort=ctrlPre;
     fetch(preUrl,{signal:ctrlPre.signal})
       .then(r=>{ if(!r.ok) throw new Error('audio préenregistré '+r.status); return r.blob(); })
       .then(blob=>{
         if(!blob.size) throw new Error('audio préenregistré vide');
         if(my!==ttsToken) return;
+        ttsLoading=false;
         if(ttsCache.size>40) ttsCache.clear();
         ttsCache.set(text, blob);
         playBlob(blob, text, my);
@@ -1441,13 +1446,15 @@ function speak(text, then){
   requestServerTTS();
   function requestServerTTS(){
     // DISJONCTEUR : serveur TTS KO récemment → voix navigateur DIRECTE (zéro latence)
-    if(ttsServerDown && (Date.now()-ttsServerDown) < TTS_RETRY_MS){ speakBrowser(text); return; }
+    if(ttsServerDown && (Date.now()-ttsServerDown) < TTS_RETRY_MS){ if(my===ttsToken)ttsLoading=false; speakBrowser(text); return; }
+    ttsLoading=true;
     const ctrl=new AbortController(); ttsAbort=ctrl;
     requestCourseTTS(text,ctrl.signal)  // génère maintenant et enregistre pour les prochaines lectures
       .then(r=>{ if(r.status===204) throw new Error('tts fallback'); if(!r.ok) throw new Error('tts '+r.status); return r.blob(); })
       .then(blob=>{
         if(!blob.size) throw new Error('tts empty');
         if(my!==ttsToken) return;                      // demande dépassée → on abandonne
+        ttsLoading=false;
         ttsServerDown=0;                               // serveur OK → on referme le disjoncteur
         if(ttsCache.size>40) ttsCache.clear();
         ttsCache.set(text, blob);
@@ -1455,7 +1462,7 @@ function speak(text, then){
       })
       .catch(err=>{ if(err && err.name==='AbortError') return;   // annulation volontaire : silence
         ttsServerDown=Date.now();                      // serveur KO → on bascule sur la voix navigateur
-        if(my===ttsToken) speakBrowser(text); });
+        if(my===ttsToken){ ttsLoading=false; speakBrowser(text); } });
   }
 }
 /* ---- PAROLE d'une étape avec CARROUSEL : l'avatar parle de chaque image et fait défiler
@@ -1727,7 +1734,7 @@ function renderLessonMedia(m){
     return box;
   }
   if(m.src){
-    box.innerHTML = '<img src="'+m.src+'" alt="'+(m.desc||'')+'">';
+    const image=document.createElement('img');image.src=m.src;image.alt=m.alt||m.desc||'Illustration pédagogique';box.appendChild(image);
     if(m.desc){ const c=document.createElement('div'); c.className='lm-cap'; c.textContent=m.desc; box.appendChild(c); }
     return box;
   }
@@ -2337,6 +2344,9 @@ function renderProfEditBar(n, board){
 const LAYOUT_SEL={ title:'#boardTitle', body:'#boardBody', probleme:'.probleme-card', media:'.lesson-media', schema:'.schema', quiz:'.quiz-layout-block',
   // activité interactive (tableau à compléter / tri / expérience) : positionnable comme les autres blocs
   sim:'.filltable-wrap,.match,.exp,.exp3d' };
+// Un corps entier doit garder assez de largeur pour les bras ouverts. Cette zone reste
+// transparente et non interactive : elle peut chevaucher un média sans bloquer la souris.
+const FULL_AVATAR_MIN_ASPECT=0.80, FULL_AVATAR_FOREGROUND_Z=9;
 // RATIO DE RÉFÉRENCE de la mise en page = ratio du PLEIN ÉCRAN (en mode présentation le
 // tableau remplit tout l'écran). On ancre titre/texte/schéma/média/avatar dans un CADRE
 // à ce ratio, centré (letterbox) dans le tableau. Résultat : la disposition est IDENTIQUE
@@ -2378,7 +2388,7 @@ function applyLayout(cid, n){
     ? lecon.etapes[Number(n)].presentation.layout : null;
   const lay=explicit||directed;
   boardEl.classList.toggle('has-layout', !!lay);
-  if(!lay){ if(box){ box.style.left=''; box.style.top=''; box.style.right=''; box.style.bottom=''; box.style.width=''; box.style.height=''; box.style.aspectRatio=''; box.classList.remove('manual-head'); } return; }
+  if(!lay){ if(box){ box.style.left=''; box.style.top=''; box.style.right=''; box.style.bottom=''; box.style.width=''; box.style.height=''; box.style.aspectRatio=''; box.style.zIndex=''; box.classList.remove('manual-head'); } return; }
   const F=layoutFrame(boardEl);
   // 2) blocs du tableau : coordonnées en % du CADRE de référence → pixels (centrés dans le tableau)
   Object.entries(LAYOUT_SEL).forEach(([k,sel])=>{ const el=boardEl.querySelector(sel); const p=lay.el&&lay.el[k];
@@ -2440,9 +2450,18 @@ function applyLayout(cid, n){
     let wpx=wPct/100*F.W;
     let hpx=isHead ? wpx : (lay.avatar.h ? lay.avatar.h/100*F.H : wpx*630/470);   // carré (cercle) ou proportions 470:630
     let xpx=F.ox+(lay.avatar.x||0)/100*F.W, ypx=F.oy+(lay.avatar.y||0)/100*F.H;
+    if(!isHead){
+      const requestedWidth=wpx,centerX=xpx+wpx/2;
+      wpx=Math.max(wpx,Math.min(F.W,hpx*FULL_AVATAR_MIN_ASPECT));
+      if(wpx>requestedWidth){
+        xpx=centerX-wpx/2;                            // le corps ne saute pas lors de l'élargissement
+        if(wpx<=F.W)xpx=Math.max(F.ox,Math.min(F.ox+F.W-wpx,xpx));
+      }
+    }
     box.style.left=xpx+'px'; box.style.top=ypx+'px'; box.style.right='auto'; box.style.bottom='auto';
     box.style.width=wpx+'px'; box.style.height=hpx+'px'; box.style.aspectRatio=''; box.style.transform='none';
-    box.style.zIndex=(lay.avatar.z!=null?lay.avatar.z:5);
+    const requestedZ=(lay.avatar.z!=null?lay.avatar.z:5);
+    box.style.zIndex=isHead?Math.max(10,requestedZ):Math.max(FULL_AVATAR_FOREGROUND_Z,requestedZ);
     // FORME : « head » = bulle ronde recadrée sur le visage ; « full » = corps entier (PIEDS visibles)
     if(isHead){
       box.classList.add('manual-head');
@@ -2534,7 +2553,7 @@ function render(n){ const e=lecon.etapes[n];
   const ASK_PHASES = ['concept','structuration'];
   const substantive = e.phase ? ASK_PHASES.includes(e.phase) : !!(e.board&&e.board.schema);
   // pas de question de contrôle sur une étape d'ACTIVITÉ interactive (l'élève y est déjà actif)
-  const interactive = e.board && (e.board.match || e.board.fillTable || e.board.experiment || e.board.experiment3d || e.board.labExperiment);
+  const interactive = e.board && (e.board.match || e.board.fillTable || e.board.experiment || e.board.experiment3d || e.board.labExperiment || (e.board.media&&e.board.media.type==='simulation'));
   // Les cours PDF possèdent leurs propres pauses-question espacées par le réalisateur
   // pédagogique : ne pas répéter « As-tu compris ? » après chaque bloc, ce qui recréerait
   // précisément la monotonie que la mise en scène cherche à éviter.
@@ -2551,7 +2570,7 @@ function render(n){ const e=lecon.etapes[n];
   } else {
     // pas de point de contrôle : fin de la parole → petite pause (question possible) → diapo suivant
     const autoOk = !e.reveal && !interactive && !e.pauseForAnswer && n < lecon.etapes.length-1;
-    speakStepNarration(say, carousel, ()=>{ revealLines(); if(autoOk && i===n) scheduleAutoNext(n, AUTO_NEXT_MS); });
+    speakStepNarration(say, carousel, ()=>{ revealLines(); if(e.studentQuestion&&i===n)showStudentQuestionHint();else if(autoOk && i===n) scheduleAutoNext(n, AUTO_NEXT_MS); });
   }
   bar.style.width=((n+1)/lecon.etapes.length*100)+'%';
   // précharge l'audio de l'étape SUIVANTE pendant la lecture (→ "Suivant" instantané)
@@ -2588,12 +2607,30 @@ let inQuiz=false, quizAnswered=false, pendingQuizNext=null;
 // Évaluation intermédiaire (déclenchée avant une activité) : étape à reprendre à la fin.
 let quizReturnStep=null;
 let activeQuizLayoutKey='quiz';
+let studentAnswerPending=false;
+function activeStudentQuestion(){return i>=0&&!inQuiz&&lecon&&lecon.etapes[i]&&lecon.etapes[i].studentQuestion;}
+function showStudentQuestionHint(){
+  if(!activeStudentQuestion()||studentAnswerPending||document.querySelector('.student-answer-hint'))return;
+  const wrap=document.createElement('div');wrap.className='comprehension student-answer-hint';
+  wrap.innerHTML='<div class="comp-hint">🎤 Réponds à voix haute ou écris ta réponse. Ensuite, nous reviendrons à l\'explication.</div>';
+  document.querySelector('.board').appendChild(wrap);
+}
+function handleStudentQuestionAnswer(answerText){
+  if(!activeStudentQuestion()||studentAnswerPending)return false;
+  studentAnswerPending=true;cancelAutoNext();cancelAutoResume();compClear();
+  const questionStep=i,returnStep=window.ccStudentQuestionReturnStep?window.ccStudentQuestionReturnStep(questionStep):Math.max(0,questionStep-1),ack='Merci pour ta réponse. Revenons à l’explication juste avant la question.';
+  speech.textContent='🎤 Réponse de l’élève : '+String(answerText||'').slice(0,220);
+  avatarExpress('nod','happy');
+  const back=()=>setTimeout(()=>{if(i===questionStep)go(returnStep)},700);
+  if(typeof voiceOn==='function'&&voiceOn())speak(ack,back);else{speech.textContent=ack;back()}
+  return true;
+}
 function isIntermediateQuizStep(step){
   const ov=stepOverride(lecon&&lecon.id,'quiz');
   if(ov.evalDisabled) return false;
   return Object.prototype.hasOwnProperty.call(ov,'evalAfterId') ? step.__id===ov.evalAfterId : !!step.evalHere;
 }
-function go(n){ if(n<0||n>=lecon.etapes.length)return; if(typeof resumePlayback==='function') resumePlayback(); inQuiz=false; i=n; render(i); }
+function go(n){ if(n<0||n>=lecon.etapes.length)return; studentAnswerPending=false;if(typeof cancelSimulationAdvance==='function')cancelSimulationAdvance();if(typeof resumePlayback==='function') resumePlayback(); inQuiz=false; i=n; render(i); }
 
 /* dévoile la réponse d'une étape "Vérifions" : écrit la ligne réponse + voix + hochement */
 function revealAnswer(reveal, btn){
@@ -3355,16 +3392,20 @@ function buildChartSVG(chart){
 
 /* ---- Q&R : réponse affichée au tableau + voix ---- */
 const qinput=document.getElementById('qinput');
+function speakThenResumeCourse(text){
+  if(typeof voiceOn==='function'&&voiceOn())speak(text,scheduleAutoResume);
+  else{speak(text);scheduleAutoResume()}
+}
 // repli local (hors-ligne / si l'IA échoue)
 function answerLocal(q){
   renderPhase(-1);
   const low=q.toLowerCase();
   const found=reponses.find(o=>o.k.some(k=>low.includes(k)));
   avatarScene('explain');
-  if(found){ paint({title:found.title, lines:found.lines.map(t=>({t,cls:"def"}))}, found.say); appendResumeButton(); speak(found.say, scheduleAutoResume); }
+  if(found){ paint({title:found.title, lines:found.lines.map(t=>({t,cls:"def"}))}, found.say); appendResumeButton(); speakThenResumeCourse(found.say); }
   else{
     const msg="Je n'ai pas pu joindre l'IA. Vérifie que le serveur tourne (npm start) et ta connexion, puis réessaie.";
-    paint({title:"Ta question 🤔", lines:[{t:"« "+q+" »",cls:""},{t:msg,cls:"def"}]}, msg); appendResumeButton(); speak(msg);
+    paint({title:"Ta question 🤔", lines:[{t:"« "+q+" »",cls:""},{t:msg,cls:"def"}]}, msg); appendResumeButton(); speakThenResumeCourse(msg);
   }
 }
 // Mémorise l'étape du cours où l'élève a posé sa question, pour y REVENIR ensuite.
@@ -3398,8 +3439,24 @@ function aiAnswerLines(d){
    postMessage {type:'cc-sim', action:'demo'|'reset'|'set'}. Le tableau étant effacé le
    temps de la question, on réessaie jusqu'au retour de l'iframe après la reprise. */
 let activeSimulationContext=null;
+let simulationAdvanceTimer=null,simulationAdvanceStep=null;
+function currentSimulationFrame(event){const frame=document.querySelector('.lesson-media iframe');return frame&&(!event||event.source===frame.contentWindow)?frame:null;}
+function cancelSimulationAdvance(){if(simulationAdvanceTimer)clearTimeout(simulationAdvanceTimer);simulationAdvanceTimer=null;simulationAdvanceStep=null;}
+function scheduleSimulationAdvance(){
+  const step=i;if(step<0||step>=lecon.etapes.length-1||inQuiz||!currentSimulationFrame())return;
+  if(simulationAdvanceStep===step&&simulationAdvanceTimer)return;
+  cancelSimulationAdvance();simulationAdvanceStep=step;
+  const wait=()=>{
+    simulationAdvanceTimer=null;
+    if(i!==step||inQuiz||!currentSimulationFrame()){simulationAdvanceStep=null;return}
+    const busy=paused||ttsLoading||avatarSpeaking||(currentAudio&&!currentAudio.paused)||(window.speechSynthesis&&speechSynthesis.speaking);
+    if(busy){simulationAdvanceTimer=setTimeout(wait,450);return}
+    simulationAdvanceTimer=setTimeout(()=>{simulationAdvanceTimer=null;simulationAdvanceStep=null;if(i===step)go(step+1)},900);
+  };
+  simulationAdvanceTimer=setTimeout(wait,500);
+}
 window.addEventListener('message',event=>{
-  const data=event.data||{};if(data.type!=='cc-sim-state'||!data.capabilities)return;
+  const data=event.data||{};if(data.type!=='cc-sim-state'||!data.capabilities||!currentSimulationFrame(event))return;
   const variables=Array.isArray(data.capabilities.variables)?data.capabilities.variables.slice(0,3).map(v=>({name:String(v&&v.name||'').slice(0,80),min:Number(v&&v.min),max:Number(v&&v.max),step:Number(v&&v.step),unit:String(v&&v.unit||'').slice(0,24)})).filter(v=>v.name&&Number.isFinite(v.min)&&Number.isFinite(v.max)):[];
   // Valeur courante : soit dans data.state, soit portée par la variable elle-même (value).
   const raw=Array.isArray(data.capabilities.variables)?data.capabilities.variables:[];
@@ -3415,7 +3472,10 @@ window.addEventListener('message',event=>{
   const zones=Array.isArray(data.capabilities.zones)?data.capabilities.zones.slice(0,6).map(z=>({id:String(z&&z.id||'').slice(0,48),label:String(z&&z.label||'').slice(0,80),accepts:Array.isArray(z&&z.accepts)?z.accepts.map(x=>String(x).slice(0,48)).slice(0,12):[]})).filter(z=>z.id):[];
   const actions=['demo','reset'].concat(variables.length?['set']:[]).concat(elements.length&&zones.length?['place']:[]);
   activeSimulationContext={state,observation:String(data.observation||'').slice(0,300),capabilities:{actions,variables,elements,zones}};
+  const completed=window.ccSimulationStateCompleted?window.ccSimulationStateCompleted(data,elements,zones):data.completed===true;
+  if(completed)scheduleSimulationAdvance();
 });
+window.addEventListener('message',event=>{const data=event.data||{};if(data.type==='cc-sim-complete'&&currentSimulationFrame(event))scheduleSimulationAdvance()});
 /* VOIX DÉLÉGUÉE DE LA SIMULATION : la simulation est muette et envoie
    {type:'cc-sim-voice', kind:'word'|'retry'|'progress'|'success', text, ...} à chaque geste.
    C'est L'AVATAR qui parle (voix du cours). Après 2 erreurs sur le même objet, il répond
@@ -3424,7 +3484,7 @@ const simVoiceFailures={};
 let simVoiceLastWordAt=0;
 window.addEventListener('message',event=>{
   const d=event.data||{};
-  if(d.type!=='cc-sim-voice'||typeof d.text!=='string')return;
+  if(d.type!=='cc-sim-voice'||typeof d.text!=='string'||!currentSimulationFrame(event))return;
   const text=d.text.slice(0,300).trim();if(!text)return;
   const kind=String(d.kind||'');
   if(kind==='word'){
@@ -3447,7 +3507,7 @@ window.addEventListener('message',event=>{
     } else speak(text);
     return;
   }
-  if(kind==='success'){ Object.keys(simVoiceFailures).forEach(k=>delete simVoiceFailures[k]); try{ avatarEmotion('happy'); }catch(e){} speak(text); return; }
+  if(kind==='success'){ Object.keys(simVoiceFailures).forEach(k=>delete simVoiceFailures[k]); try{ avatarEmotion('happy'); }catch(e){} speak(text);scheduleSimulationAdvance();return; }
   if(kind==='progress'){ try{ avatarEmotion('happy'); }catch(e){} speak(text); }
 });
 function sendSimAction(action){
@@ -3464,7 +3524,7 @@ function answer(q){
   const simulationContext=document.querySelector('.lesson-media iframe')&&activeSimulationContext?JSON.parse(JSON.stringify(activeSimulationContext)):null;
   thinking.style.display='block'; speech.textContent='…'; stopAudio();   // coupe l'audio précédent
   cancelAutoNext(); cancelAutoResume();                                   // une question interrompt l'avance auto
-  if(typeof i==='number' && i>=0 && !inQuiz) askedFromStep=i;             // on retient où on s'est arrêté
+  if(askedFromStep==null&&typeof i==='number' && i>=0 && !inQuiz) askedFromStep=i; // repli si answer() est appelé directement
   avatarScene('think');
   // QUESTION LIBRE, phase 1 : le tableau s'efface (aucun texte) et l'avatar vient
   // EN ENTIER, AU CENTRE, le temps de réfléchir et de commencer à répondre.
@@ -3501,7 +3561,7 @@ function answer(q){
         avatarEmotion(emotion);
         avatarDockRight((svg || schema3d || tbl) ? 'point' : gesture);   // avatar à droite, texte à gauche
         if(simulationContext && d.simAction) sendSimAction(d.simAction); // l'IA manipule la simulation affichée
-        speak(d.answer, scheduleAutoResume);   // réponse finie → petit délai → retour au cours tout seul
+        speakThenResumeCourse(d.answer);       // réponse finie → petit délai → retour au cours tout seul
       } else { throw new Error(d && d.error ? d.error : 'réponse vide'); }
     })
     .catch(()=>{ thinking.style.display='none'; answerLocal(q); });
@@ -3535,7 +3595,7 @@ function classifyThenAct(q){
                              hasVideo:findVideoStep()>=0, step:(typeof i==='number'?i:null) }) })
     .then(r=>r.json())
     .then(d=>{
-      if(d && d.intent==='command' && executeIntent(d.action, d.phase)){ thinking.style.display='none'; return; }
+      if(d && d.intent==='command' && executeIntent(d.action, d.phase)){ askedFromStep=null;thinking.style.display='none'; return; }
       answer(q);                                   // question libre (ou commande inexécutable)
     })
     .catch(()=>answer(q));
@@ -3543,6 +3603,8 @@ function classifyThenAct(q){
 function ask(q){ if(!q.trim())return;
   if(handleVideoCommand(q)){ qinput.value=''; return; }   // « rejoue / mets pause la vidéo » → contrôle direct
   if(handleVoiceCommand(q)){ qinput.value=''; return; }   // commandes avancées écrites : évaluation, navigation, vidéo…
+  if(handleStudentQuestionAnswer(q)){qinput.value='';return}
+  cancelAutoNext();cancelAutoResume();if(typeof i==='number'&&i>=0&&!inQuiz)askedFromStep=i;
   classifyThenAct(q); qinput.value=''; }                  // sinon : l'IA catégorise (commande ↔ question)
 document.getElementById('send').onclick=()=>ask(qinput.value);
 qinput.addEventListener('keydown',e=>{ if(e.key==='Enter') ask(qinput.value); });
@@ -3633,6 +3695,7 @@ qinput.addEventListener('keydown',e=>{ if(e.key==='Enter') ask(qinput.value); })
       resumePlayback();                                   // toute autre demande SORT de la pause…
       if(handleVideoCommand(said)) return;                // …et est traitée normalement :
       if(handleVoiceCommand(said)) return;                // commande (diapo, phase, évaluation, vidéo…)
+      if(handleStudentQuestionAnswer(said))return;        // réponse à une question posée PAR le cours
       if(NON.test(said) || REPETE.test(said)){ if(i>=0) reexplain(i); else speak('Bien sûr, on reprend.'); return; }
       qinput.value=said; ask(said);                       // sinon : l'IA catégorise (commande ↔ question)
       return;
@@ -3650,6 +3713,7 @@ qinput.addEventListener('keydown',e=>{ if(e.key==='Enter') ask(qinput.value); })
 
     if(handleVideoCommand(said)) return;                  // "rejoue / mets pause la vidéo" → contrôle direct
     if(handleVoiceCommand(said)) return;                  // commandes avancées : vidéo d'un autre diapo, évaluation, navigation…
+    if(handleStudentQuestionAnswer(said))return;          // ne pas envoyer la réponse de l'élève à /api/ask
     // NÉGATION / « répète » d'ABORD : « non, j'ai pas compris » n'est PAS une question libre —
     // on RESTE sur la partie en cours et on la réexplique autrement (jamais d'avance, jamais de réponse libre).
     if(NON.test(said) || REPETE.test(said)){
