@@ -74,7 +74,7 @@ test('construit une activité de glisser-déposer SVG sans variable numérique',
   assert.match(html, /actions:S\.interactionType===/);
 });
 
-test('prononce le mot d’un objet au toucher et lit les retours à voix haute', () => {
+test('délègue la voix à l’avatar : mot au toucher et retours envoyés au parent', () => {
   const html = buildSimulationHtml({
     title:'Le panier du son m',
     spec:{
@@ -85,14 +85,35 @@ test('prononce le mot d’un objet au toucher et lit les retours à voix haute',
       zones:[{id:'panier',label:'panier',x:58,y:8,width:30,height:25,accepts:['mouton'],svg:''}]
     }
   });
+  // Intégrée au cours, la simulation est muette : elle poste cc-sim-voice au parent.
+  assert.match(html, /cc-sim-voice/);
+  assert.match(html, /"word":"mouton"/);
+  assert.match(html, /voice\('word',el\.word/);
+  // Le retour d'erreur transporte de quoi corriger : tentative et zone correcte.
+  assert.match(html, /'retry',\{elementId/);
+  assert.match(html, /correctZoneId/);
+  assert.match(html, /'success':'progress'/);
+  // Le parent peut placer un objet SANS re-déclencher de voix (correction par l'avatar).
+  assert.match(html, /m\.quiet===true/);
+  // Hors iframe (page ouverte seule), la voix du navigateur reste en repli.
   assert.match(html, /speechSynthesis/);
   assert.match(html, /fr-FR/);
-  assert.match(html, /"word":"mouton"/);
-  assert.match(html, /if\(el\.word\)speakWord\(el\.word\)/);
-  assert.match(html, /Touche un objet pour entendre son mot/);
-  // Les retours bravo/réessaie sont lus pour les non-lecteurs.
-  assert.match(html, /,false,true\)/);
-  assert.match(html, /,true,true\)/);
+});
+
+test('mode tableau : seulement le titre et la scène, sans défilement ni panneaux de texte', () => {
+  const html = buildSimulationHtml({
+    title:'Le panier du son m',
+    spec:{
+      interactionType:'drag_drop',variables:[],rules:[],
+      elements:[{id:'mouton',label:'mouton',x:5,y:8,width:18,height:18,draggable:true,svg:''}],
+      zones:[{id:'panier',label:'panier',x:58,y:8,width:30,height:25,accepts:['mouton'],svg:''}]
+    }
+  });
+  assert.match(html, /html,body\{height:100%;margin:0;overflow:hidden\}/);
+  assert.doesNotMatch(html, /Consigne<\/h2>|Objectif<\/h2>|À toi de conclure|Retour<\/h2>/);
+  assert.doesNotMatch(html, /requestFullscreen/);
+  // La consigne reste accessible aux lecteurs d'écran sur la scène.
+  assert.match(html, /aria-label',S\.enonce/);
 });
 
 test('affiche une vraie carte-image quand le serveur en fournit une, avec repli SVG sinon', () => {

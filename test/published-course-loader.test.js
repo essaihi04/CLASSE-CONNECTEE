@@ -12,12 +12,22 @@ test('garde le grand avatar d’introduction entièrement dans le plein écran',
   assert.ok(avatar.x+avatar.w<=100);
 });
 
-test('réserve une vraie zone média aux simulations même si l’IA demande activity_focus', () => {
+test('donne aux simulations leur mise en scène dédiée : titre + simulation, avatar entier à côté', () => {
   const source={kind:'simulation',url:'https://example.test/simulation.html',file_name:'simulation.html',mime_type:'text/html'};
   const presentation=normalizePresentation({scene:'activity_focus',avatarSize:'full',mediaPosition:'auto'},'simulation',source,2);
   assert.equal(presentation.scene,'media_focus');
+  assert.equal(presentation.mediaPosition,'sim');
+  // La simulation remplit le cadre, l'avatar est entier à côté, aucun bloc de texte.
+  assert.ok(presentation.layout.el.media.h>=70);
+  assert.equal(presentation.layout.avatar.mode,'full');
+  assert.equal(presentation.layout.el.body,undefined);
+});
+
+test('garde la zone média large pour les vidéos', () => {
+  const source={kind:'video',url:'https://example.test/film.mp4',file_name:'film.mp4',mime_type:'video/mp4'};
+  const presentation=normalizePresentation(null,'video',source,1);
+  assert.equal(presentation.scene,'media_focus');
   assert.equal(presentation.mediaPosition,'wide');
-  assert.ok(presentation.layout.el.media.h>=60);
 });
 
 test('distingue une question formative d’une vraie situation-problème', () => {

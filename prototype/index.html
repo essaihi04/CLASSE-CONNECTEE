@@ -444,8 +444,10 @@
   .lesson-media img,.lesson-media video{display:block;width:100%;max-height:340px;object-fit:contain;
     border-radius:12px;border:1px solid #334155;background:#000}
   .lesson-media iframe{display:block;width:100%;height:330px;border:1px solid #334155;border-radius:12px;background:#fff}
-  .lesson-media.simulation-embedded{min-height:260px}
-  .lesson-media.simulation-embedded iframe{flex:1 1 auto;min-height:220px;pointer-events:auto;touch-action:none}
+  /* Simulation intégrée : elle remplit tout son cadre du tableau (mode normal ET plein
+     écran), sans défilement interne — la page de la simulation gère elle-même son échelle. */
+  .lesson-media.simulation-embedded{min-height:260px;display:flex;flex-direction:column;height:100%}
+  .lesson-media.simulation-embedded iframe{flex:1 1 auto;min-height:220px;height:100%;pointer-events:auto;touch-action:none}
   .lesson-media audio{display:block;width:min(100%,560px);margin:28px auto}
   .lesson-media .lm-cap{font-size:13px;color:#94a3b8;margin-top:6px}
   .lesson-media .lm-open{display:inline-flex;align-items:center;justify-content:center;gap:8px;margin-top:9px;
@@ -1639,10 +1641,10 @@ function renderLessonMedia(m){
     const frame=document.createElement('iframe');
     if(m.srcdoc)frame.srcdoc=m.srcdoc;else frame.src=m.src;
     frame.title=m.desc||'Simulation pédagogique';frame.loading='eager';
-    frame.setAttribute('sandbox','allow-scripts allow-forms allow-pointer-lock');frame.setAttribute('allowfullscreen','');
+    frame.setAttribute('sandbox','allow-scripts allow-forms allow-pointer-lock');
+    // Pas de bouton « plein écran » : la simulation est dimensionnée pour remplir sa zone
+    // du tableau, qui suit déjà le mode présentation. Sa voix est déléguée à l'avatar.
     box.appendChild(frame);
-    const expand=document.createElement('button');expand.type='button';expand.className='lm-open lm-expand';expand.textContent='⛶ Agrandir la simulation';
-    expand.onclick=()=>{const fn=frame.requestFullscreen||frame.webkitRequestFullscreen;if(fn)fn.call(frame);else if(m.src)window.open(m.src,'_blank','noopener')};box.appendChild(expand);
     return box;
   }
   if(m.src && m.type==='audio'){
@@ -3396,14 +3398,53 @@ window.addEventListener('message',event=>{
     const n=Number.isFinite(fromState)?fromState:fromVariable;
     if(Number.isFinite(n))state[v.name]=n;
   });
-  activeSimulationContext={state,observation:String(data.observation||'').slice(0,300),capabilities:{actions:['demo','reset','set'],variables}};
+  // Objets et zones de dépôt : indispensables pour que l'avatar (tuteur IA ou correction
+  // automatique) puisse répondre À LA PLACE de l'élève en plaçant lui-même un objet.
+  const elements=Array.isArray(data.capabilities.elements)?data.capabilities.elements.slice(0,12).map(e=>({id:String(e&&e.id||'').slice(0,48),label:String(e&&e.label||'').slice(0,80)})).filter(e=>e.id):[];
+  const zones=Array.isArray(data.capabilities.zones)?data.capabilities.zones.slice(0,6).map(z=>({id:String(z&&z.id||'').slice(0,48),label:String(z&&z.label||'').slice(0,80),accepts:Array.isArray(z&&z.accepts)?z.accepts.map(x=>String(x).slice(0,48)).slice(0,12):[]})).filter(z=>z.id):[];
+  const actions=['demo','reset'].concat(variables.length?['set']:[]).concat(elements.length&&zones.length?['place']:[]);
+  activeSimulationContext={state,observation:String(data.observation||'').slice(0,300),capabilities:{actions,variables,elements,zones}};
+});
+/* VOIX DÉLÉGUÉE DE LA SIMULATION : la simulation est muette et envoie
+   {type:'cc-sim-voice', kind:'word'|'retry'|'progress'|'success', text, ...} à chaque geste.
+   C'est L'AVATAR qui parle (voix du cours). Après 2 erreurs sur le même objet, il répond
+   à la place de l'élève : il explique puis place lui-même l'objet au bon endroit. */
+const simVoiceFailures={};
+let simVoiceLastWordAt=0;
+window.addEventListener('message',event=>{
+  const d=event.data||{};
+  if(d.type!=='cc-sim-voice'||typeof d.text!=='string')return;
+  const text=d.text.slice(0,300).trim();if(!text)return;
+  const kind=String(d.kind||'');
+  if(kind==='word'){
+    // Anti-rafale : saisir puis relâcher le même objet plusieurs fois ne répète pas le mot.
+    const now=Date.now();if(now-simVoiceLastWordAt<900)return;simVoiceLastWordAt=now;
+    speak(text);return;
+  }
+  if(kind==='retry'){
+    const id=String(d.elementId||'').slice(0,48);
+    const attempts=Math.max(Number(d.attempts)||0,(simVoiceFailures[id]||0)+1);
+    simVoiceFailures[id]=attempts;
+    const zones=activeSimulationContext&&activeSimulationContext.capabilities&&Array.isArray(activeSimulationContext.capabilities.zones)?activeSimulationContext.capabilities.zones:[];
+    const zone=zones.find(z=>z.accepts.includes(id))||(d.correctZoneId?{id:String(d.correctZoneId).slice(0,48),label:String(d.correctZoneLabel||'').slice(0,80)}:null);
+    try{ avatarEmotion('curious'); }catch(e){}
+    if(attempts>=2 && zone && id){
+      simVoiceFailures[id]=0;
+      const label=String(d.elementLabel||'cet objet').slice(0,80);
+      speak(text+' Regarde bien, je te montre : « '+label+' » va dans « '+(zone.label||'la bonne zone')+' ».',
+        ()=>sendSimAction({action:'place',elementId:id,zoneId:zone.id,quiet:true}));
+    } else speak(text);
+    return;
+  }
+  if(kind==='success'){ Object.keys(simVoiceFailures).forEach(k=>delete simVoiceFailures[k]); try{ avatarEmotion('happy'); }catch(e){} speak(text); return; }
+  if(kind==='progress'){ try{ avatarEmotion('happy'); }catch(e){} speak(text); }
 });
 function sendSimAction(action){
   if(!action || typeof action!=='object' || !action.action) return;
   const attempt=(triesLeft)=>{
     const frame=document.querySelector('.lesson-media iframe');
     if(frame && frame.contentWindow){
-      frame.contentWindow.postMessage({type:'cc-sim',action:String(action.action),name:action.name,value:action.value},'*');
+      frame.contentWindow.postMessage({type:'cc-sim',action:String(action.action),name:action.name,value:action.value,elementId:action.elementId,zoneId:action.zoneId,quiet:action.quiet===true},'*');
     } else if(triesLeft>0) setTimeout(()=>attempt(triesLeft-1),700);
   };
   attempt(10);

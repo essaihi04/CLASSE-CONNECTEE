@@ -56,7 +56,11 @@
     const mediaLayouts={
       left:{avatar:{x:83,y:72,w:12,h:12,mode:'head',z:7},el:{title:{x:59,y:6,w:36,h:12,fs:28,z:3},media:{x:4,y:15,w:52,h:72,z:3},body:{x:60,y:23,w:34,h:44,fs:19,z:4}}},
       right:{avatar:{x:3,y:4,w:11,h:11,mode:'head',z:7},el:{title:{x:18,y:6,w:76,h:12,fs:28,z:3},body:{x:5,y:23,w:29,h:60,fs:19,z:4},media:{x:38,y:15,w:57,h:72,z:3}}},
-      wide:{avatar:{x:3,y:72,w:12,h:12,mode:'head',z:7},el:{title:{x:4,y:5,w:91,h:11,fs:28,z:3},body:{x:4,y:20,w:25,h:46,fs:18,z:4},media:{x:32,y:17,w:64,h:70,z:3}}}
+      wide:{avatar:{x:3,y:72,w:12,h:12,mode:'head',z:7},el:{title:{x:4,y:5,w:91,h:11,fs:28,z:3},body:{x:4,y:20,w:25,h:46,fs:18,z:4},media:{x:32,y:17,w:64,h:70,z:3}}},
+      // Simulation : PAS de bloc de texte — seulement le titre et la simulation qui remplit
+      // le cadre, avec l'avatar ENTIER à côté : il énonce la consigne, félicite, corrige et
+      // peut jouer à la place de l'élève via le contrat cc-sim.
+      sim:{avatar:{x:1,y:20,w:18,h:72,mode:'full',z:6},el:{title:{x:21,y:4,w:74,h:10,fs:26,z:3},media:{x:21,y:16,w:75,h:79,z:3}}}
     };
     const layouts={
       split_left:{avatar:{x:1,y:7,w:full?27:14,h:full?88:14,mode:full?'full':'head',z:5},el:{title:{x:31,y:8,w:64,h:12,fs:31,z:3},body:{x:31,y:23,w:63,h:66,fs:22,z:3}}},
@@ -76,22 +80,23 @@
     if(type==='summary')return 'summary_focus';
     return visualIndex%3===0?'split_left':visualIndex%3===1?'board_focus':'split_right';
   }
-  function normalizePresentation(raw,type,source,visualIndex){
+  function normalizePresentation(raw,type,source,visualIndex,simMedia){
     const suggested=raw&&typeof raw==='object'&&SCENES.has(raw.scene)?raw.scene:null;
     let scene=suggested||inferredScene(type,source,visualIndex);
     // L'ouverture avatar seul est déjà créée par le lecteur avant les blocs du PDF. Un bloc de
     // contenu garde donc toujours une zone lisible, même si l'IA redemande avatar_only.
     if(scene==='avatar_only')scene='split_left';
-    const wideSource=!!(source&&['video','simulation'].includes(source.kind));
-    // Une vidéo ou une simulation doit toujours recevoir une vraie zone média. Si l'IA a
-    // demandé activity_focus, l'iframe se retrouvait sans hauteur et seul le lien restait visible.
-    if(wideSource)scene='media_focus';
+    // Une simulation reçoit sa mise en scène dédiée (titre + simulation plein cadre, avatar
+    // entier à côté) ; une vidéo garde la zone média large. Si l'IA avait demandé
+    // activity_focus, l'iframe se retrouvait sans hauteur et seul le lien restait visible.
+    const simSource=simMedia===undefined?!!(source&&source.kind==='simulation'):!!simMedia;
+    const wideSource=!!(source&&source.kind==='video');
+    if(simSource||wideSource)scene='media_focus';
     const openingExplanation=visualIndex===0&&!source&&type==='text';
     if(openingExplanation)scene='split_left';
     const avatarSize=openingExplanation?'full':(raw&&raw.avatarSize==='full'?'full':(raw&&raw.avatarSize==='reduced'?'reduced':(/^(question|summary)$/.test(type)?'full':'reduced')));
     const requestedPosition=raw&&['left','right','wide'].includes(raw.mediaPosition)?raw.mediaPosition:'';
-    const needsWide=wideSource;
-    const mediaPosition=needsWide?'wide':(requestedPosition||(visualIndex%2?'left':'right'));
+    const mediaPosition=simSource?'sim':(wideSource?'wide':(requestedPosition||(visualIndex%2?'left':'right')));
     return {scene,avatarSize,mediaPosition,layout:scene==='avatar_only'?null:layoutForScene(scene,avatarSize,mediaPosition)};
   }
   function mediaType(source){
@@ -177,7 +182,9 @@
     const vagueTitle=/^(?:je|j['’])\s*(?:vois|regarde|écoute|observe|découvre|retiens)\s*[.!…]*$/i.test(rawTitle);
     const title=vagueTitle&&objective?compact(objective,90):rawTitle;
     const shownTitle=chunkCount>1?`${title} (${chunkIndex+1}/${chunkCount})`:title;
-    const presentation=normalizePresentation(content.presentation,type,source,source?mediaIndex:visualIndex);
+    const inlineSimulation=type==='simulation'?simulationDocument(content.simulation_html):'';
+    const hasSimMedia=!!inlineSimulation||!!(source&&source.kind==='simulation'&&source.url);
+    const presentation=normalizePresentation(content.presentation,type,source,source?mediaIndex:visualIndex,hasSimMedia);
     // Double piste produite par l'import : content.say = script oral du professeur,
     // content.board_lines = trace écrite. Sans elles (anciens cours), le texte unique
     // est à la fois parlé et découpé en lignes comme avant.
@@ -191,7 +198,6 @@
       board.probleme=html(customBoard.length?customBoard.map(line=>line.t).join(' '):(spokenScript?compact(writtenSource,300):chunk));board.lines=[];
       board.problemeTag=/situation\s*[-–—]?\s*probl[èe]me/i.test(`${title} ${objective}`)?'Situation-problème':'Question à la classe';
     }
-    const inlineSimulation=type==='simulation'?simulationDocument(content.simulation_html):'';
     // Le document intégré est prioritaire : certains stockages servent les fichiers HTML avec
     // un type texte, ce qui afficherait leur code source au lieu d'exécuter la simulation.
     if(inlineSimulation){
