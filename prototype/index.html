@@ -3173,15 +3173,26 @@ chapSelect.onchange=()=>{
 Promise.all([
   fetch('/api/custom-steps').then(r=>r.ok?r.json():{}).catch(()=>({})),
   fetch('/api/course-structure').then(r=>r.ok?r.json():{}).catch(()=>({})),
+  fetch('/api/default-courses').then(r=>r.ok?r.json():{}).catch(()=>({})),
   publishedCoursePromise
-]).then(([cs, st, publishedLesson])=>{
+]).then(([cs, st, defaults, publishedLesson])=>{
     if(publishedLesson) window.LECONS=[publishedLesson];
+    else{
+      // Cours de démonstration masqués par l'administrateur : retirés pour tout le monde.
+      // On garde au moins un chapitre pour que le lecteur reste utilisable.
+      const hidden=new Set(Array.isArray(defaults&&defaults.hidden)?defaults.hidden:[]);
+      const visible=window.LECONS.filter(c=>!hidden.has(c.id));
+      if(visible.length) window.LECONS=visible;
+    }
     document.body.classList.toggle('imported-course',!!publishedLesson);
     if(publishedLesson&&document.getElementById('courseFooter'))document.getElementById('courseFooter').textContent=`Classes Connectées · Programme marocain${publishedLesson.targetLabel?' · '+publishedLesson.targetLabel:''} · Voix générée par IA`;
     customSteps = cs||{}; structure = st||{};
     applyStepPlan();
     fillChapterSelect();
-    chapSelect.value='0';lecon = window.LECONS[0];
+    // ?chapitre=<id> : la page d'accueil (bibliothèque) ouvre directement ce chapitre.
+    const requestedChapter=new URLSearchParams(location.search).get('chapitre')||'';
+    const requestedIndex=requestedChapter?window.LECONS.findIndex(c=>c.id===requestedChapter):-1;
+    chapSelect.value=String(requestedIndex>=0?requestedIndex:0);lecon = window.LECONS[requestedIndex>=0?requestedIndex:0];
     if(i<0) showChapterHome();
   })
   .catch(error=>{

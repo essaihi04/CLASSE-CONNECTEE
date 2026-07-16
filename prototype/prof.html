@@ -2481,7 +2481,10 @@ $('courseBoardsBtn').onclick=()=>openCourseLayoutOverview();
   const [c,o,cs,st]=result;
   content=c||{}; overrides=o||{}; customSteps=cs||{}; structure=st||{}; applyStepPlan();
   fillChapters();
-  if(LECONS.length){ sel.chapter=LECONS[0].id; chapterSel.value=sel.chapter; }
+  // ?chapitre=<id> : ouvre directement ce cours par défaut (lien « Modifier » de l'accueil).
+  const requestedChapter=PAGE_PARAMS.get('chapitre')||'';
+  const preselected=requestedChapter&&LECONS.some(c=>c.id===requestedChapter)?requestedChapter:(LECONS.length?LECONS[0].id:'');
+  if(preselected){ sel.chapter=preselected; chapterSel.value=preselected; }
   renderSteps(); renderEditor();
   if(activeImportedCourseId&&PAGE_PARAMS.get('boards')==='1')setTimeout(()=>openCourseLayoutOverview(),80);
 }).catch(error=>{

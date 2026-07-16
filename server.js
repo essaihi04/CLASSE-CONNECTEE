@@ -145,6 +145,52 @@ function handleStructurePost(req, res){
   });
 }
 
+// ============ COURS PAR DÉFAUT (lecons.js) MASQUABLES PAR L'ADMIN ============
+// L'administrateur peut retirer un cours de démonstration de la page d'accueil et du
+// lecteur pour tout le monde, sans toucher au code. Persisté dans default_courses.json.
+const DEFAULT_COURSES_FILE = path.join(__dirname, 'default_courses.json');
+function readDefaultCourses(){
+  try{ const d=JSON.parse(fs.readFileSync(DEFAULT_COURSES_FILE,'utf8'))||{}; return { hidden:(Array.isArray(d.hidden)?d.hidden:[]).map(x=>cleanText(x,80)).filter(Boolean) }; }
+  catch(e){ return { hidden:[] }; }
+}
+function writeDefaultCourses(d){ fs.writeFileSync(DEFAULT_COURSES_FILE, JSON.stringify({ hidden:d.hidden }, null, 1)); }
+
+function handleDefaultCoursesGet(req, res){
+  res.writeHead(200, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
+  res.end(JSON.stringify(readDefaultCourses()));
+}
+
+// Seul un profil admin (vérifié via le jeton Supabase du navigateur) peut masquer/réafficher.
+async function verifyAdminUser(req){
+  const user=await verifyCourseImportUser(req);
+  const config=getSupabasePublicConfig();
+  const response=await fetch(config.url+'/rest/v1/profiles?id=eq.'+encodeURIComponent(user.id)+'&select=role',
+    { headers:{ Authorization:String(req.headers.authorization), apikey:config.anonKey } });
+  const rows=response.ok?await response.json():[];
+  if(!rows[0] || rows[0].role!=='admin'){ const error=new Error('Réservé au compte administrateur.'); error.status=403; throw error; }
+  return user;
+}
+
+// POST /api/default-courses { chapterId, hidden:true|false }
+function handleDefaultCoursesPost(req, res){
+  let body=''; req.on('data', c=> body+=c);
+  req.on('end', async ()=>{
+    const answer=(code,payload)=>{ res.writeHead(code, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}); res.end(JSON.stringify(payload)); };
+    try{
+      await verifyAdminUser(req);
+      const { chapterId, hidden } = JSON.parse(body || '{}');
+      const chapId=cleanText(chapterId, 80);
+      if(!chapId) return answer(400, { error:'chapitre manquant' });
+      const state=readDefaultCourses();
+      state.hidden=state.hidden.filter(id=>id!==chapId);
+      if(hidden===true) state.hidden.push(chapId);
+      state.hidden=state.hidden.slice(0,200);
+      writeDefaultCourses(state);
+      answer(200, { ok:true, hidden:state.hidden });
+    }catch(e){ answer(e.status||400, { error:String(e.message||e) }); }
+  });
+}
+
 function walkModelFiles(dir, baseUrl, sourceLabel){
   const out=[];
   if(!dir || !fs.existsSync(dir)) return out;
@@ -2187,6 +2233,8 @@ const server = http.createServer((req, res) => {
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/custom-steps') return handleCustomStepsPost(req, res);
     if (req.method === 'GET'  && req.url.split('?')[0] === '/api/course-structure') return handleStructureGet(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/course-structure') return handleStructurePost(req, res);
+    if (req.method === 'GET'  && req.url.split('?')[0] === '/api/default-courses') return handleDefaultCoursesGet(req, res);
+    if (req.method === 'POST' && req.url.split('?')[0] === '/api/default-courses') return handleDefaultCoursesPost(req, res);
     if (req.method === 'GET'  && req.url.split('?')[0] === '/api/overrides') return handleOverridesGet(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/overrides') return handleOverridesPost(req, res);
     if (req.method === 'GET'  && req.url.split('?')[0] === '/api/models3d') return handleModels3DGet(req, res);
@@ -2203,8 +2251,10 @@ const server = http.createServer((req, res) => {
     if (req.method === 'GET' && req.url.split('?')[0] === '/oauth2/callback') return handleOAuthCallback(req, res);
 
     // ---- fichiers statiques ----
+    // La page d'accueil est la bibliothèque des cours publiés (visible par tous, sans
+    // connexion). Le lecteur reste accessible directement sur /index.html?course=…
     let urlPath = decodeURIComponent(req.url.split('?')[0]);
-    if (urlPath === '/') urlPath = '/index.html';
+    if (urlPath === '/') urlPath = '/courses.html';
     const filePath = path.join(ROOT, path.normalize(urlPath));
     if (!filePath.startsWith(ROOT)) { res.writeHead(403); return res.end('403'); }
 
