@@ -189,7 +189,7 @@
       return {label:plain(set&&set.label,120)||`Evaluation ${index+1}`,intro:plain(set&&set.intro,300),quiz};
     }).filter(set=>set.quiz.length);
   }
-  function stepFromBlock(row,source,chunk,chunkIndex,chunkCount,sessionTitle,visualIndex,mediaIndex,sessionRows){
+  function stepFromBlock(row,source,chunk,chunkIndex,chunkCount,sessionTitle,visualIndex,mediaIndex,sessionRows,primary){
     const type=row.block_type||'text',content=row.content&&typeof row.content==='object'?row.content:{};
     const rawTitle=plain(row.title||'Partie du cours',180),objective=plain(row.objective,300);
     const vagueTitle=/^(?:je|j['’])\s*(?:vois|regarde|écoute|observe|découvre|retiens)\s*[.!…]*$/i.test(rawTitle);
@@ -197,7 +197,7 @@
     const shownTitle=chunkCount>1?`${title} (${chunkIndex+1}/${chunkCount})`:title;
     const inlineSimulation=type==='simulation'?simulationDocument(content.simulation_html):'';
     const hasSimMedia=!!inlineSimulation||!!(source&&source.kind==='simulation'&&source.url);
-    const presentation=normalizePresentation(content.presentation,type,source,source?mediaIndex:visualIndex,hasSimMedia);
+    let presentation=normalizePresentation(content.presentation,type,source,source?mediaIndex:visualIndex,hasSimMedia);
     // Double piste produite par l'import : content.say = script oral du professeur,
     // content.board_lines = trace écrite. Sans elles (anciens cours), le texte unique
     // est à la fois parlé et découpé en lignes comme avant.
@@ -225,6 +225,22 @@
     // La simulation est le tableau : aucun titre ni aucune ligne du bloc ne doit se superposer
     // à l'iframe. La consigne et les libellés vivent déjà dans la simulation et dans la voix.
     if(hasSimMedia){board.title='';board.lines=[];delete board.probleme;delete board.problemeTag;}
+    // Mise en scène « média » sans média réel (image non générée, fichier manquant) : le texte
+    // reprend la grande zone centrale au lieu de rester dans la colonne étroite prévue à côté
+    // d'un visuel absent, et le tableau est reconstruit avec le nombre de lignes d'un vrai
+    // écran de texte.
+    if(!board.media&&presentation.scene==='media_focus'){
+      presentation=normalizePresentation({scene:'board_focus',avatarSize:'reduced'},type,null,visualIndex,false);
+      if(!customBoard.length&&type!=='question')board.lines=boardLines(writtenSource,5);
+    }
+    // Au primaire, la trace écrite doit se lire de loin : polices nettement plus grandes
+    // sur les zones de texte (les mises en page sont générées par étape, on peut les ajuster).
+    if(primary&&presentation.layout&&presentation.layout.el){
+      ['title','body','probleme'].forEach(key=>{
+        const zone=presentation.layout.el[key];
+        if(zone&&zone.fs)zone.fs=Math.round(zone.fs*1.35);
+      });
+    }
     if(type==='activity'){
       const interactive=activityBoard(content.activity,sessionRows);if(interactive)Object.assign(board,interactive);
     }
@@ -277,7 +293,7 @@
         const spoken=plain(content.say,1900);
         const text=plain(content.text||row.objective||row.title,12000),parts=spoken?[spoken]:chunks(text);
         const source=sourceForRow(row,sourceMap,allSources);if(source)usedSourceIds.add(source.id);
-        parts.forEach((part,index)=>{etapes.push(stepFromBlock(row,source,part,index,parts.length,sessionTitle,visualIndex++,source?mediaIndex++:mediaIndex,sessionRows));});
+        parts.forEach((part,index)=>{etapes.push(stepFromBlock(row,source,part,index,parts.length,sessionTitle,visualIndex++,source?mediaIndex++:mediaIndex,sessionRows,gameMode));});
       });
       const evaluationRows=rows.filter(row=>row.block_type==='evaluation');
       const sessionQuiz=evaluationRows.map(row=>evaluationQuestion(row.content&&row.content.evaluation,(row.content&&row.content.text)||row.title)).filter(Boolean);

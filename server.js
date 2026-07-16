@@ -1052,7 +1052,7 @@ REGLES PEDAGOGIQUES STRICTES
 13. Applique les méthodes propres à la matière sélectionnée. Un cours de sciences repose sur observation, raisonnement, mesure ou preuve selon la discipline ; un cours de langue sur compréhension et expression ; l'histoire-géographie sur sources, repères et espace ; l'éducation islamique sur ses textes, notions, valeurs et applications. Ne transpose jamais automatiquement le modèle d'une matière scientifique aux matières littéraires, humaines ou religieuses.
 14. targetAudience doit nommer exactement « ${target.gradeLevelName} » et le cours ne doit supposer aucun acquis d'une année ultérieure.
 15. UTILITÉ DES MÉDIAS : pour chaque notion, décide explicitement si un support visuel est UTILE. Hors primaire, ajoute un bloc image/schema seulement si l'observation apporte quelque chose que le texte ne donne pas. AU PRIMAIRE, l'association mot-image est elle-même un apprentissage : chaque mot concret important introduit ou expliqué pour la première fois doit donc avoir un bloc image, même si l'objet semble familier. Ajoute un bloc simulation seulement si une MANIPULATION réelle aide à apprendre : faire varier un paramètre, déplacer/classer des objets ou construire une organisation spatiale. Sinon, un texte clair suffit : aucun média décoratif.
-16. IMAGES GÉNÉRÉES : pour un bloc image/schema utile sans fichier associé, fournis "image" avec useful=true, une raison pédagogique, un prompt visuel précis sans texte à imprimer dans l'image, un texte alternatif et une légende. AU PRIMAIRE, quand "say" prononce et explique un mot concret nouveau (animal, objet, vêtement, aliment, lieu, action observable), le même écran doit montrer son illustration ET le mot écrit : crée un bloc image, mets le mot exact en MAJUSCULES dans board et dans image.caption, et fais nommer explicitement l'image par say. N'illustre pas les mots-outils ni les mots abstraits sans apport pédagogique.
+16. IMAGES GÉNÉRÉES : pour un bloc image/schema utile sans fichier associé, fournis "image" avec useful=true, une raison pédagogique, un prompt visuel précis sans texte à imprimer dans l'image, un texte alternatif et une légende. AU PRIMAIRE, quand "say" prononce et explique un mot concret nouveau (animal, objet, vêtement, aliment, lieu, action observable), le même écran doit montrer son illustration ET le mot écrit : crée un bloc image, mets le mot exact en MAJUSCULES dans board et dans image.caption, et fais nommer explicitement l'image par say. N'illustre pas les mots-outils ni les mots abstraits sans apport pédagogique. RÈGLE ABSOLUE : "say" ne renvoie à un visuel (« regarde l'image », « tu vois le détective », « observe le dessin ») QUE si ce même bloc affiche réellement ce visuel (bloc image avec useful=true, resourceName associé, ou simulation). Un personnage ou un décor évoqué à l'oral (détective, monstre, mascotte…) doit soit avoir son bloc image, soit ne pas être présenté comme visible.
 17. SIMULATIONS GÉNÉRÉES — TU CONÇOIS TOI-MÊME LA MANIPULATION : ne transforme jamais automatiquement une notion en liste de boutons ou en QCM. Choisis le geste cognitif et physique adapté à la matière, au niveau exact et à l'objectif :
     - interactionType="variable" pour expérimenter une relation cause→effet : 1 à 3 variables, règles d'observation et éléments dont bindVariable recopie exactement le nom d'une variable ;
     - interactionType="drag_drop" pour trier, associer, ordonner ou placer : variables et rules vides, 2 à 6 objets tous draggable=true, au moins une zone de dépôt, et zones.accepts contenant les id exacts des objets corrects. Ce n'est jamais une image statique : l'élève doit saisir chaque objet avec la souris ou le doigt et le déposer ;
@@ -1069,7 +1069,7 @@ REGLES PEDAGOGIQUES STRICTES
     - beaucoup de visuel et de manipulation, très peu de texte au tableau (3 lignes maximum, mots simples) ;
     - simulations avec UN seul geste à comprendre : soit UNE variable, soit 2 à 6 grandes cartes-images à déplacer (imagePrompt ET word remplis pour chacune, SVG de repli) ; l'image domine, le texte se limite à la consigne d'une phrase et à un libellé d'un mot ;
     - evaluationSets contient exactement 3 MINI-JEUX distincts ; chaque mini-jeu contient 3 à 5 questions courtes et toutes différentes. Par exemple : jeu 1 reconnaître, jeu 2 classer/localiser, jeu 3 identifier une forme ou un symbole. Utilise qcm, vf ou association, jamais "libre" ni question rédigée longue ;
-    - rends ces mini-jeux visuels : questionSvg et optionSvgs contiennent, quand utile, de petits SVG créés par toi et adaptés aux objets du document. Même sous-ensemble SVG sûr que pour les simulations, sans texte, script, style, image, lien, filtre ni événement. Si aucun visuel n'est utile, utilise une chaîne vide ou un tableau vide ;
+    - rends ces mini-jeux visuels : au primaire un élève ne sait pas encore bien lire, donc chaque option de QCM et chaque côté d'une association qui désigne un objet concret (animal, vêtement, aliment, véhicule, lettre à reconnaître…) DOIT recevoir son SVG (optionSvgs aligné sur options ; leftSvg/rightSvg remplis pour chaque paire). Dessine grand et simple, comme pour les cartes de simulation ; pour une lettre ou un chiffre, dessine sa forme en path épais. Même sous-ensemble SVG sûr que pour les simulations, sans texte, script, style, image, lien, filtre ni événement. Réserve la chaîne vide aux seules réponses abstraites impossibles à dessiner (« oui/non », « vrai/faux ») ;
     - aucun terme technique du collège : adapte chaque notion avec les mots d'un enfant de cet âge.
 ${(()=>{const memory=classMemoryInstruction(target.subjectName,target.gradeLevelName);return memory?'20. '+memory.replace(/\n/g,'\n    ')+'\n':'';})()}
 Réponds en français avec un unique objet JSON. Voici un exemple structurel ; remplace chaque question générique par une question unique et fidèle au PDF :
@@ -1368,18 +1368,33 @@ async function callOpenAIImage(prompt,target,alt,options){
   const finalPrompt=options.card
     ? `Carte illustrée pour un jeu éducatif tactile (${targetLabel||'primaire'}). Sujet unique : ${cleanText(prompt,600)}. Style dessin plat enfantin, couleurs vives, contours nets, sujet centré et occupant presque toute l'image, fond blanc uni, sans texte, sans lettre, sans chiffre, sans logo, sans filigrane, sans bordure décorative.`
     : `Illustration pédagogique exacte pour ${targetLabel||'le niveau indiqué par le professeur'}. ${cleanText(prompt,1200)}. Image claire, sobre, centrée sur un seul objectif d'observation, adaptée à l'âge, sans logo, sans filigrane, sans texte imprimé dans l'image, sans visage d'élève identifiable. Texte alternatif prévu : ${cleanText(alt,260)}.`;
-  const payload=options.card
-    ? {model:OPENAI_IMAGE_MODEL,prompt:finalPrompt,size:'1024x1024',quality:process.env.OPENAI_CARD_IMAGE_QUALITY||'medium',output_format:'webp',output_compression:60}
-    : {model:OPENAI_IMAGE_MODEL,prompt:finalPrompt,size:process.env.OPENAI_IMAGE_SIZE||'1536x1024',quality:process.env.OPENAI_IMAGE_QUALITY||'high',output_format:'png'};
-  const response=await fetch('https://api.openai.com/v1/images/generations',{
-    method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+getOpenAIKey()},
-    body:JSON.stringify(payload),
-    signal:AbortSignal.timeout(120000)
-  });
-  if(!response.ok)throw new Error('OpenAI Image HTTP '+response.status+' : '+(await response.text()).slice(0,240));
-  const result=await response.json(),data=result&&result.data&&result.data[0]&&result.data[0].b64_json;
-  if(!data)throw new Error('OpenAI n’a renvoyé aucune image.');
-  return {data,mimeType:options.card?'image/webp':'image/png'};
+  // Deux tentatives : la qualité demandée, puis une qualité plus rapide. Une illustration
+  // en 1536×1024 « high » dépasse régulièrement 2 min : sans ce repli, le cours partait
+  // sans image alors que la voix y fait référence (« Regarde l'image… »).
+  const attempts=options.card
+    ? [{quality:process.env.OPENAI_CARD_IMAGE_QUALITY||'medium'},{quality:'low'}]
+    : [{quality:process.env.OPENAI_IMAGE_QUALITY||'high'},{quality:'medium'}];
+  let lastError=null;
+  for(const attempt of attempts){
+    const payload=options.card
+      ? {model:OPENAI_IMAGE_MODEL,prompt:finalPrompt,size:'1024x1024',quality:attempt.quality,output_format:'webp',output_compression:60}
+      : {model:OPENAI_IMAGE_MODEL,prompt:finalPrompt,size:process.env.OPENAI_IMAGE_SIZE||'1536x1024',quality:attempt.quality,output_format:'png'};
+    try{
+      const response=await fetch('https://api.openai.com/v1/images/generations',{
+        method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+getOpenAIKey()},
+        body:JSON.stringify(payload),
+        signal:AbortSignal.timeout(Math.max(60000,Number(process.env.OPENAI_IMAGE_TIMEOUT_MS)||240000))
+      });
+      if(!response.ok)throw new Error('OpenAI Image HTTP '+response.status+' : '+(await response.text()).slice(0,240));
+      const result=await response.json(),data=result&&result.data&&result.data[0]&&result.data[0].b64_json;
+      if(!data)throw new Error('OpenAI n’a renvoyé aucune image.');
+      return {data,mimeType:options.card?'image/webp':'image/png'};
+    }catch(error){
+      lastError=error;
+      console.warn('[image] tentative (qualité '+attempt.quality+') échouée : '+String(error.message||error).slice(0,160));
+    }
+  }
+  throw lastError||new Error('Génération d’image impossible.');
 }
 
 function handleGenerateCourseImage(req,res){

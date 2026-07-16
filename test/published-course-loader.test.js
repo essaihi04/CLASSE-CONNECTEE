@@ -104,6 +104,22 @@ test('affiche simultanément l’image pédagogique et son mot, jamais le nom te
   assert.doesNotMatch(step.board.media.desc,/generated-1729/);
 });
 
+test('redonne la grande zone de texte quand l’image promise n’existe pas', () => {
+  const step=stepFromBlock({block_type:'image',title:'Découverte du gâteau',objective:'Entendre [m]',content:{
+    say:'Regarde le gâteau dans l’image.',board_lines:[{t:'GÂTEAU',cls:'ex'}],
+    presentation:{scene:'media_focus',avatarSize:'reduced',mediaPosition:'right'}
+  }},null,'Le gâteau fait mmmm.',0,1,'Séance',1,0,[]);
+  assert.equal(step.board.media,undefined);
+  assert.equal(step.presentation.scene,'board_focus');
+  assert.ok(step.presentation.layout.el.body.w>=70,'le texte doit occuper la grande zone centrale');
+});
+
+test('agrandit la trace écrite pour une classe du primaire', () => {
+  const base=stepFromBlock({block_type:'text',title:'Le son de M',objective:'',content:{}},null,'M fait mmmm.',0,1,'Séance',1,0,[]);
+  const primary=stepFromBlock({block_type:'text',title:'Le son de M',objective:'',content:{}},null,'M fait mmmm.',0,1,'Séance',1,0,[],true);
+  assert.ok(primary.presentation.layout.el.body.fs>base.presentation.layout.el.body.fs,'la police du primaire doit être plus grande');
+});
+
 test('conserve les SVG générés pour un mini-jeu visuel', () => {
   const item=evaluationQuestion({kind:'qcm',question:'Choisis le mouton.',questionSvg:'<svg viewBox="0 0 100 100"></svg>',options:['mouton','ballon'],optionSvgs:['<svg viewBox="0 0 100 100"></svg>',''],correctIndex:0},'');
   assert.equal(item.type,'qcm');
