@@ -11,6 +11,9 @@ node_modules/
 # ===== Contenu téléversé à l'exécution (lourd) =====
 prototype/uploads/
 
+# ===== Cache des voix synthétisées (régénéré à la demande) =====
+.tts-cache/
+
 # ===== Fichiers générés / logs / sauvegardes =====
 server.log
 *.log

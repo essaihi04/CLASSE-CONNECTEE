@@ -1172,22 +1172,26 @@ function animateMouth(on){ setSpeakingSession(on); setMouthMoving(on); }
 /* choisit la voix française la PLUS humaine disponible dans le navigateur.
    Priorité : voix neurales (Natural/Online/Neural) > Google > voix masculines FR (prof = homme). */
 /* Source du narrateur : 'browser' = voix web du navigateur (Web Speech, aucune clé/quota) ;
-   'server' = TTS neural via /api/tts (ElevenLabs/Gemini/Cloud). Choix actuel : serveur
-   (voix George d'ElevenLabs, chaleureuse) — repli automatique sur le navigateur si échec/quota. */
+   'server' = TTS neural via /api/tts. Choix actuel : serveur, qui synthétise avec Gemini
+   (voix Charon, masculine et posée) — repli automatique sur la voix masculine du navigateur
+   si échec ou quota. OpenAI, ElevenLabs et Cloud TTS sont coupés côté serveur. */
 const VOICE_SOURCE = 'server';
 let bestVoice=null;
 function pickFrenchVoice(){
   const voices=speechSynthesis.getVoices().filter(v=>/^fr/i.test(v.lang));
   if(!voices.length) return null;
-  // prénoms des voix neurales FR d'Edge ("… Online (Natural)")
-  const NEURAL_FR=/(denise|henri|vivienne|r[ée]my|[ée]loise|j[ée]r[ôo]me|yvette|brigitte|alain|coralie|jacqueline|joséphine|josephine|maurice|thierry|c[ée]lian)/i;
+  // Le professeur a une voix MASCULINE : c'est le critère dominant, avant le naturel.
+  // Sinon une voix neurale féminine (« Denise Online (Natural) », installée par défaut sur
+  // Windows) gagnait le classement et le timbre changeait d'une machine à l'autre.
+  const MALE_FR  =/(henri|r[ée]my|j[ée]r[ôo]me|alain|maurice|thierry|c[ée]lian|claude|thomas|nicolas|guillaume|mathieu|yann|paul)/i;
+  const FEMALE_FR=/(denise|vivienne|[ée]loise|yvette|brigitte|coralie|jacqueline|jos[ée]phine|josephine|hortense|julie|claire|caroline|am[ée]lie|audrey|charline|sylvie|virginie)/i;
   const score=v=>{ const n=(v.name||'').toLowerCase(); let s=0;
-    if(/natural|neural|online|multilingual/.test(n)) s+=200;   // voix neurales (web) = très naturelles
-    if(/google/.test(n))                s+=120;                // « Google français » (réseau) = assez humaine
-    if(NEURAL_FR.test(n))               s+=60;                 // prénoms des voix neurales FR
-    if(!v.localService)                 s+=40;                 // voix réseau (souvent neurale) > locale
-    if(/hortense|julie|paul|claire|caroline/.test(n)) s-=30;  // vieilles voix SAPI locales = robotiques
-    if(/henri|paul|claude|r[ée]my|thomas|nicolas|j[ée]r[ôo]me|alain|maurice|thierry/.test(n)) s+=15; // timbre masculin (prof)
+    if(MALE_FR.test(n))                 s+=400;                // timbre masculin = priorité absolue
+    if(FEMALE_FR.test(n))               s-=400;                // écarte les voix féminines
+    if(/natural|neural|online|multilingual/.test(n)) s+=120;   // puis le plus naturel possible
+    if(/google/.test(n))                s+=60;                 // « Google français » (réseau) = assez humaine
+    if(!v.localService)                 s+=30;                 // voix réseau (souvent neurale) > locale
+    if(/hortense|julie|claire|caroline/.test(n)) s-=30;        // vieilles voix SAPI locales = robotiques
     if(/fr-fr/i.test(v.lang))           s+=5;
     return s; };
   return voices.slice().sort((a,b)=>score(b)-score(a))[0];

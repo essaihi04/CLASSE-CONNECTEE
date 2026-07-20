@@ -311,7 +311,19 @@
     if(!suggestedQuestions.length)suggestedQuestions.push('Résume ce cours','Réexplique la notion principale','Quel est le point le plus important ?','Propose-moi une question de révision');
     // Voix générées progressivement pendant la lecture : au premier passage le serveur
     // synthétise et enregistre la piste, puis cette carte permet de la réutiliser.
-    const audioSetting=course.settings&&course.settings.audio_map&&typeof course.settings.audio_map==='object'?course.settings.audio_map:{};
+    // La carte n'est retenue que si elle a été produite par la VOIX ACTUELLE : sinon le
+    // cours mélangerait deux timbres (passages déjà lus dans l'ancienne voix, le reste
+    // dans la nouvelle). En cas de doute on ignore la carte et on resynthétise.
+    let audioVoiceMatches=false;
+    try{
+      const voiceResponse=await fetch('/api/tts-voice');
+      if(voiceResponse.ok){
+        const current=(await voiceResponse.json()).voice||'';
+        const stored=course.settings&&typeof course.settings.audio_voice==='string'?course.settings.audio_voice:'';
+        audioVoiceMatches=!!current&&current===stored;
+      }
+    }catch(error){audioVoiceMatches=false;}
+    const audioSetting=audioVoiceMatches&&course.settings&&course.settings.audio_map&&typeof course.settings.audio_map==='object'?course.settings.audio_map:{};
     const audioEntries=await Promise.all(Object.entries(audioSetting).slice(0,500).map(async([hash,storagePath])=>{
       if(typeof storagePath!=='string'||!storagePath)return [hash,''];
       const {data,error}=await sb.storage.from('course-media').createSignedUrl(storagePath,7200);

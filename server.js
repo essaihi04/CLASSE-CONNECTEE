@@ -521,7 +521,13 @@ function getOpenAIKey(){
   if(!key) throw new Error('OPENAI_API_KEY manquante sur le serveur.');
   return key;
 }
-function hasOpenAIKey(){ try{ return !!getOpenAIKey(); }catch(e){ return false; } }
+// INTERRUPTEUR GÉNÉRAL OPENAI — coupé volontairement : le projet tourne sur Gemini
+// (cours, tuteur, voix) + voix du navigateur en repli. La clé openai.key reste en place,
+// elle est simplement ignorée. Pour réactiver : OPENAI_ENABLED=on.
+// Conséquence à connaître : la génération d'IMAGES n'a pas de repli Gemini, les endpoints
+// d'illustration répondent 503 et l'import retombe sur les mises en page sans média.
+const USE_OPENAI = /^(1|on|true|yes)$/i.test(process.env.OPENAI_ENABLED || 'off');
+function hasOpenAIKey(){ if(!USE_OPENAI) return false; try{ return !!getOpenAIKey(); }catch(e){ return false; } }
 
 // Modèles essayés dans l'ordre (OPENAI_MODEL accepte une liste séparée par des virgules).
 const DEFAULT_OPENAI_MODELS = ['gpt-5.6-terra', 'gpt-5.4-mini'];
@@ -1318,7 +1324,7 @@ function handleGenerateSimulation(req,res){
     const answer=(code,payload)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(payload));};
     try{
       await verifyCourseImportUser(req);
-      if(!hasOpenAIKey()) return answer(503,{error:'OPENAI_API_KEY manquante sur le serveur.'});
+      if(!hasOpenAIKey()) return answer(503,{error:"Génération d'images indisponible : OpenAI est désactivé (OPENAI_ENABLED=on pour le réactiver)."});
       const data=JSON.parse(body||'{}');
       const spec=sanitizeSimulationSpec(data.simulation);
       const target=data.targetContext&&typeof data.targetContext==='object'?data.targetContext:{};
@@ -1403,7 +1409,7 @@ function handleGenerateCourseImage(req,res){
     const answer=(code,payload)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(payload));};
     try{
       await verifyCourseImportUser(req);
-      if(!hasOpenAIKey())return answer(503,{error:'OPENAI_API_KEY manquante sur le serveur.'});
+      if(!hasOpenAIKey())return answer(503,{error:"Génération d'images indisponible : OpenAI est désactivé (OPENAI_ENABLED=on pour le réactiver)."});
       const input=JSON.parse(body||'{}'),image=input.image&&typeof input.image==='object'?input.image:{},target=input.targetContext&&typeof input.targetContext==='object'?input.targetContext:{};
       if(image.useful!==true||!cleanText(image.prompt,1200))return answer(400,{error:'Spécification d’image utile manquante.'});
       const generated=await callOpenAIImage(image.prompt,target,image.alt);
@@ -1424,6 +1430,8 @@ function hasElevenKey(){ try{ return !!getElevenKey(); }catch(e){ return false; 
 // multilingue la fait parler français). Modifiable via ELEVENLABS_VOICE_ID.
 const ELEVEN_VOICE_ID = (process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb').trim();
 const ELEVEN_MODEL    = (process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2').trim();
+// Coupé par défaut : une seule voix sur tout le cours (voir la chaîne dans handleTTS).
+const USE_ELEVEN_TTS  = /^(1|on|true|yes)$/i.test(process.env.ELEVENLABS_TTS || 'off');
 // Débit un peu ralenti (collégiens). Plage acceptée par l'API : 0.7 à 1.2.
 const ELEVEN_RATE     = Math.min(1.2, Math.max(0.7, parseFloat(process.env.ELEVENLABS_RATE) || 0.9));
 
@@ -1567,6 +1575,8 @@ const OAUTH_CLIENT_FILE = path.join(__dirname, 'google_oauth_client.json');
 const OAUTH_TOKEN_FILE  = path.join(__dirname, 'google_token.json');
 const OAUTH_SCOPE       = 'https://www.googleapis.com/auth/cloud-platform';
 const CLOUD_TTS_VOICE   = (process.env.CLOUD_TTS_VOICE || 'fr-FR-Neural2-D').trim();   // voix masculine posée
+// Coupé par défaut : une seule voix sur tout le cours (voir la chaîne dans handleTTS).
+const USE_CLOUD_TTS     = /^(1|on|true|yes)$/i.test(process.env.CLOUD_TTS || 'off');
 const CLOUD_TTS_LANG    = (process.env.CLOUD_TTS_LANG  || 'fr-FR').trim();
 // Débit ralenti (0.85 ≈ -15 %) : plus lent = plus compréhensible pour des collégiens.
 const CLOUD_TTS_RATE    = parseFloat(process.env.CLOUD_TTS_RATE) || 0.80;   // débit un peu plus lent (collégiens)
@@ -1655,6 +1665,18 @@ function stableCourseAudioHash(text){
   for(let i=0;i<text.length;i++)h=((h<<5)+h+text.charCodeAt(i))>>>0;
   return 'h'+h.toString(36)+'-'+text.length;
 }
+// IDENTITÉ DE LA VOIX COURANTE. Elle est stockée à côté de audio_map (settings.audio_voice)
+// et NON mélangée au hash du texte : ccTextHash reste rigoureusement identique côté client
+// et côté serveur, donc aucun risque de désynchronisation silencieuse du cache.
+// Quand la voix change (bascule OpenAI → Gemini, ou choix fait sur /voix.html), le marqueur
+// ne correspond plus : le lecteur ignore l'ancienne carte et le serveur en repart une neuve.
+function currentVoiceTag(){
+  if(hasOpenAIKey()) return 'openai:'+OPENAI_TTS_VOICE;
+  if(USE_ELEVEN_TTS && hasElevenKey()) return 'eleven:'+ELEVEN_VOICE_ID;
+  if(USE_GEMINI_TTS) return 'gemini:'+currentGeminiVoice();
+  if(USE_CLOUD_TTS) return 'cloud:'+CLOUD_TTS_VOICE;
+  return 'browser';
+}
 function queueCourseAudioCache(courseId,work){
   const previous=courseAudioCacheQueues.get(courseId)||Promise.resolve();
   const current=previous.catch(()=>{}).then(work).finally(()=>{if(courseAudioCacheQueues.get(courseId)===current)courseAudioCacheQueues.delete(courseId)});
@@ -1681,7 +1703,12 @@ async function persistGeneratedCourseAudio(req,input,text,buf,mime){
     if(user&&user.id!==course.teacher_id)throw new Error('seul le propriétaire peut enregistrer cette voix');
     if(!user&&course.status!=='published')throw new Error('enregistrement audio anonyme réservé aux cours publiés');
     const settings=course.settings&&typeof course.settings==='object'?course.settings:{};
-    const audioMap=settings.audio_map&&typeof settings.audio_map==='object'?settings.audio_map:{};
+    // Voix changée depuis le dernier enregistrement → la carte précédente est abandonnée
+    // (elle contient des pistes d'un autre timbre) et reconstruite au fil de la lecture.
+    const voiceTag=currentVoiceTag();
+    const storedVoice=typeof settings.audio_voice==='string'?settings.audio_voice:'';
+    const previousMap=settings.audio_map&&typeof settings.audio_map==='object'?settings.audio_map:{};
+    const audioMap=storedVoice===voiceTag?previousMap:{};
     if(audioMap[textHash])return;
     if(Object.keys(audioMap).length>=500)throw new Error('limite de 500 voix atteinte pour ce cours');
     const extension=/wav/i.test(mime)?'wav':'mp3';
@@ -1691,7 +1718,7 @@ async function persistGeneratedCourseAudio(req,input,text,buf,mime){
       method:'POST',headers:Object.assign({},apiHeaders,{'Content-Type':mime,'x-upsert':'true'}),body:buf
     });
     if(!upload.ok)throw new Error('stockage audio '+upload.status+' : '+(await upload.text()).slice(0,160));
-    const nextSettings=Object.assign({},settings,{audio_map:Object.assign({},audioMap,{[textHash]:storagePath})});
+    const nextSettings=Object.assign({},settings,{audio_voice:voiceTag,audio_map:Object.assign({},audioMap,{[textHash]:storagePath})});
     const update=await fetch(config.url+'/rest/v1/courses?id=eq.'+encodeURIComponent(courseId),{
       method:'PATCH',headers:Object.assign({},apiHeaders,{'Content-Type':'application/json','Prefer':'return=minimal'}),body:JSON.stringify({settings:nextSettings})
     });
@@ -1720,6 +1747,129 @@ async function callOpenAITTS(text,targetContext){
   return Buffer.from(await r.arrayBuffer());
 }
 
+// ============ CACHE DISQUE DES VOIX (toutes les leçons) ============
+// La carte audio_map de Supabase ne couvre que les cours importés publiés : les leçons
+// INTÉGRÉES n'ont pas de fiche cours, leur voix était resynthétisée à chaque lecture.
+// Cette couche-ci est en amont de la chaîne et s'applique à TOUT texte parlé, quelle que
+// soit la leçon : premier passage = synthèse + écriture sur disque, ensuite = lecture
+// immédiate, aucun appel Gemini. Les fichiers sont rangés PAR VOIX, donc un changement de
+// timbre repart naturellement d'un dossier vide au lieu de resservir l'ancienne voix.
+// Sur Render le disque est éphémère : le cache se reconstruit après un déploiement, ce qui
+// est sans conséquence puisqu'il n'est qu'une optimisation.
+const TTS_CACHE_DIR = path.join(__dirname, '.tts-cache');
+const TTS_CACHE_MAX_FILES = Math.max(50, Number(process.env.TTS_CACHE_MAX_FILES) || 4000);
+function ttsCacheDirFor(voiceTag){
+  return path.join(TTS_CACHE_DIR, String(voiceTag).replace(/[^a-z0-9._-]+/gi,'_') || 'inconnue');
+}
+function readTTSCache(voiceTag, text){
+  const dir=ttsCacheDirFor(voiceTag), key=stableCourseAudioHash(text);
+  for(const [ext,mime] of [['wav','audio/wav'],['mp3','audio/mpeg']]){
+    const file=path.join(dir, key+'.'+ext);
+    try{
+      const buf=fs.readFileSync(file);
+      if(buf.length){
+        const now=new Date();
+        try{ fs.utimesSync(file, now, now); }catch(e){}   // date d'accès = ordre LRU du nettoyage
+        return { buf, mime };
+      }
+    }catch(e){}
+  }
+  return null;
+}
+function pruneTTSCache(dir){
+  let names=[];
+  try{ names=fs.readdirSync(dir); }catch(e){ return; }
+  if(names.length<=TTS_CACHE_MAX_FILES) return;
+  const entries=names.map(name=>{
+    const file=path.join(dir,name);
+    try{ return { file, time:fs.statSync(file).mtimeMs }; }catch(e){ return null; }
+  }).filter(Boolean).sort((a,b)=>a.time-b.time);
+  entries.slice(0, entries.length-TTS_CACHE_MAX_FILES).forEach(entry=>{ try{ fs.unlinkSync(entry.file); }catch(e){} });
+}
+function writeTTSCache(voiceTag, text, buf, mime){
+  try{
+    const dir=ttsCacheDirFor(voiceTag);
+    fs.mkdirSync(dir,{recursive:true});
+    fs.writeFileSync(path.join(dir, stableCourseAudioHash(text)+'.'+(/wav/i.test(mime)?'wav':'mp3')), buf);
+    pruneTTSCache(dir);
+  }catch(error){ console.warn('[TTS] cache disque non écrit : '+String(error.message||error).slice(0,200)); }
+}
+
+// ============ CACHE PARTAGÉ SUPABASE (persistant, toutes les leçons) ============
+// Le cache disque disparaît à chaque déploiement Render. Cette couche-ci conserve les voix
+// dans le bucket course-media, sous un préfixe partagé indépendant de tout cours — c'est ce
+// qui permet enfin de mémoriser les leçons INTÉGRÉES, qui n'ont pas de fiche Supabase.
+//
+// Sécurité : lecture ET écriture passent par le SERVEUR avec la clé de service. Les élèves
+// ne reçoivent jamais de droit d'écriture sur le bucket et aucune règle RLS n'est à modifier.
+//
+// Plafond : on n'efface JAMAIS de fichier distant (risque de toucher autre chose) ; passé le
+// plafond on cesse simplement d'ajouter, ce qui borne la place occupée de façon prévisible.
+// Attention au volume : Gemini renvoie du WAV non compressé (~200 Ko par phrase).
+const USE_SHARED_TTS   = /^(1|on|true|yes)$/i.test(process.env.TTS_SHARED_CACHE || 'on');
+const SHARED_TTS_MAX   = Math.max(0, Number(process.env.TTS_SHARED_MAX_FILES) || 1500);
+const SHARED_TTS_BUCKET= 'course-media';
+let sharedTTSCount=null;                       // compté une fois, puis suivi en mémoire
+
+function sharedTTSContext(){
+  if(!USE_SHARED_TTS) return null;
+  try{
+    const config=getSupabasePublicConfig(), serviceKey=getSupabaseServiceKey();
+    if(!serviceKey) return null;
+    return { url:config.url, headers:{ apikey:serviceKey, Authorization:'Bearer '+serviceKey } };
+  }catch(error){ return null; }
+}
+function sharedTTSPrefix(voiceTag){
+  return 'shared/tts/'+String(voiceTag).replace(/[^a-z0-9._-]+/gi,'_');
+}
+function sharedTTSObject(voiceTag, text, ext){
+  return sharedTTSPrefix(voiceTag)+'/'+stableCourseAudioHash(text)+'.'+ext;
+}
+function sharedTTSUrl(ctx, objectPath){
+  return ctx.url+'/storage/v1/object/'+SHARED_TTS_BUCKET+'/'+objectPath.split('/').map(encodeURIComponent).join('/');
+}
+async function readSharedTTS(voiceTag, text){
+  const ctx=sharedTTSContext(); if(!ctx) return null;
+  for(const [ext,mime] of [['wav','audio/wav'],['mp3','audio/mpeg']]){
+    try{
+      const r=await fetch(sharedTTSUrl(ctx, sharedTTSObject(voiceTag,text,ext)),
+        { headers:ctx.headers, signal:AbortSignal.timeout(15000) });
+      if(!r.ok) continue;
+      const buf=Buffer.from(await r.arrayBuffer());
+      if(buf.length) return { buf, mime };
+    }catch(error){}
+  }
+  return null;
+}
+async function countSharedTTS(ctx, voiceTag){
+  if(sharedTTSCount!==null) return sharedTTSCount;
+  try{
+    const r=await fetch(ctx.url+'/storage/v1/object/list/'+SHARED_TTS_BUCKET,{
+      method:'POST', headers:Object.assign({'Content-Type':'application/json'},ctx.headers),
+      body:JSON.stringify({prefix:sharedTTSPrefix(voiceTag), limit:SHARED_TTS_MAX+1}),
+      signal:AbortSignal.timeout(20000)
+    });
+    sharedTTSCount = r.ok ? (await r.json()).length : 0;
+  }catch(error){ sharedTTSCount=0; }
+  return sharedTTSCount;
+}
+async function writeSharedTTS(voiceTag, text, buf, mime){
+  const ctx=sharedTTSContext(); if(!ctx) return;
+  try{
+    if(await countSharedTTS(ctx,voiceTag) >= SHARED_TTS_MAX){
+      if(sharedTTSCount===SHARED_TTS_MAX) console.warn(`[TTS] cache partagé plein (${SHARED_TTS_MAX} pistes) — nouvelles voix non conservées. TTS_SHARED_MAX_FILES pour relever.`);
+      return;
+    }
+    const objectPath=sharedTTSObject(voiceTag,text,/wav/i.test(mime)?'wav':'mp3');
+    const r=await fetch(sharedTTSUrl(ctx,objectPath),{
+      method:'POST', headers:Object.assign({},ctx.headers,{'Content-Type':mime,'x-upsert':'true'}),
+      body:buf, signal:AbortSignal.timeout(30000)
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status+' : '+(await r.text()).slice(0,160));
+    sharedTTSCount++;
+  }catch(error){ console.warn('[TTS] cache partagé non écrit : '+String(error.message||error).slice(0,200)); }
+}
+
 // Chaîne de repli : 1) OpenAI  2) ElevenLabs  3) Gemini TTS  4) Google Cloud TTS  5) (navigateur, côté client)
 function handleTTS(req, res){
   let body='';
@@ -1734,29 +1884,45 @@ function handleTTS(req, res){
       res.writeHead(400, { 'Content-Type':'application/json; charset=utf-8' });
       return res.end(JSON.stringify({ error: String(e.message || e) }));
     }
-    const reply=(audio,mime)=>{
+    const voiceTag=currentVoiceTag();
+    // origine : 'disque' (déjà partout) | 'partage' (à recopier sur le disque local)
+    //         | 'synthese' (à écrire dans les deux caches)
+    const reply=(audio,mime,origine)=>{
       sendAudio(res,audio,mime);
-      // L'enregistrement est volontairement effectué après res.end : l'avatar commence à
-      // parler sans attendre l'upload Supabase. Un échec de cache ne coupe jamais la voix.
+      // Les enregistrements sont volontairement effectués après res.end : l'avatar commence
+      // à parler sans attendre l'écriture. Un échec de cache ne coupe jamais la voix.
+      if(origine!=='disque') writeTTSCache(voiceTag,clean,audio,mime);
+      if(origine==='synthese') writeSharedTTS(voiceTag,clean,audio,mime).catch(()=>{});
       persistGeneratedCourseAudio(req,input,clean,audio,mime).catch(error=>console.warn('[TTS] voix non enregistrée : '+String(error.message||error).slice(0,260)));
     };
-    // Chaîne de repli : 1) OpenAI  2) ElevenLabs  3) Gemini  4) Google Cloud  5) navigateur.
-    // Indispensable : si le quota OpenAI est épuisé, la voix reste neurale au lieu de disparaître.
+    // Niveau 1 — disque local : instantané, mais perdu à chaque déploiement.
+    const fromDisk=readTTSCache(voiceTag,clean);
+    if(fromDisk) return reply(fromDisk.buf,fromDisk.mime,'disque');
+    // Niveau 2 — bucket Supabase : persiste entre les déploiements, y compris pour les
+    // leçons intégrées. Une lecture ici réamorce aussitôt le disque local.
+    const fromShared=await readSharedTTS(voiceTag,clean);
+    if(fromShared) return reply(fromShared.buf,fromShared.mime,'partage');
+    // Chaîne actuelle : 1) Gemini  2) navigateur (voix Chrome, côté client).
+    // OpenAI, ElevenLabs et Google Cloud sont coupés par défaut pour garantir UNE SEULE
+    // voix masculine sur tout le cours : mélanger les moteurs = changer de timbre d'une
+    // étape à l'autre. Réactivation : OPENAI_ENABLED=on / ELEVENLABS_TTS=on / CLOUD_TTS=on.
     const errs=[];
     if(hasOpenAIKey()){
-      try{return reply(await callOpenAITTS(clean,targetContext),'audio/mpeg');}
+      try{return reply(await callOpenAITTS(clean,targetContext),'audio/mpeg','synthese');}
       catch(error){errs.push('OpenAI → '+String(error.message||error));}
-    } else errs.push('OpenAI → clé absente');
-    if(hasElevenKey()){
-      try{return reply(await elEnqueue(()=>callElevenLabsTTS(clean)),'audio/mpeg');}
+    } else errs.push('OpenAI → désactivé');
+    if(USE_ELEVEN_TTS && hasElevenKey()){
+      try{return reply(await elEnqueue(()=>callElevenLabsTTS(clean)),'audio/mpeg','synthese');}
       catch(error){errs.push('ElevenLabs → '+String(error.message||error));}
-    } else errs.push('ElevenLabs → clé absente');
+    } else errs.push('ElevenLabs → désactivé');
     if(USE_GEMINI_TTS){
-      try{return reply(await callGeminiTTS(clean),'audio/wav');}
+      try{return reply(await callGeminiTTS(clean),'audio/wav','synthese');}
       catch(error){errs.push('Gemini → '+String(error.message||error));}
     } else errs.push('Gemini → désactivé');
-    try{const a=await callCloudTTS(clean);return reply(a.buf,a.mime);}
-    catch(error){errs.push('Cloud → '+String(error.message||error));}
+    if(USE_CLOUD_TTS){
+      try{const a=await callCloudTTS(clean);return reply(a.buf,a.mime,'synthese');}
+      catch(error){errs.push('Cloud → '+String(error.message||error));}
+    } else errs.push('Cloud → désactivé');
     console.warn('[TTS] repli navigateur : '+errs.join('  |  ').slice(0,500));
     res.writeHead(204, { 'Cache-Control':'no-store', 'X-TTS-Fallback':'browser' });
     res.end();
@@ -2386,8 +2552,14 @@ const server = http.createServer((req, res) => {
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/reexplain') return handleReexplain(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/learning-feedback') return handleLearningFeedback(req, res);
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/handwriting') return handleHandwriting(req, res);
-    // ---- API voix (Gemini TTS → Cloud TTS → navigateur) ----
+    // ---- API voix (Gemini TTS → voix du navigateur) ----
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/tts') return handleTTS(req, res);
+    // Identité de la voix courante : le lecteur s'en sert pour écarter une carte audio
+    // enregistrée avec un autre timbre (voir published-course-loader.js).
+    if (req.method === 'GET' && req.url.split('?')[0] === '/api/tts-voice'){
+      res.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
+      return res.end(JSON.stringify({voice:currentVoiceTag()}));
+    }
     // ---- API espace prof : upload de médias + contenu par étape ----
     if (req.method === 'POST' && req.url.split('?')[0] === '/api/upload')  return handleAuthorizedUpload(req, res);
     if (req.method === 'GET'  && req.url.split('?')[0] === '/api/content')  return handleContentGet(req, res);
@@ -2443,11 +2615,14 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`\n  Classes Connectees -> http://localhost:${PORT}`);
-  console.log(`  OpenAI (cours, images, tuteur, voix) : ${hasOpenAIKey() ? 'clé chargée ✅' : 'OPENAI_API_KEY absente ❌'}`);
+  console.log(`  OpenAI (cours, images, tuteur, voix) : ${USE_OPENAI ? (hasOpenAIKey() ? 'clé chargée ✅' : 'OPENAI_API_KEY absente ❌') : 'DÉSACTIVÉ (OPENAI_ENABLED=on pour réactiver) ⏸️'}`);
+  console.log(`  Voix : ${currentVoiceTag()} — repli navigateur (voix masculine FR)`);
   console.log(`  IA DeepSeek : ${ (()=>{ try{ getKey(); return 'clé chargée ✅'; }catch(e){ return 'clé absente ❌'; } })() }`);
-  console.log(`  Voix 1) ElevenLabs (${ELEVEN_VOICE_ID === 'JBFqnCBsd6RMkjVDRZzb' ? 'George' : ELEVEN_VOICE_ID}) : ${ hasElevenKey() ? 'clé chargée ✅' : 'clé absente ❌ (elevenlabs.key ou ELEVENLABS_API_KEY)' }`);
-  console.log(`  Voix 2) Gemini TTS (${TTS_VOICE}) : ${ USE_GEMINI_TTS ? ((()=>{ try{ getGeminiKey(); return 'clé chargée ✅'; }catch(e){ return 'clé absente ❌'; } })()) : 'DÉSACTIVÉ ⛔ (GEMINI_TTS=on pour réactiver)' }`);
-  console.log(`  Voix 3) Google Cloud TTS (${CLOUD_TTS_VOICE}) : ${ fs.existsSync(OAUTH_TOKEN_FILE) ? 'autorisé ✅' : 'à autoriser → http://localhost:'+PORT+'/oauth2/start' }`);
+  console.log(`  Voix 1) ElevenLabs (${ELEVEN_VOICE_ID === 'JBFqnCBsd6RMkjVDRZzb' ? 'George' : ELEVEN_VOICE_ID}) : ${ !USE_ELEVEN_TTS ? 'DÉSACTIVÉ ⛔ (ELEVENLABS_TTS=on pour réactiver)' : (hasElevenKey() ? 'clé chargée ✅' : 'clé absente ❌ (elevenlabs.key ou ELEVENLABS_API_KEY)') }`);
+  console.log(`  Voix 2) Gemini TTS (${currentGeminiVoice()}) : ${ USE_GEMINI_TTS ? ((()=>{ try{ getGeminiKey(); return 'clé chargée ✅ ← EN SERVICE'; }catch(e){ return 'clé absente ❌'; } })()) : 'DÉSACTIVÉ ⛔ (GEMINI_TTS=on pour réactiver)' }`);
+  console.log(`  Voix 3) Google Cloud TTS (${CLOUD_TTS_VOICE}) : ${ !USE_CLOUD_TTS ? 'DÉSACTIVÉ ⛔ (CLOUD_TTS=on pour réactiver)' : (fs.existsSync(OAUTH_TOKEN_FILE) ? 'autorisé ✅' : 'à autoriser → http://localhost:'+PORT+'/oauth2/start') }`);
   console.log('  Voix 4) Navigateur (Web Speech) : repli automatique côté client');
+  console.log(`  Cache voix disque : ${(()=>{ try{ return fs.readdirSync(ttsCacheDirFor(currentVoiceTag())).length+' piste(s)'; }catch(e){ return 'vide (se remplit à la lecture)'; } })()} — max ${TTS_CACHE_MAX_FILES}`);
+  console.log(`  Cache voix Supabase (persistant, toutes leçons) : ${ !USE_SHARED_TTS ? 'DÉSACTIVÉ ⛔ (TTS_SHARED_CACHE=on)' : (sharedTTSContext() ? 'actif ✅ course-media/'+sharedTTSPrefix(currentVoiceTag())+' — max '+SHARED_TTS_MAX : 'inactif ❌ (clé de service Supabase absente)') }`);
   console.log('  (Ctrl+C pour arreter)\n');
 });
