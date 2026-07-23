@@ -1991,10 +1991,10 @@ function handleTTS(req, res){
     // leçons intégrées. Une lecture ici réamorce aussitôt le disque local.
     const fromShared=await readSharedTTS(voiceTag,clean);
     if(fromShared) return reply(fromShared.buf,fromShared.mime,'partage');
-    // Chaîne actuelle : 1) Gemini  2) navigateur (voix Chrome, côté client).
-    // OpenAI, ElevenLabs et Google Cloud sont coupés par défaut pour garantir UNE SEULE
-    // voix masculine sur tout le cours : mélanger les moteurs = changer de timbre d'une
-    // étape à l'autre. Réactivation : OPENAI_ENABLED=on / ELEVENLABS_TTS=on / CLOUD_TTS=on.
+    // Chaîne actuelle : 1) Mistral (voix principale)  2) Gemini (1er secours)  3) navigateur.
+    // OpenAI, ElevenLabs et Google Cloud restent coupés par défaut : mélanger les moteurs =
+    // changer de timbre d'une étape à l'autre. Réactivation : OPENAI_ENABLED=on /
+    // ELEVENLABS_TTS=on / CLOUD_TTS=on (ils s'insèrent alors après Gemini).
     const errs=[];
     if(USE_MISTRAL_TTS && hasMistralKey()){
       try{return reply(await callMistralTTS(clean),'audio/mpeg','synthese','mistral:'+MISTRAL_TTS_VOICE);}
