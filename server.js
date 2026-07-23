@@ -2025,7 +2025,9 @@ function handleTTS(req, res){
     if(USE_MISTRAL_TTS && hasMistralKey()){
       try{return reply(await callMistralTTS(clean),'audio/mpeg','synthese','mistral:'+MISTRAL_TTS_VOICE);}
       catch(error){errs.push('Mistral → '+String(error.message||error));}
-    } else errs.push('Mistral → désactivé');
+      // Deux causes très différentes à distinguer : sans ça, « désactivé » ne dit pas s'il faut
+      // rallumer l'interrupteur ou fournir la clé (diagnostic à l'aveugle sur Render).
+    } else errs.push('Mistral → ' + (!USE_MISTRAL_TTS ? 'coupé par MISTRAL_TTS' : 'clé absente (MISTRAL_API_KEY)'));
     // Gemini = 1er secours : si Mistral échoue, c'est lui qui prend le relais AVANT OpenAI/ElevenLabs.
     if(USE_GEMINI_TTS){
       try{return reply(await callGeminiTTS(clean),'audio/wav','synthese','gemini:'+currentGeminiVoice());}
