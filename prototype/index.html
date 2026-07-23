@@ -378,6 +378,14 @@ window.classesReaderAccessReady=(async function(){
   .avatarBox.intro-center{left:50%;right:auto;top:auto;bottom:0;width:470px;height:670px;
     transform-origin:center bottom;transform:translateX(-50%) scale(1.28)!important;
     transition:transform .55s ease, left .55s ease}
+  /* Scène d'ouverture du cours M 1 : l'avatar reste visible et parle à l'intérieur du décor. */
+  body.m1-intro-scene .board{background:#fef3c7 url('son-m-nouveau/images/scene-intro-classe-m.png') center/cover no-repeat;
+    border-color:#f4c95d;box-shadow:inset 0 0 80px rgba(255,255,255,.12),0 10px 30px rgba(0,0,0,.4)}
+  body.m1-intro-scene .board::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:linear-gradient(90deg,rgba(255,255,255,.04),rgba(255,248,220,.14),rgba(255,255,255,.04))}
+  body.m1-intro-scene .boardtop,
+  body.m1-intro-scene .nameTag{display:none!important}
+  body.m1-intro-scene .avatarBox{z-index:9}
   body.avatar-intro .content,
   body.avatar-intro #boardTitle,
   body.avatar-intro .phase-strip,
@@ -2787,6 +2795,7 @@ window.addEventListener('resize', ()=>{ try{ if(typeof lecon!=='undefined') appl
   scheduleAvatarSide(120); });   // le média a changé de place : l'avatar re-vise
 function render(n){ const e=lecon.etapes[n];
   applyAudienceTheme();
+  document.body.classList.toggle('m1-intro-scene', !!(e && e.intro && lecon.id==='son-m-nouveau'));
   cancelAutoNext(); cancelAutoResume();  // nouvelle étape → on repart de zéro (avance auto)
   const eb=effectiveBoard(e.board, lecon.id, n);   // applique les réglages prof (masquer/remplacer)
   const say=effSay(e.say, lecon.id, n);            // texte parlé effectif (réécrit/vidé par le prof)
@@ -3652,6 +3661,7 @@ function showNoAvailableLessons(){
 // Écran d'accueil du chapitre courant (avant « Démarrer », ou après « Arrêter »)
 function showChapterHome(){
   if(!lecon){showNoAvailableLessons();return;}
+  document.body.classList.remove('m1-intro-scene');
   applyAudienceTheme();                                      // tableau vif au primaire, ardoise au collège
   i=-1; bar.style.width='0%'; stopAudio(); renderPhase(-1); // coupe l'audio + masque le bandeau de phases
   resumePlayback();                                          // annule un éventuel état "pause"
