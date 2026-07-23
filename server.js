@@ -1754,9 +1754,9 @@ function currentVoiceTag(){
   // L'ORDRE DOIT SUIVRE EXACTEMENT celui de la chaîne dans handleTTS : sinon une piste serait
   // rangée sous le nom d'un moteur qui ne l'a pas produite, et resservie comme si de rien n'était.
   if(USE_MISTRAL_TTS && hasMistralKey()) return 'mistral:'+MISTRAL_TTS_VOICE;
+  if(USE_GEMINI_TTS) return 'gemini:'+currentGeminiVoice();   // 1er secours
   if(hasOpenAIKey()) return 'openai:'+OPENAI_TTS_VOICE;
   if(USE_ELEVEN_TTS && hasElevenKey()) return 'eleven:'+ELEVEN_VOICE_ID;
-  if(USE_GEMINI_TTS) return 'gemini:'+currentGeminiVoice();
   if(USE_CLOUD_TTS) return 'cloud:'+CLOUD_TTS_VOICE;
   return 'browser';
 }
@@ -2000,6 +2000,11 @@ function handleTTS(req, res){
       try{return reply(await callMistralTTS(clean),'audio/mpeg','synthese','mistral:'+MISTRAL_TTS_VOICE);}
       catch(error){errs.push('Mistral → '+String(error.message||error));}
     } else errs.push('Mistral → désactivé');
+    // Gemini = 1er secours : si Mistral échoue, c'est lui qui prend le relais AVANT OpenAI/ElevenLabs.
+    if(USE_GEMINI_TTS){
+      try{return reply(await callGeminiTTS(clean),'audio/wav','synthese','gemini:'+currentGeminiVoice());}
+      catch(error){errs.push('Gemini → '+String(error.message||error));}
+    } else errs.push('Gemini → désactivé');
     if(hasOpenAIKey()){
       try{return reply(await callOpenAITTS(clean,targetContext),'audio/mpeg','synthese','openai:'+OPENAI_TTS_VOICE);}
       catch(error){errs.push('OpenAI → '+String(error.message||error));}
@@ -2008,10 +2013,6 @@ function handleTTS(req, res){
       try{return reply(await elEnqueue(()=>callElevenLabsTTS(clean)),'audio/mpeg','synthese','eleven:'+ELEVEN_VOICE_ID);}
       catch(error){errs.push('ElevenLabs → '+String(error.message||error));}
     } else errs.push('ElevenLabs → désactivé');
-    if(USE_GEMINI_TTS){
-      try{return reply(await callGeminiTTS(clean),'audio/wav','synthese','gemini:'+currentGeminiVoice());}
-      catch(error){errs.push('Gemini → '+String(error.message||error));}
-    } else errs.push('Gemini → désactivé');
     if(USE_CLOUD_TTS){
       try{const a=await callCloudTTS(clean);return reply(a.buf,a.mime,'synthese','cloud:'+CLOUD_TTS_VOICE);}
       catch(error){errs.push('Cloud → '+String(error.message||error));}
