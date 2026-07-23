@@ -1753,7 +1753,17 @@ function stableCourseAudioHash(text){
 function currentVoiceTag(){
   // L'ORDRE DOIT SUIVRE EXACTEMENT celui de la chaîne dans handleTTS : sinon une piste serait
   // rangée sous le nom d'un moteur qui ne l'a pas produite, et resservie comme si de rien n'était.
-  if(USE_MISTRAL_TTS && hasMistralKey()) return 'mistral:'+MISTRAL_TTS_VOICE;
+  //
+  // Mistral est le TAG DE LA VOIX du projet dès que MISTRAL_TTS=on — indépendamment de la
+  // présence d'une clé de synthèse en direct. C'est volontaire : les voix déjà générées sont
+  // rangées dans le cache partagé sous « mistral:… », et on veut les RELIRE même là où aucune
+  // clé Mistral n'est configurée (ex. Render sans MISTRAL_API_KEY). Sans ce découplage, le tag
+  // basculait sur « gemini:… » et le serveur cherchait le cache au mauvais préfixe, ignorant la
+  // voix Mistral pourtant sauvegardée. La garde hasMistralKey() reste, elle, sur l'appel EN
+  // DIRECT dans handleTTS ; et l'écriture du cache n'a lieu que si le moteur ayant réellement
+  // produit l'audio coïncide avec ce tag (dumemoteur), donc un repli Gemini n'est jamais rangé
+  // sous « mistral: ».
+  if(USE_MISTRAL_TTS) return 'mistral:'+MISTRAL_TTS_VOICE;
   if(USE_GEMINI_TTS) return 'gemini:'+currentGeminiVoice();   // 1er secours
   if(hasOpenAIKey()) return 'openai:'+OPENAI_TTS_VOICE;
   if(USE_ELEVEN_TTS && hasElevenKey()) return 'eleven:'+ELEVEN_VOICE_ID;
