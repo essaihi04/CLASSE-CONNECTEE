@@ -1,0 +1,587 @@
+[
+ {
+  "piste": "001",
+  "texte": "Bonjour les détectives ! Aujourd'hui, nous découvrons la lettre M. Nous allons écouter un son. Nous allons le chercher dans des mots. Et nous allons apprendre à l'écrire. Prêts ? On commence !",
+  "hachage": "h1k841zr-192"
+ },
+ {
+  "piste": "002",
+  "texte": "Voici notre son. La lettre M chante le son [m]. Je ferme mes deux lèvres. L'air passe par le nez. Ma gorge vibre. Écoute bien : le son peut durer : mmmm. On ne dit pas « émé ». On entend ce son dans le mot maison. On l'entend dans camion. On l'entend dans pomme. Écoute encore : le son peut durer : mmmm.",
+  "hachage": "h1owvfdp-304"
+ },
+ {
+  "piste": "003",
+  "texte": "Regarde bien l'enfant. Il ferme les lèvres. Il pose une main sur sa gorge. Il pose l'autre main sur son ventre. Fais comme lui. Prolonge le son : mmmm. Sens ta gorge qui vibre.",
+  "hachage": "h1f2nsjo-176"
+ },
+ {
+  "piste": "004",
+  "texte": "Maintenant, qui veut venir au tableau ? À toi de jouer ! Écoute bien chaque mot. Cherche le son de la lettre M. Le son peut durer : mmmm. Si tu entends ce son, pose l'image dans le panier. Si non, laisse-la en haut. Vas-y, je t'écoute.",
+  "hachage": "hr29y1n-235"
+ },
+ {
+  "piste": "005",
+  "texte": "À qui le tour de venir au tableau ? Viens, je t'aide. Dis le mot tout doucement. Cherche le son de la lettre M. Le son peut durer : mmmm. Où se cache-t-il ? Au début ? Au milieu ? À la fin ? Trouve sa place pour chaque image.",
+  "hachage": "hjxfu0d-225"
+ },
+ {
+  "piste": "006",
+  "texte": "Qui veut nourrir le monstre au tableau ? À toi ! Le monstre a très faim. Mais il ne mange que la lettre M. Attention ! Certaines lettres lui ressemblent. Choisis bien les M.",
+  "hachage": "h1e50g4o-173"
+ },
+ {
+  "piste": "007",
+  "texte": "À ton tour de venir fabriquer le son ! Ferme bien tes lèvres. Touche ta gorge, tout doucement. Touche ton ventre. Et fais le son : le son peut durer : mmmm. Bravo, tu fabriques le son [m] !",
+  "hachage": "helxa8d-189"
+ },
+ {
+  "piste": "008",
+  "texte": "Pour finir, qui vient écrire au tableau ? Regarde les trois lettres. Prends bien ton temps. Commence en haut. Descends. Remonte. Redescends. Trace M, puis m, puis m attaché.",
+  "hachage": "h6bw66i-173"
+ },
+ {
+  "piste": "009",
+  "texte": "Bravo les détectives ! Tu connais le son de la lettre M. Tu sais où il se cache dans les mots. Tu reconnais M, m et m attaché. Souviens-toi : le son peut durer : mmmm.",
+  "hachage": "h1lpnshm-167"
+ },
+ {
+  "piste": "010",
+  "texte": "On recommence !",
+  "hachage": "hc5rbfl-15"
+ },
+ {
+  "piste": "011",
+  "texte": "Bravo ! Tu as trouvé les trois écritures : la majuscule, la minuscule et l'attaché. Le son peut durer : mmmm.",
+  "hachage": "h1vr4xs8-109"
+ },
+ {
+  "piste": "012",
+  "texte": "Bravo ! Tes lèvres sont fermées, l'air ne passe plus par la bouche.",
+  "hachage": "hzfyv75-67"
+ },
+ {
+  "piste": "013",
+  "texte": "Super ! La voix fait vibrer ta gorge.",
+  "hachage": "hwc88ct-37"
+ },
+ {
+  "piste": "014",
+  "texte": "Pars du point vert.",
+  "hachage": "h7i5t3h-19"
+ },
+ {
+  "piste": "015",
+  "texte": "Continue jusqu'au bout du chemin, sans lever le doigt.",
+  "hachage": "hqfgkfv-54"
+ },
+ {
+  "piste": "016",
+  "texte": "Reste sur le chemin. On repart du point vert.",
+  "hachage": "h1rccifm-45"
+ },
+ {
+  "piste": "017",
+  "texte": "Bien ! Maintenant le trait suivant.",
+  "hachage": "h1cz51c-35"
+ },
+ {
+  "piste": "018",
+  "texte": "Bravo ! Tu sais écrire le M majuscule, le m minuscule et le m attaché.",
+  "hachage": "h27anmo-70"
+ },
+ {
+  "piste": "019",
+  "texte": "Le son peut durer : mmmm.",
+  "hachage": "h16mimaq-25"
+ },
+ {
+  "piste": "020",
+  "texte": "mouton",
+  "hachage": "h3y6pqf-6"
+ },
+ {
+  "piste": "021",
+  "texte": "Bravo ! Dans mouton, on entend le son. Le son peut durer : mmmm.",
+  "hachage": "h19ud3gb-64"
+ },
+ {
+  "piste": "022",
+  "texte": "Super ! Dans mouton, on entend le son. Le son peut durer : mmmm.",
+  "hachage": "h736jg0-64"
+ },
+ {
+  "piste": "023",
+  "texte": "Très bien joué ! Dans mouton, on entend le son. Le son peut durer : mmmm.",
+  "hachage": "h18ngwt3-73"
+ },
+ {
+  "piste": "024",
+  "texte": "moto",
+  "hachage": "hykn04k-4"
+ },
+ {
+  "piste": "025",
+  "texte": "Bravo ! Dans moto, on entend le son. Le son peut durer : mmmm.",
+  "hachage": "h4xe88o-62"
+ },
+ {
+  "piste": "026",
+  "texte": "Super ! Dans moto, on entend le son. Le son peut durer : mmmm.",
+  "hachage": "hjb1tm5-62"
+ },
+ {
+  "piste": "027",
+  "texte": "Très bien joué ! Dans moto, on entend le son. Le son peut durer : mmmm.",
+  "hachage": "h1kprqfo-71"
+ },
+ {
+  "piste": "028",
+  "texte": "ballon",
+  "hachage": "h1vkwwv1-6"
+ },
+ {
+  "piste": "029",
+  "texte": "Écoute encore ballon. On n'y entend pas le son.",
+  "hachage": "h1p4yn1o-47"
+ },
+ {
+  "piste": "030",
+  "texte": "pyjama",
+  "hachage": "h62wehz-6"
+ },
+ {
+  "piste": "031",
+  "texte": "Bravo ! Dans pyjama, on entend le son. Le son peut durer : mmmm.",
+  "hachage": "h1qplhsr-64"
+ },
+ {
+  "piste": "032",
+  "texte": "Super ! Dans pyjama, on entend le son. Le son peut durer : mmmm.",
+  "hachage": "hnyexsg-64"
+ },
+ {
+  "piste": "033",
+  "texte": "Très bien joué ! Dans pyjama, on entend le son. Le son peut durer : mmmm.",
+  "hachage": "h1pipb5j-73"
+ },
+ {
+  "piste": "034",
+  "texte": "table",
+  "hachage": "h4jwyod-5"
+ },
+ {
+  "piste": "035",
+  "texte": "Écoute encore table. On n'y entend pas le son.",
+  "hachage": "h158qf24-46"
+ },
+ {
+  "piste": "036",
+  "texte": "singe",
+  "hachage": "h4jdzej-5"
+ },
+ {
+  "piste": "037",
+  "texte": "Écoute encore singe. On n'y entend pas le son.",
+  "hachage": "h16qwnvu-46"
+ },
+ {
+  "piste": "038",
+  "texte": "Bravo ! Tu as trouvé les trois mots. Le son peut durer : mmmm.",
+  "hachage": "h12bl8yx-62"
+ },
+ {
+  "piste": "039",
+  "texte": "Voici le train du son. Regarde l'image et écoute bien le mot. Prends la lettre, puis pose-la dans le bon wagon du train : le premier wagon si tu entends le son au début du mot ; le wagon du milieu si c'est au milieu ; le dernier wagon si c'est à la fin. Le son peut durer : mmmm.",
+  "hachage": "h4huatk-279"
+ },
+ {
+  "piste": "040",
+  "texte": "Écoute encore moto. Le son peut durer : mmmm.",
+  "hachage": "h1s6ikj8-45"
+ },
+ {
+  "piste": "041",
+  "texte": "Bravo ! Dans moto, le son est au début : c'est le premier wagon. Le son peut durer : mmmm.",
+  "hachage": "h1a5jfns-90"
+ },
+ {
+  "piste": "042",
+  "texte": "Super ! Dans moto, le son est au début : c'est le premier wagon. Le son peut durer : mmmm.",
+  "hachage": "h180vq0t-90"
+ },
+ {
+  "piste": "043",
+  "texte": "Très bien joué ! Dans moto, le son est au début : c'est le premier wagon. Le son peut durer : mmmm.",
+  "hachage": "h65lrac-99"
+ },
+ {
+  "piste": "044",
+  "texte": "plume",
+  "hachage": "h4hc7fs-5"
+ },
+ {
+  "piste": "045",
+  "texte": "Écoute encore plume. Le son peut durer : mmmm.",
+  "hachage": "h1ri58t4-46"
+ },
+ {
+  "piste": "046",
+  "texte": "Bravo ! Dans plume, le son est à la fin : c'est le dernier wagon. Le son peut durer : mmmm.",
+  "hachage": "hhze4bh-91"
+ },
+ {
+  "piste": "047",
+  "texte": "Super ! Dans plume, le son est à la fin : c'est le dernier wagon. Le son peut durer : mmmm.",
+  "hachage": "hiqro8i-91"
+ },
+ {
+  "piste": "048",
+  "texte": "Très bien joué ! Dans plume, le son est à la fin : c'est le dernier wagon. Le son peut durer : mmmm.",
+  "hachage": "h1bmntix-100"
+ },
+ {
+  "piste": "049",
+  "texte": "Écoute encore pyjama. Le son peut durer : mmmm.",
+  "hachage": "h1b3v36f-47"
+ },
+ {
+  "piste": "050",
+  "texte": "Bravo ! Dans pyjama, le son est au milieu : c'est le wagon du milieu. Le son peut durer : mmmm.",
+  "hachage": "hlxct0i-95"
+ },
+ {
+  "piste": "051",
+  "texte": "Super ! Dans pyjama, le son est au milieu : c'est le wagon du milieu. Le son peut durer : mmmm.",
+  "hachage": "h1kdaet3-95"
+ },
+ {
+  "piste": "052",
+  "texte": "Très bien joué ! Dans pyjama, le son est au milieu : c'est le wagon du milieu. Le son peut durer : mmmm.",
+  "hachage": "h1447a9q-104"
+ },
+ {
+  "piste": "053",
+  "texte": "Bravo ! Tu as trouvé le bon wagon pour les trois mots. Le son peut durer : mmmm.",
+  "hachage": "hhragnv-80"
+ },
+ {
+  "piste": "054",
+  "texte": "Très bien joué ! Tu as tenu le son. Le son peut durer : mmmm.",
+  "hachage": "h1jiq3lt-61"
+ },
+ {
+  "piste": "055",
+  "texte": "Le son s'est arrêté. Garde le doigt posé plus longtemps. Le son peut durer : mmmm.",
+  "hachage": "h9g1c9g-82"
+ },
+ {
+  "piste": "056",
+  "texte": "Bravo ! Lèvres fermées, gorge qui vibre, et un son bien tenu. Le son peut durer : mmmm.",
+  "hachage": "h1tm35z7-87"
+ },
+ {
+  "piste": "057",
+  "texte": "la majuscule",
+  "hachage": "h8rarx7-12"
+ },
+ {
+  "piste": "058",
+  "texte": "la lettre n minuscule",
+  "hachage": "hg6ey79-21"
+ },
+ {
+  "piste": "059",
+  "texte": "la minuscule",
+  "hachage": "h1eda2nb-12"
+ },
+ {
+  "piste": "060",
+  "texte": "la lettre W majuscule",
+  "hachage": "h1aw7a9u-21"
+ },
+ {
+  "piste": "061",
+  "texte": "la lettre N majuscule",
+  "hachage": "h1x0pkl5-21"
+ },
+ {
+  "piste": "062",
+  "texte": "la lettre u minuscule",
+  "hachage": "h1q3wbxo-21"
+ },
+ {
+  "piste": "063",
+  "texte": "Bravo ! Tu as écrit le M majuscule.",
+  "hachage": "h1ph3z71-35"
+ },
+ {
+  "piste": "064",
+  "texte": "Bravo ! Tu as écrit le m minuscule.",
+  "hachage": "hmg2rvd-35"
+ },
+ {
+  "piste": "065",
+  "texte": "Bravo ! Tu as écrit le m attaché.",
+  "hachage": "h6k0j0i-33"
+ },
+ {
+  "piste": "066",
+  "texte": "Est-ce que c'est clair pour toi jusqu'ici ?",
+  "hachage": "hpje7mf-43"
+ },
+ {
+  "piste": "067",
+  "texte": "Dis-moi, est-ce que tu as bien compris cette partie ?",
+  "hachage": "h1ernwdc-53"
+ },
+ {
+  "piste": "068",
+  "texte": "Alors, est-ce que tu me suis ? Réponds-moi oui ou non.",
+  "hachage": "h1wfe1sn-54"
+ },
+ {
+  "piste": "069",
+  "texte": "Prends ton temps… est-ce que tout est clair pour toi, ou tu préfères que je réexplique ?",
+  "hachage": "hd051in-88"
+ },
+ {
+  "piste": "070",
+  "texte": "On fait une petite pause : est-ce que cette étape est bien claire dans ta tête ?",
+  "hachage": "h19cbn4-80"
+ },
+ {
+  "piste": "071",
+  "texte": "Est-ce que tu as compris ? Si oui, on avance ensemble ; sinon je te réexplique autrement, en prenant le temps qu'il faut.",
+  "hachage": "h1p16ap9-121"
+ },
+ {
+  "piste": "072",
+  "texte": "Réfléchis un instant : est-ce que tu te sens à l'aise avec ce qu'on vient de voir ?",
+  "hachage": "h1mllkjf-83"
+ },
+ {
+  "piste": "073",
+  "texte": "Entends-tu le son [m] dans mouton ?",
+  "hachage": "hhnpoex-35"
+ },
+ {
+  "piste": "074",
+  "texte": "Bravo ! Bravo ! mouton commence par mmmm.",
+  "hachage": "hnvpitl-41"
+ },
+ {
+  "piste": "075",
+  "texte": "Pas tout à fait. Bravo ! mouton commence par mmmm.",
+  "hachage": "h1rog1sg-50"
+ },
+ {
+  "piste": "076",
+  "texte": "Clique sur l'image où tu entends le son [m].",
+  "hachage": "h4rl4by-44"
+ },
+ {
+  "piste": "077",
+  "texte": "Bravo ! Oui : moto commence par mmmm. Dans table, il n'y a pas de son [m].",
+  "hachage": "h179n0zk-74"
+ },
+ {
+  "piste": "078",
+  "texte": "Pas tout à fait. Oui : moto commence par mmmm. Dans table, il n'y a pas de son [m].",
+  "hachage": "hfb2fc7-83"
+ },
+ {
+  "piste": "079",
+  "texte": "Où se cache le son [m] ?",
+  "hachage": "hnyp7zy-24"
+ },
+ {
+  "piste": "080",
+  "texte": "Bravo ! C'est pyjama : on entend mmmm au milieu. singe et ballon n'ont pas le son mmmm.",
+  "hachage": "h1uz1x7i-87"
+ },
+ {
+  "piste": "081",
+  "texte": "Pas tout à fait. C'est pyjama : on entend mmmm au milieu. singe et ballon n'ont pas le son mmmm.",
+  "hachage": "hfc9fs5-96"
+ },
+ {
+  "piste": "082",
+  "texte": "Dans table, on entend le son [m].",
+  "hachage": "h1oe810u-33"
+ },
+ {
+  "piste": "083",
+  "texte": "Bravo ! Non ! Dans table il n'y a pas de mmmm. Attention à ne pas confondre avec la lettre B.",
+  "hachage": "h14l15fo-93"
+ },
+ {
+  "piste": "084",
+  "texte": "Pas tout à fait. Non ! Dans table il n'y a pas de mmmm. Attention à ne pas confondre avec la lettre B.",
+  "hachage": "h10565l7-102"
+ },
+ {
+  "piste": "085",
+  "texte": "Quelle image va dans le panier ?",
+  "hachage": "hkhtm8s-32"
+ },
+ {
+  "piste": "086",
+  "texte": "Bravo ! plume finit par mmmm. Elle va dans le panier !",
+  "hachage": "hu0shte-54"
+ },
+ {
+  "piste": "087",
+  "texte": "Pas tout à fait. plume finit par mmmm. Elle va dans le panier !",
+  "hachage": "hdyuryx-63"
+ },
+ {
+  "piste": "088",
+  "texte": "Dans moto, où entends-tu le son [m] ?",
+  "hachage": "h3cjmve-37"
+ },
+ {
+  "piste": "089",
+  "texte": "Bravo ! Dans moto, on entend mmmm tout au début du mot.",
+  "hachage": "h1hhrx3l-55"
+ },
+ {
+  "piste": "090",
+  "texte": "Pas tout à fait. Dans moto, on entend mmmm tout au début du mot.",
+  "hachage": "hkxnlzs-64"
+ },
+ {
+  "piste": "091",
+  "texte": "Où entends-tu le son [m] dans pyjama ?",
+  "hachage": "h1pvdz29-38"
+ },
+ {
+  "piste": "092",
+  "texte": "Bravo ! Dans pyjama, on entend mmmm au milieu.",
+  "hachage": "hh76qmk-46"
+ },
+ {
+  "piste": "093",
+  "texte": "Pas tout à fait. Dans pyjama, on entend mmmm au milieu.",
+  "hachage": "h170xa9f-55"
+ },
+ {
+  "piste": "094",
+  "texte": "Où entends-tu le son [m] dans plume ?",
+  "hachage": "h1spq1uq-37"
+ },
+ {
+  "piste": "095",
+  "texte": "Bravo ! Dans plume, on entend mmmm à la fin.",
+  "hachage": "h1xpmdy4-44"
+ },
+ {
+  "piste": "096",
+  "texte": "Pas tout à fait. Dans plume, on entend mmmm à la fin.",
+  "hachage": "hky2p8j-53"
+ },
+ {
+  "piste": "097",
+  "texte": "Relie chaque image à la place du son [m] :",
+  "hachage": "h4apgyy-42"
+ },
+ {
+  "piste": "098",
+  "texte": "Bravo ! mouton : au début · pyjama : au milieu · plume : à la fin.",
+  "hachage": "h1fpdbok-66"
+ },
+ {
+  "piste": "099",
+  "texte": "Pas tout à fait. mouton : au début · pyjama : au milieu · plume : à la fin.",
+  "hachage": "hfwk4wb-75"
+ },
+ {
+  "piste": "100",
+  "texte": "Le son [m] est à la fin du mot moto.",
+  "hachage": "hbjx307-36"
+ },
+ {
+  "piste": "101",
+  "texte": "Bravo ! Non : dans moto, le son [m] est au début du mot.",
+  "hachage": "h1h8zjal-56"
+ },
+ {
+  "piste": "102",
+  "texte": "Pas tout à fait. Non : dans moto, le son [m] est au début du mot.",
+  "hachage": "h189q6fo-65"
+ },
+ {
+  "piste": "103",
+  "texte": "Quelle lettre peut-il avaler ?",
+  "hachage": "hiirz6f-30"
+ },
+ {
+  "piste": "104",
+  "texte": "Bravo ! C'est bien M : elle a trois jambes et deux pointes vers le bas.",
+  "hachage": "hngls2v-71"
+ },
+ {
+  "piste": "105",
+  "texte": "Pas tout à fait. C'est bien M : elle a trois jambes et deux pointes vers le bas.",
+  "hachage": "h1yrgvfy-80"
+ },
+ {
+  "piste": "106",
+  "texte": "Quelle est la lettre m minuscule ?",
+  "hachage": "h1g0fulz-34"
+ },
+ {
+  "piste": "107",
+  "texte": "Bravo ! Le m minuscule a trois jambes ; le n n'en a que deux.",
+  "hachage": "hcjlci1-61"
+ },
+ {
+  "piste": "108",
+  "texte": "Pas tout à fait. Le m minuscule a trois jambes ; le n n'en a que deux.",
+  "hachage": "h1jbfte8-70"
+ },
+ {
+  "piste": "109",
+  "texte": "Quelle écriture est le m cursif ?",
+  "hachage": "h3t0x8p-33"
+ },
+ {
+  "piste": "110",
+  "texte": "Bravo ! Bravo : 𝓂 est le m attaché, avec ses trois ponts.",
+  "hachage": "h1obmggs-58"
+ },
+ {
+  "piste": "111",
+  "texte": "Pas tout à fait. Bravo : 𝓂 est le m attaché, avec ses trois ponts.",
+  "hachage": "hcxzzur-67"
+ },
+ {
+  "piste": "112",
+  "texte": "La lettre M fait un son continu : mmmm.",
+  "hachage": "h1mp3j42-39"
+ },
+ {
+  "piste": "113",
+  "texte": "Bravo ! Oui ! On peut prolonger le son : mmmm. On ne dit pas « émé » pour lire M.",
+  "hachage": "h1ky8ryd-81"
+ },
+ {
+  "piste": "114",
+  "texte": "Pas tout à fait. Oui ! On peut prolonger le son : mmmm. On ne dit pas « émé » pour lire M.",
+  "hachage": "hir4t1o-90"
+ },
+ {
+  "piste": "115",
+  "texte": "Combien d'écritures a la lettre M ?",
+  "hachage": "h1ygxlsh-35"
+ },
+ {
+  "piste": "116",
+  "texte": "Bravo ! Trois écritures : la majuscule M, la minuscule m et la cursive 𝓂.",
+  "hachage": "he95jyn-74"
+ },
+ {
+  "piste": "117",
+  "texte": "Pas tout à fait. Trois écritures : la majuscule M, la minuscule m et la cursive 𝓂.",
+  "hachage": "h1lbp0ae-83"
+ }
+]
