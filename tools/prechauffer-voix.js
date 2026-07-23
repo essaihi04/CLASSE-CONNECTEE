@@ -160,7 +160,7 @@ function phrasesDesSimulations() {
   // 4 — fabriquer le son : l'étape 3 se tient, la voix tient le son avec l'enfant.
   ajouter('Très bien joué ! Tu as tenu le son. ' + PS,
     'Le son s\'est arrêté. Garde le doigt posé plus longtemps. ' + PS,
-    'Bravo ! Lèvres fermées, gorge qui vibre, et un son bien tenu. ' + PS);
+    'Bravo ! Lèvres fermées, la gorge a vibré, et un son bien tenu. ' + PS);
 
   // 3 — le monstre : le mot au toucher, puis l'encouragement. Ces deux tournures sont
   // CONCATÉNÉES dans la simulation (« … » + dit + « … ») : la lecture des littéraux ne les

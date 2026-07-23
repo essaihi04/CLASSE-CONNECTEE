@@ -200,8 +200,9 @@ function boucle(){
 
 function fini(){
   bravo.className='bravo on';
-  // « un son que tu sais tenir » était refusé par le filtre de modération du moteur de voix.
-  parle('success','Bravo ! Lèvres fermées, gorge qui vibre, et un son bien tenu. '+PHRASE_SON);
+  // Filtre de modération Mistral : « un son que tu sais tenir » ET « gorge qui vibre » (au
+  // présent) étaient refusés ; « la gorge a vibré » passe et garde le même repère.
+  parle('success','Bravo ! Lèvres fermées, la gorge a vibré, et un son bien tenu. '+PHRASE_SON);
   try{parent.postMessage({type:'cc-sim-complete',mode:'gestes',state:etat()},'*')}catch(e){}
 }
 function recommencer(){
