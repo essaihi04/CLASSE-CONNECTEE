@@ -88,7 +88,8 @@ function motsDeLaSimulation(fichier) {
     entrees.push({
       dit: m[1].replace(/\\'/g, "'"),
       aLeSon: !/\baLeSon\s*:\s*false/.test(bloc),
-      place: place ? place[1] : ''
+      place: place ? place[1] : '',
+      bon: /\bbon\s*:\s*true/.test(bloc)
     });
   }
   return entrees;
@@ -161,8 +162,15 @@ function phrasesDesSimulations() {
     'Le son s\'est arrêté. Garde le doigt posé plus longtemps. ' + PS,
     'Bravo ! Lèvres fermées, gorge qui vibre, et un son bien tenu. ' + PS);
 
-  // 3 — le monstre : les lettres qu'il goûte (ses encouragements sont déjà relus ci-dessus).
-  motsDeLaSimulation('sim-03-monstre-nouveau.html').forEach(({ dit }) => ajouter(dit));
+  // 3 — le monstre : le mot au toucher, puis l'encouragement. Ces deux tournures sont
+  // CONCATÉNÉES dans la simulation (« … » + dit + « … ») : la lecture des littéraux ne les
+  // capte donc pas, il faut les reconstruire ici comme pour le panier et la position, sinon
+  // elles partent en synthèse à froid (autre timbre) au moment où l'enfant nourrit le monstre.
+  motsDeLaSimulation('sim-03-monstre-nouveau.html').forEach(({ dit, bon }) => {
+    ajouter(dit);
+    if (bon) ajouter('Miam ! C\'est bien ' + dit + '. ' + PS);
+    else ajouter('Le monstre n\'en veut pas : c\'est ' + dit + '. Regarde bien ses jambes.');
+  });
 
   // 5 — tracer : « Bravo ! Tu as écrit le … » est construit avec le nom de la lettre.
   ['M majuscule', 'm minuscule', 'm attaché'].forEach(nom =>
