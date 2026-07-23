@@ -1506,6 +1506,7 @@ function speakBrowser(text){
   const parts=splitForSpeech(text); let i=0;
   setSpeakingSession(true);                           // micro coupé pendant TOUTE la parole
   scheduleHighlights(curSchemaEl, text, null, my);   // surbrillance du schéma (minuterie, toutes voix)
+  scheduleIntroGestures(text, null, my);             // chorégraphie d'accueil (durée estimée quand pas d'audio serveur)
   // ZOOM 3D piloté par les VRAIS événements de parole (pas d'estimation globale → pas de dérive) :
   // à chaque phrase, on zoome sur l'organe qu'elle nomme au moment où elle est réellement prononcée.
   let tour3DStarted=false;                            // 1er zoom = instantané (établit le départ)
@@ -1638,9 +1639,9 @@ function introGestureFor(sentence){
   if(/\?/.test(sentence)
      || /\b(pret|prets|prete|pretes|c est parti|allons y|en route)\b/.test(s))     return {g:'motivate', e:'surprised'};
   if(/\b(commence|commencons|on y va|c est parti)\b/.test(s))                       return {g:'motivate', e:'happy'};
-  if(/\b(nous allons|on va|tu vas|vous allez|d abord|ensuite|puis|enfin|ecouter|chercher|ecrire|trouver|jouer|compter)\b/.test(s))
+  if(/\b(nous allons|on va|tu vas|vous allez|d abord|ensuite|puis|enfin|ecout|cherch|ecri|trouv|jouer|compt)/.test(s))
                                                                                     return {g:'count',    e:'happy'};
-  if(/\b(decouvr|apprend|aujourd hui|voici|regarde|regardez|observe|nouveau|nouvelle)\b/.test(s))
+  if(/(decouvr|apprend|aujourd hui|voici|regard|observ|nouveau|nouvelle|presente|montr)/.test(s))
                                                                                     return {g:'present',  e:'happy'};
   return {g:'explain', e:'happy'};
 }
@@ -2569,7 +2570,13 @@ function renderLabExperiment3D(cfg, container){
 function typeLetters(lineEls, totalSec){
   const letters=[];
   lineEls.forEach(el=>wrapLetters(el, letters));
-  const per = Math.min(0.12, Math.max(0.014, totalSec/(letters.length||1)));  // s/lettre (plafond relevé = plus lent)
+  // Primaire (GS/CP, body.kids) : les enfants lisent lentement — on ralentit nettement le tracé
+  // lettre par lettre (facteur × 1,9) et on relève le plafond par lettre pour que le
+  // ralentissement ne soit pas aussitôt rogné sur les lignes courtes.
+  const kids = document.body.classList.contains('kids');
+  const factor = kids ? 1.9 : 1;
+  const cap = kids ? 0.24 : 0.12;                                             // s/lettre max
+  const per = Math.min(cap, Math.max(0.014, totalSec/(letters.length||1) * factor));
   letters.forEach((sp,i)=>{ sp.style.animationDelay=(i*per).toFixed(3)+'s'; });
 }
 function wrapLetters(node, out){
