@@ -160,6 +160,7 @@
       if(d.type==='gesture'){ doGesture(d.name); }       // nouveau : geste du corps
       if(d.type==='emotion'){ setEmotion(d.name); }      // nouveau : expression du visage
       if(d.type==='framing'){ camMode = (d.mode==='head'||d.mode==='bust') ? d.mode : 'body'; applyFraming(); }  // corps entier / buste / visage
+      if(d.type==='scripted'){ scripted = !!d.on; talkPoseT = 0; }   // intro chorégraphiée : on fige l'alternance aléatoire
       if(d.type==='look'){ setLook(d.at); }              // regard : 'board' (vers le tableau) / 'front' (vers l'élève)
       if(d.type==='side'){ setSide(d.at); }              // côté de l'écran où se trouve l'avatar ('left' / 'right')
       if(d.type==='walk'){                               // marche (jambes animées)
@@ -270,6 +271,9 @@
     // poses interchangeables pendant la parole (mode présentateur)
     const TALK_POSES = ['explain','explain2','present','welcome','motivate'];
     let talkPoseT=0, talkPoseNext=4.5;
+    // Mode « chorégraphié » : pendant l'accueil (1re diapo), la page envoie une suite de gestes
+    // calée sur la voix. On coupe alors l'alternance aléatoire pour que chaque geste soit tenu.
+    let scripted=false;
 
     function doGesture(name){
       if(!vrm) return;
@@ -283,9 +287,11 @@
       emotion = name || 'neutral';
       if(!vrm) return;
       ['happy','relaxed','angry','sad','surprised'].forEach(m=>expr(m,0));
-      if(name==='happy')      expr('happy', .8);
-      else if(name==='curious')   expr('relaxed', .5);
-      else if(name==='surprised') expr('surprised', .7);
+      // PRIMAIRE (GS/CP) : sourire franc et chaleureux, surprise joyeuse marquée — un visage
+      // expressif rassure et capte les jeunes enfants mieux qu'une mimique discrète.
+      if(name==='happy')      { expr('happy', .95); }
+      else if(name==='curious')   { expr('relaxed', .5); expr('happy', .25); }
+      else if(name==='surprised') { expr('surprised', .8); expr('happy', .4); }
       // 'neutral' : visage au repos
     }
 
@@ -428,7 +434,7 @@
         // il change de geste toutes les ~5-8 s (bras gauche, bras droit, deux mains…).
         // On ne touche pas aux poses « intentionnelles » : pointer/écrire (tableau),
         // réfléchir (question) ni aux gestes ponctuels en cours.
-        if(speaking && !walking && !TRANSIENT[activeGesture] && lookMode!=='board'
+        if(speaking && !scripted && !walking && !TRANSIENT[activeGesture] && lookMode!=='board'
            && TALK_POSES.includes(activeGesture)){
           talkPoseT += dt;
           if(talkPoseT > talkPoseNext){

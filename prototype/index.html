@@ -1277,6 +1277,7 @@ function avatarScene(name){ avatarPost({type:'scene',name}); }
 function avatarGesture(name){ avatarPost({type:'gesture',name}); }
 function avatarEmotion(name){ avatarPost({type:'emotion',name}); }
 function avatarLook(at){ avatarPost({type:'look',at}); }   // 'board' = regarde le tableau ; 'front' = regarde l'élève
+function avatarScripted(on){ avatarPost({type:'scripted',on:!!on}); }   // fige l'alternance aléatoire de poses (intro chorégraphiée)
 // applique d'un coup le geste + l'émotion choisis par l'IA
 // (si l'avatar était parti au tableau pour un schéma, il revient à sa place en jouant le geste)
 function avatarExpress(gesture, emotion){
@@ -1624,6 +1625,50 @@ function schedule3DTour(text, audio, my){
   };
   tryBind(0);
 }
+/* ---- CHORÉGRAPHIE DE L'ACCUEIL (1re diapo, e.intro) ----
+   Sur la diapo d'accueil, l'avatar ne doit PAS enchaîner des poses de présentateur au hasard :
+   il accueille l'enfant comme un vrai maître. On découpe la phrase parlée et on donne à chaque
+   partie le geste qui lui va (saluer → présenter le sujet → énumérer le programme → encourager),
+   calé sur la voix (même mécanique que les allumages de schéma). Pensé pour la GS/CP : gestes
+   simples et lisibles, visage souriant, un temps de surprise joyeuse sur « Prêts ? ». */
+let introChoreoText=null;   // texte de l'intro en cours de chorégraphie (null = étape ordinaire)
+function introGestureFor(sentence){
+  const s=norm(sentence);
+  if(/\b(bonjour|salut|coucou|bienvenue|re bonjour)\b/.test(s))                    return {g:'wave',     e:'happy'};
+  if(/\?/.test(sentence)
+     || /\b(pret|prets|prete|pretes|c est parti|allons y|en route)\b/.test(s))     return {g:'motivate', e:'surprised'};
+  if(/\b(commence|commencons|on y va|c est parti)\b/.test(s))                       return {g:'motivate', e:'happy'};
+  if(/\b(nous allons|on va|tu vas|vous allez|d abord|ensuite|puis|enfin|ecouter|chercher|ecrire|trouver|jouer|compter)\b/.test(s))
+                                                                                    return {g:'count',    e:'happy'};
+  if(/\b(decouvr|apprend|aujourd hui|voici|regarde|regardez|observe|nouveau|nouvelle)\b/.test(s))
+                                                                                    return {g:'present',  e:'happy'};
+  return {g:'explain', e:'happy'};
+}
+function scheduleIntroGestures(text, audio, my){
+  if(introChoreoText!==text) return;                 // l'étape courante n'est pas une intro chorégraphiée
+  avatarScripted(true);                              // fige l'alternance aléatoire de présentateur
+  const dur=(audio && isFinite(audio.duration) && audio.duration>0.5) ? audio.duration*1000/(audio.playbackRate||1)
+                                                                      : Math.max(2600, text.length/9.5*1000)/kidsSpeechRate();
+  // découpe en phrases en gardant la position (en caractères) du début de chacune
+  const parts=[]; const re=/[^.!?]+[.!?]*/g; let mm;
+  while((mm=re.exec(text))!==null){ const t=mm[0].trim(); if(t) parts.push({t, at:mm.index}); }
+  if(!parts.length) return;
+  // position pondérée par les pauses (comme scheduleHighlights) : un signe . ! ? coûte peu de
+  // lettres mais beaucoup de temps → le geste de la phrase d'après tombe au bon instant.
+  const nt=norm(text);
+  const PAUSE={ '.':8,'!':8,'?':8,':':7,';':6,',':4 };
+  const pre=new Float64Array(nt.length+1);
+  for(let i=0;i<nt.length;i++){ pre[i+1]=pre[i]+1+(PAUSE[nt[i]]||0); }
+  const total=pre[nt.length]||1;
+  const LEAD=220;                                    // le geste arrive juste avant que la phrase soit dite
+  parts.forEach(p=>{
+    const {g,e}=introGestureFor(p.t);
+    const idx=Math.min(nt.length, p.at);
+    const at=Math.max(0, (pre[idx]/total)*dur - LEAD);
+    const t=setTimeout(()=>{ if(my!==ttsToken) return; avatarEmotion(e); avatarGesture(g); }, at);
+    highlightTimers.push(t);
+  });
+}
 /* ---- LIP-SYNC AU VOLUME RÉEL ----
    Pendant la lecture d'un audio (généré à la volée OU pré-enregistré à la création du
    cours), on mesure le volume réel ~12 fois/s (WebAudio) et on l'envoie à l'avatar VRM :
@@ -1662,7 +1707,7 @@ function playBlob(blob, text, my){
   a.preservesPitch=true; a.mozPreservesPitch=true; a.webkitPreservesPitch=true;
   a.playbackRate=kidsSpeechRate();
   const schemaEl=curSchemaEl;                        // le schéma associé à CETTE parole
-  a.onplay =()=>{ if(my===ttsToken){ ttsLoading=false; animateMouth(true); startLipLevel(a, my); scheduleHighlights(schemaEl, text, a, my); schedule3DTour(text, a, my); } };
+  a.onplay =()=>{ if(my===ttsToken){ ttsLoading=false; animateMouth(true); startLipLevel(a, my); scheduleHighlights(schemaEl, text, a, my); schedule3DTour(text, a, my); scheduleIntroGestures(text, a, my); } };
   a.onended=()=>{ if(my===ttsToken)ttsLoading=false; stopLipLevel(); animateMouth(false); URL.revokeObjectURL(url); if(currentAudio===a) currentAudio=null;
     const cb=afterSpeakCb; afterSpeakCb=null; if(my===ttsToken && cb) cb(); };
   a.onerror=()=>{ stopLipLevel(); URL.revokeObjectURL(url); if(my===ttsToken){ ttsLoading=false; speakBrowser(text); } };
@@ -2857,6 +2902,11 @@ function render(n){ const e=lecon.etapes[n];
   const manualAvatar = !!(activeLayout&&activeLayout.avatar);
   // SITUATION DE DÉPART (e.intro) : pas d'écriture au tableau, avatar en grand et centré.
   const isIntro = !!e.intro;
+  // ACCUEIL CHORÉGRAPHIÉ : sur la diapo d'intro, l'avatar joue une suite de gestes calée sur la
+  // voix (saluer → présenter → énumérer → encourager) au lieu de poses au hasard. On l'active
+  // seulement si le prof n'a pas imposé son propre geste sur cette étape.
+  const choreoIntro = isIntro && !forcedGesture;
+  introChoreoText = choreoIntro ? (say||'') : null;
   const avBox=document.getElementById('avatarBox');
   if(!isIntro){ avBox.classList.remove('intro-center'); document.body.classList.remove('avatar-intro'); }
   if(isIntro){
@@ -2865,12 +2915,15 @@ function render(n){ const e=lecon.etapes[n];
     // intro-center appliquait encore scale(1.28), ce qui faisait sortir l'avatar du plein écran.
     avBox.classList.toggle('intro-center', !manualAvatar);
     document.body.classList.add('avatar-intro');     // masque tout texte du tableau
+    avatarScripted(choreoIntro);                     // la chorégraphie fige l'alternance aléatoire
     avatarEmotion(emotion);
     avatarWalkTo(false, gesture);                     // salue (geste 'wave' à l'étape 0)
   } else if(manualAvatar){
+    avatarScripted(false);
     avatarEmotion(emotion);
     avatarGesture((eb.schema && !forcedGesture) ? 'point' : gesture);   // il réagit aussi quand il est placé par le prof
   } else {
+    avatarScripted(false);
     if(isPresentation){ setAvatarHeadMode(false); setAvatarSize(1); }   // avatar affiché en entier
     else               setAvatarHeadMode(true);                          // avatar réduit (bulle)
     avatarEmotion(emotion);
@@ -2882,7 +2935,8 @@ function render(n){ const e=lecon.etapes[n];
   // reprend une pose neutre. Si l'étape montre quelque chose, il enchaîne alors sur le geste
   // qui la désigne : la règle « l'avatar montre le média » tient jusqu'au bout de l'étape.
   clearTimeout(window._pointT);
-  if(montreQuelqueChose && !forcedGesture && (gesture==='wave'||gesture==='clap')){
+  // (pas sur l'intro : le média y est masqué, et la chorégraphie d'accueil gère les gestes)
+  if(montreQuelqueChose && !forcedGesture && !isIntro && (gesture==='wave'||gesture==='clap')){
     window._pointT=setTimeout(()=>{ if(i===n && !inQuiz && boardFocusEl()) avatarGesture('point'); }, 2200);
   }
   // REGARD forcé par le prof : appliqué APRÈS le geste (qui règle son propre regard)
