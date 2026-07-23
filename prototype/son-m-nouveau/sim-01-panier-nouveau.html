@@ -43,7 +43,8 @@ body{display:flex;align-items:center;justify-content:center}
   padding:1.1vmin 2vmin;color:var(--encre);font-weight:900;font-size:clamp(13px,2.9vmin,30px);
   line-height:1.25;box-shadow:0 .6vmin 0 #E6A21766}
 .consigne .m{color:var(--rouge)}
-.jauge{display:flex;gap:.9vmin;background:#FFFFFFEE;border:0.5vmin solid var(--vert);
+.jauge{position:absolute;left:50%;transform:translateX(-50%);bottom:3.5%;z-index:6;
+  display:flex;gap:.9vmin;background:#FFFFFFEE;border:0.5vmin solid var(--vert);
   border-radius:2.4vmin;padding:1.1vmin 1.6vmin;box-shadow:0 .6vmin 0 #2E9E5B55}
 .pastille{width:3.4vmin;height:3.4vmin;border-radius:50%;background:#D8E3EE;
   border:.45vmin solid #A9BED2;transition:.25s}
@@ -103,8 +104,8 @@ body{display:flex;align-items:center;justify-content:center}
   color:var(--vert);font-size:clamp(20px,7vmin,64px);box-shadow:0 2vmin 4vmin #0007;text-align:center}
 @keyframes pop{from{transform:scale(.7);opacity:0}to{transform:none;opacity:1}}
 
-/* ---- bouton recommencer ---- */
-.rejouer{position:absolute;right:1.8%;bottom:3%;z-index:10;border:0;cursor:pointer;
+/* ---- bouton recommencer (en bas à GAUCHE, comme les autres animations, à l'écart du mobilier) ---- */
+.rejouer{position:absolute;left:1.8%;bottom:3%;z-index:10;border:0;cursor:pointer;
   background:var(--violet);color:#fff;font-weight:900;font-family:inherit;
   font-size:clamp(11px,2.5vmin,24px);border-radius:2.4vmin;padding:1.3vmin 2.4vmin;
   box-shadow:0 .8vmin 0 #4C1D95}
@@ -118,8 +119,8 @@ body{display:flex;align-items:center;justify-content:center}
   <div class="avantPanier"></div>
   <div class="bandeau">
     <div class="consigne">Mets dans le grand panier les images où tu entends <span class="m">mmmm</span></div>
-    <div class="jauge" id="jauge"></div>
   </div>
+  <div class="jauge" id="jauge"></div>
   <button class="rejouer" id="rejouer" type="button">↻ Encore</button>
   <div class="bravo" id="bravo"><b>🎉 Bravo !<br>Tu as trouvé les 3 mots.</b><button class="rejouer-fin" id="rejouerFin" type="button">↻ Rejouer</button></div>
 </div>
