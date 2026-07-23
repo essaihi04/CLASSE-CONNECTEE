@@ -1851,18 +1851,34 @@ async function callOpenAITTS(text,targetContext){
 // est sans conséquence puisqu'il n'est qu'une optimisation.
 const TTS_CACHE_DIR = path.join(__dirname, '.tts-cache');
 const TTS_CACHE_MAX_FILES = Math.max(50, Number(process.env.TTS_CACHE_MAX_FILES) || 4000);
+// GRAINE DE VOIX VERSIONNÉE — voix déjà générées et COMMITÉES dans le dépôt (tts-seed/<voix>/
+// <ccTextHash>.mp3|wav). Contrairement à .tts-cache/ (éphémère sur Render, gitignoré), ce
+// dossier est livré avec le déploiement : il permet de servir une voix pré-générée là où
+// aucune clé de synthèse ni le cache partagé Supabase n'est disponible (cas M 1 / Mistral sur
+// Render). Lecture seule, jamais nettoyé, mêmes noms de fichiers que le cache disque.
+const TTS_SEED_DIR = path.join(__dirname, 'tts-seed');
+function voiceFolder(voiceTag){
+  return String(voiceTag).replace(/[^a-z0-9._-]+/gi,'_') || 'inconnue';
+}
 function ttsCacheDirFor(voiceTag){
-  return path.join(TTS_CACHE_DIR, String(voiceTag).replace(/[^a-z0-9._-]+/gi,'_') || 'inconnue');
+  return path.join(TTS_CACHE_DIR, voiceFolder(voiceTag));
 }
 function readTTSCache(voiceTag, text){
-  const dir=ttsCacheDirFor(voiceTag), key=stableCourseAudioHash(text);
+  const key=stableCourseAudioHash(text);
+  // 1) cache disque (écrit à l'exécution)  2) graine versionnée (livrée avec le déploiement)
+  for(const [base,inscriptible] of [[ttsCacheDirFor(voiceTag),true],[path.join(TTS_SEED_DIR,voiceFolder(voiceTag)),false]]){
+    const hit=readVoiceFile(base, key, inscriptible);
+    if(hit) return hit;
+  }
+  return null;
+}
+function readVoiceFile(dir, key, inscriptible){
   for(const [ext,mime] of [['wav','audio/wav'],['mp3','audio/mpeg']]){
     const file=path.join(dir, key+'.'+ext);
     try{
       const buf=fs.readFileSync(file);
       if(buf.length){
-        const now=new Date();
-        try{ fs.utimesSync(file, now, now); }catch(e){}   // date d'accès = ordre LRU du nettoyage
+        if(inscriptible){ const now=new Date(); try{ fs.utimesSync(file, now, now); }catch(e){} }  // date d'accès = ordre LRU du nettoyage
         return { buf, mime };
       }
     }catch(e){}
@@ -2751,6 +2767,7 @@ server.listen(PORT, () => {
   console.log(`  Voix 4) Google Cloud TTS (${CLOUD_TTS_VOICE}) : ${ !USE_CLOUD_TTS ? 'DÉSACTIVÉ ⛔ (CLOUD_TTS=on pour réactiver)' : (fs.existsSync(OAUTH_TOKEN_FILE) ? 'autorisé ✅' : 'à autoriser → http://localhost:'+PORT+'/oauth2/start') }`);
   console.log('  Voix 5) Navigateur (Web Speech) : repli automatique côté client');
   console.log(`  Cache voix disque : ${(()=>{ try{ return fs.readdirSync(ttsCacheDirFor(currentVoiceTag())).length+' piste(s)'; }catch(e){ return 'vide (se remplit à la lecture)'; } })()} — max ${TTS_CACHE_MAX_FILES}`);
+  console.log(`  Graine voix livrée (tts-seed) : ${(()=>{ try{ return fs.readdirSync(path.join(TTS_SEED_DIR,voiceFolder(currentVoiceTag()))).length+' piste(s) pré-générées ✅ ← servies même sans clé'; }catch(e){ return 'aucune pour cette voix'; } })()}`);
   console.log(`  Cache voix Supabase (persistant, toutes leçons) : ${ !USE_SHARED_TTS ? 'DÉSACTIVÉ ⛔ (TTS_SHARED_CACHE=on)' : (sharedTTSContext() ? 'actif ✅ course-media/'+sharedTTSPrefix(currentVoiceTag())+' — max '+SHARED_TTS_MAX : 'inactif ❌ (clé de service Supabase absente)') }`);
   console.log('  (Ctrl+C pour arreter)\n');
 });
