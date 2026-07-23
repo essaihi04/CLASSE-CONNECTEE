@@ -16,6 +16,10 @@
 window.classesReaderAccessReady=(async function(){
   try{
     const params=new URLSearchParams(location.search);
+    // Un cours ouvert depuis la bibliothèque publique (?course=<uuid> Supabase ou ?chapitre=<id>
+    // pour un cours par défaut / démo) est visible par tout le monde : on ne renvoie jamais un
+    // visiteur qui a explicitement demandé un cours précis. published-course-loader.js revérifie ?course=.
+    const requestedChapter=params.get('chapitre')||'';
     if(/^[0-9a-f-]{36}$/i.test(params.get('course')||''))return null;
     const config=window.CLASSES_SUPABASE||{};
     if(!window.supabase||!/^https:\/\//.test(config.url||'')||!config.anonKey)return null;
@@ -24,10 +28,13 @@ window.classesReaderAccessReady=(async function(){
     if(!session||!session.user)return null;
     const {data:profile}=await sb.from('profiles').select('role,legacy_access').eq('id',session.user.id).maybeSingle();
     if(profile&&profile.role==='admin'){
-      if(params.get('chapitre'))return profile;
+      if(requestedChapter)return profile;
       location.replace('admin.html');return profile;
     }
     if(profile&&profile.legacy_access)return profile;
+    // Enseignant sans accès démo : il peut lire un cours public précis demandé depuis la
+    // bibliothèque ; seul l'accueil « nu » (le lecteur de démo) le renvoie vers sa bibliothèque.
+    if(requestedChapter)return profile||null;
     location.replace('courses.html');
     return profile||null;
   }catch(e){return null;/* en cas d'erreur réseau, on conserve la démo publique */}

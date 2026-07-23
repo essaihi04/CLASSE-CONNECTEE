@@ -285,8 +285,9 @@ try{const ss=window.speechSynthesis;if(ss){ss.cancel();ss.speak=function(){}}}ca
       const {data:profile}=await sb.from('profiles').select('role').eq('id',session.user.id).maybeSingle();
       admin=!!(profile&&profile.role==='admin');
     }
+    // Un cours PUBLIÉ est public (visible par tout le monde, connecté ou non). Seuls les cours
+    // encore en brouillon restent réservés à leur propriétaire (ou à un administrateur).
     if(course.status!=='published'&&!owner&&!admin)throw new Error('Ce cours n’est pas publié.');
-    if(session&&session.user&&!owner&&!admin)throw new Error('Ce cours appartient à un autre professeur.');
     const sourceMap=await signedSources(sb,sources||[]),allSources=Object.values(sourceMap),usedSourceIds=new Set(),analysis=imports&&imports[0]&&imports[0].analysis||{};
     const target=analysis.targetContext||(course.settings&&course.settings.target_context)||{subjectName:course.subjects&&course.subjects.name,gradeLevelName:course.grade_levels&&course.grade_levels.name,streamName:course.study_streams&&course.study_streams.name};
     const gameMode=/préscolaire|primaire|apep|grande\s+section|\bcp\b/i.test(`${target.cycle||''} ${target.gradeLevelName||''} ${target.gradeLevelCode||''}`);
