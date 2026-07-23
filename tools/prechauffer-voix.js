@@ -183,6 +183,34 @@ function phrasesDeComprehension() {
   return textes;
 }
 
+/* 3bis. L'ÉVALUATION (quizSets). À chaque question, l'avatar lit à voix haute DEUX choses :
+   - la question `q`, débarrassée de son HTML (index.html : speak(stripHtml(item.q))) ;
+   - le feedback `fb`, précédé de « Bravo ! » si la réponse est juste, « Pas tout à fait. »
+     sinon (index.html : speak((ok?'Bravo ! ':'Pas tout à fait. ')+fb)). Les deux issues
+     sont possibles, donc les deux variantes doivent être en cache.
+   L'énoncé, l'intro du test et les libellés d'options sont AFFICHÉS mais jamais prononcés :
+   on ne les met donc pas en cache. Sans cette collecte, les questions du quiz partaient en
+   synthèse à froid au moment où l'enfant y arrive — exactement le défaut corrigé ailleurs. */
+function sansHtml(s) {
+  return String(s == null ? '' : s).replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+}
+function phrasesDeLEvaluation(chapitre) {
+  const textes = [];
+  const sets = Array.isArray(chapitre.quizSets) ? chapitre.quizSets : [];
+  const items = [].concat(
+    ...sets.map(s => Array.isArray(s && s.quiz) ? s.quiz : []),
+    Array.isArray(chapitre.quiz) ? chapitre.quiz : []   // format hérité (quiz à plat)
+  );
+  items.forEach(it => {
+    if (!it) return;
+    if (it.q)  textes.push(sansHtml(it.q));
+    if (it.fb) { textes.push('Bravo ! ' + it.fb); textes.push('Pas tout à fait. ' + it.fb); }
+  });
+  return textes;
+}
+
 /* ---------------------------------------------------------------------------------
    4bis. VÉRIFICATION. Le serveur range chaque voix dans .tts-cache/<voix>/<hash>.wav, où
    <hash> ne dépend QUE du texte (même fonction que server.js) et <voix> du moteur employé.
@@ -399,7 +427,8 @@ async function synthetiserJusquAuSucces(texte, rang, total) {
 /* --------------------------------------------------------------------------------- */
 (async function main() {
   const chapitre = chargerChapitre(CHAPITRE);
-  const brut = [].concat(phrasesDuChapitre(chapitre), phrasesDesSimulations(), phrasesDeComprehension());
+  const brut = [].concat(phrasesDuChapitre(chapitre), phrasesDesSimulations(),
+    phrasesDeComprehension(), phrasesDeLEvaluation(chapitre));
   // Le cache est indexé sur le texte exact : on dédoublonne comme le fait le serveur,
   // sinon « mmm » ou « On recommence ! » seraient demandés dix fois.
   const phrases = [...new Set(brut.map(p => String(p == null ? '' : p).trim().slice(0, 2000)).filter(Boolean))];
