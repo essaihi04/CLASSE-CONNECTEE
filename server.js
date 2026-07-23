@@ -1970,13 +1970,19 @@ function handleTTS(req, res){
     const voiceTag=currentVoiceTag();
     // origine : 'disque' (déjà partout) | 'partage' (à recopier sur le disque local)
     //         | 'synthese' (à écrire dans les deux caches)
-    const reply=(audio,mime,origine)=>{
+    // `engine` = étiquette du moteur qui a RÉELLEMENT produit l'audio. On n'enregistre sous
+    // `voiceTag` (la voix courante) QUE si les deux coïncident : sinon un repli (ex : Mistral
+    // échoue → Gemini répond) serait rangé sous « mistral: » et resservi indéfiniment avec le
+    // mauvais timbre (bug observé : des .wav Gemini dans le cache mistral). Le repli reste joué
+    // à l'élève, mais n'est jamais mis en cache tant qu'il ne vient pas de la voix courante.
+    const reply=(audio,mime,origine,engine)=>{
       sendAudio(res,audio,mime);
+      const dumemoteur = !engine || engine===voiceTag;   // audio produit par la voix courante ?
       // Les enregistrements sont volontairement effectués après res.end : l'avatar commence
       // à parler sans attendre l'écriture. Un échec de cache ne coupe jamais la voix.
-      if(origine!=='disque') writeTTSCache(voiceTag,clean,audio,mime);
-      if(origine==='synthese') writeSharedTTS(voiceTag,clean,audio,mime).catch(()=>{});
-      persistGeneratedCourseAudio(req,input,clean,audio,mime).catch(error=>console.warn('[TTS] voix non enregistrée : '+String(error.message||error).slice(0,260)));
+      if(origine!=='disque' && dumemoteur) writeTTSCache(voiceTag,clean,audio,mime);
+      if(origine==='synthese' && dumemoteur) writeSharedTTS(voiceTag,clean,audio,mime).catch(()=>{});
+      if(dumemoteur) persistGeneratedCourseAudio(req,input,clean,audio,mime).catch(error=>console.warn('[TTS] voix non enregistrée : '+String(error.message||error).slice(0,260)));
     };
     // Niveau 1 — disque local : instantané, mais perdu à chaque déploiement.
     const fromDisk=readTTSCache(voiceTag,clean);
@@ -1991,23 +1997,23 @@ function handleTTS(req, res){
     // étape à l'autre. Réactivation : OPENAI_ENABLED=on / ELEVENLABS_TTS=on / CLOUD_TTS=on.
     const errs=[];
     if(USE_MISTRAL_TTS && hasMistralKey()){
-      try{return reply(await callMistralTTS(clean),'audio/mpeg','synthese');}
+      try{return reply(await callMistralTTS(clean),'audio/mpeg','synthese','mistral:'+MISTRAL_TTS_VOICE);}
       catch(error){errs.push('Mistral → '+String(error.message||error));}
     } else errs.push('Mistral → désactivé');
     if(hasOpenAIKey()){
-      try{return reply(await callOpenAITTS(clean,targetContext),'audio/mpeg','synthese');}
+      try{return reply(await callOpenAITTS(clean,targetContext),'audio/mpeg','synthese','openai:'+OPENAI_TTS_VOICE);}
       catch(error){errs.push('OpenAI → '+String(error.message||error));}
     } else errs.push('OpenAI → désactivé');
     if(USE_ELEVEN_TTS && hasElevenKey()){
-      try{return reply(await elEnqueue(()=>callElevenLabsTTS(clean)),'audio/mpeg','synthese');}
+      try{return reply(await elEnqueue(()=>callElevenLabsTTS(clean)),'audio/mpeg','synthese','eleven:'+ELEVEN_VOICE_ID);}
       catch(error){errs.push('ElevenLabs → '+String(error.message||error));}
     } else errs.push('ElevenLabs → désactivé');
     if(USE_GEMINI_TTS){
-      try{return reply(await callGeminiTTS(clean),'audio/wav','synthese');}
+      try{return reply(await callGeminiTTS(clean),'audio/wav','synthese','gemini:'+currentGeminiVoice());}
       catch(error){errs.push('Gemini → '+String(error.message||error));}
     } else errs.push('Gemini → désactivé');
     if(USE_CLOUD_TTS){
-      try{const a=await callCloudTTS(clean);return reply(a.buf,a.mime,'synthese');}
+      try{const a=await callCloudTTS(clean);return reply(a.buf,a.mime,'synthese','cloud:'+CLOUD_TTS_VOICE);}
       catch(error){errs.push('Cloud → '+String(error.message||error));}
     } else errs.push('Cloud → désactivé');
     const detail=errs.join(' | ');
