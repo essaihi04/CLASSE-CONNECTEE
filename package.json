@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "voix": "node tools/prechauffer-voix.js"
   },
   "license": "UNLICENSED"
 }

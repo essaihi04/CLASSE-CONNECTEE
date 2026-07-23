@@ -14,30 +14,6 @@
       }
     },
     "1": {
-      "layout": {
-        "el": {
-          "title": {
-            "x": 5,
-            "y": 4,
-            "w": 66,
-            "z": 3,
-            "fs": 32
-          }
-        },
-        "avatar": {
-          "x": 3,
-          "y": 52,
-          "w": 22,
-          "z": 6,
-          "mode": "full",
-          "h": 52.5
-        }
-      },
-      "say": "Nous ajoutons une nouvelle partie au cours : Nouvelle partie du cours. Le professeur pourra la compléter avec ses supports.  salam ca va niua allons tester cette nouvelle fonctionallité  test",
-      "sayExtra": "salam ca va niua allons tester cette nouvelle fonctionallité\ntest",
-      "lines": []
-    },
-    "2": {
       "mediaSrc": "/uploads/1783538084757-5xmk3c.png",
       "mediaType": "image",
       "title": "Situation : Que mangent Ahmed et Sara ?",
@@ -55,16 +31,16 @@
             "fs": 18
           },
           "media": {
-            "x": 33.2,
-            "y": 31.6,
-            "w": 39.5,
-            "h": 47.7,
+            "x": 34.5,
+            "y": 13.8,
+            "w": 58.2,
+            "h": 80,
             "z": 3
           }
         },
         "avatar": {
-          "x": 77.7,
-          "y": 43.4,
+          "x": 7.6,
+          "y": 42.8,
           "w": 19,
           "z": 6,
           "mode": "full",
@@ -72,7 +48,7 @@
         }
       }
     },
-    "3": {
+    "2": {
       "mediaSrc": "/uploads/1783645954298-vkaerh.mp4",
       "mediaType": "video",
       "say": "Regarde attentivement cette vidéo. Elle nous montre que les aliments n'apportent pas tous la même chose. Le sucre apporte surtout des glucides : c'est une source d'énergie. Les huiles contiennent des lipides. Les viandes et l'œuf apportent des protides, utiles pour construire le corps. L'eau est aussi indispensable. À la fin, observe les catégories : aliments énergétiques, bâtisseurs et protecteurs. Après la vidéo, tu devras dire dans quelle catégorie placer chaque aliment.",
@@ -111,7 +87,7 @@
         }
       }
     },
-    "4": {
+    "3": {
       "layout": {
         "el": {
           "title": {
@@ -146,7 +122,7 @@
         }
       }
     },
-    "5": {
+    "4": {
       "hideSim": true,
       "layout": {
         "el": {
@@ -182,7 +158,7 @@
         }
       }
     },
-    "6": {
+    "5": {
       "layout": {
         "el": {
           "title": {
@@ -217,7 +193,7 @@
         }
       }
     },
-    "7": {
+    "6": {
       "layout": {
         "el": {
           "title": {
@@ -252,7 +228,7 @@
         }
       }
     },
-    "8": {
+    "7": {
       "layout": {
         "el": {
           "title": {
@@ -287,7 +263,7 @@
         }
       }
     },
-    "9": {
+    "8": {
       "layout": {
         "el": {
           "title": {
@@ -334,7 +310,7 @@
       ],
       "hideSchema": true
     },
-    "10": {
+    "9": {
       "layout": {
         "el": {
           "title": {
@@ -366,7 +342,7 @@
       "say": "Voici l'analyse quantitative de quelques aliments : pour chacun, on donne le pourcentage de glucides, de protides, de lipides et d'eau. À toi de jouer : si un aliment n'a qu'un seul constituant, c'est un aliment simple ; s'il en a plusieurs, c'est un aliment composé. Complète la dernière colonne !  test",
       "sayExtra": "Voici l'analyse quantitative de quelques aliments : pour chacun, on donne le pourcentage de glucides, de protides, de lipides et d'eau. À toi de jouer : si un aliment n'a qu'un seul constituant, c'est un aliment simple ; s'il en a plusieurs, c'est un aliment composé. Complète la dernière colonne !\ntest"
     },
-    "11": {
+    "10": {
       "layout": {
         "el": {
           "title": {
@@ -402,7 +378,7 @@
         }
       }
     },
-    "13": {
+    "12": {
       "title": "Bilan : bien manger, c'est varier ✅",
       "lines": [],
       "say": "Revenons à Ahmed et Sara. Ahmed n'a mangé que du pain : surtout des glucides. Sara a mangé du pain, un œuf, du lait et une pomme : elle a des glucides, des protides, du calcium et des vitamines. C'est donc Sara qui a le repas le plus équilibré ! Et maintenant, une question : une fois dans la bouche, que deviennent vraiment ces aliments ? C'est notre prochaine activité.",
@@ -427,7 +403,7 @@
         }
       }
     },
-    "15": {
+    "14": {
       "layout": {
         "el": {
           "title": {
@@ -696,6 +672,40 @@
           ]
         }
       ]
+    }
+  },
+  "son-m-nouveau": {
+    "0": {
+      "layout": {
+        "el": {
+          "title": {
+            "x": 5,
+            "y": 4,
+            "w": 66,
+            "z": 3,
+            "fs": 32
+          },
+          "body": {
+            "x": 5,
+            "y": 34,
+            "w": 56,
+            "z": 2,
+            "fs": 25
+          }
+        },
+        "avatar": {
+          "x": 35.2,
+          "y": 15.1,
+          "w": 40.8,
+          "z": 6,
+          "mode": "full",
+          "h": 78.5
+        }
+      }
+    },
+    "2": {
+      "mediaSrc": "/uploads/1784742752267-bhq7bw.mp4",
+      "mediaType": "video"
     }
   }
 }

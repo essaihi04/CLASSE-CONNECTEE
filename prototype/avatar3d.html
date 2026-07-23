@@ -161,6 +161,7 @@
       if(d.type==='emotion'){ setEmotion(d.name); }      // nouveau : expression du visage
       if(d.type==='framing'){ camMode = (d.mode==='head'||d.mode==='bust') ? d.mode : 'body'; applyFraming(); }  // corps entier / buste / visage
       if(d.type==='look'){ setLook(d.at); }              // regard : 'board' (vers le tableau) / 'front' (vers l'élève)
+      if(d.type==='side'){ setSide(d.at); }              // côté de l'écran où se trouve l'avatar ('left' / 'right')
       if(d.type==='walk'){                               // marche (jambes animées)
         walking = !!d.on;
         if(walking){ walkT0 = performance.now(); curPose = POSES.rest; }  // bras le long du corps
@@ -212,12 +213,52 @@
     };
     let curPose = POSES.rest;
 
+    /* ---- CÔTÉ DE LA SCÈNE : quel bras montre le tableau ----------------------------------
+       Les poses ci-dessus sont écrites pour la situation habituelle : l'avatar est planté à
+       GAUCHE de l'écran, le tableau occupe donc tout ce qui est à SA gauche à lui (la droite
+       de l'écran), et c'est de ce bras-là qu'il montre, écrit et énumère.
+       Quand la page le déplace de l'autre côté (il marche jusqu'à un schéma, ou il se range à
+       droite pendant une question), le tableau passe derrière son autre épaule : rejouer la
+       même pose le ferait pointer dans le vide, à l'extérieur de l'écran. On MIROITE alors la
+       pose — les bras s'échangent, les rotations autour de Y et Z changent de signe — ainsi
+       que le regard. C'est toujours la main du CÔTÉ DU TABLEAU qui travaille. */
+    let tableauAGauche = false;         // false = tableau à droite de l'écran (cas habituel)
+    const SYMETRIQUE = {
+      leftUpperArm:'rightUpperArm', rightUpperArm:'leftUpperArm',
+      leftLowerArm:'rightLowerArm', rightLowerArm:'leftLowerArm',
+      leftHand:'rightHand',         rightHand:'leftHand'
+    };
+    // Nom du bras/de la main effectivement tourné vers le tableau (les animations ponctuelles
+    // « énumérer » et « écrire » désignent un bras précis : il doit suivre le miroir).
+    const cote = n => tableauAGauche ? (SYMETRIQUE[n]||n) : n;
+    const sens = () => tableauAGauche ? -1 : 1;
+    function miroir(pose){
+      const out = { hand:pose.hand, spineY:-(pose.spineY||0) };
+      Object.keys(pose).forEach(nom=>{
+        const jumeau = SYMETRIQUE[nom]; if(!jumeau) return;
+        const r = pose[nom]; out[jumeau] = [r[0], -r[1], -r[2]];
+      });
+      return out;
+    }
+    function poseDe(nom){
+      const p = POSES[nom] || POSES.explain;
+      return tableauAGauche ? miroir(p) : p;
+    }
+    function setSide(ou){
+      // `ou` = où se trouve l'AVATAR sur l'écran ; le tableau est de l'autre côté.
+      const gauche = (ou === 'right');
+      if(gauche === tableauAGauche) return;
+      tableauAGauche = gauche;
+      curPose = poseDe(activeGesture);     // la pose courante bascule immédiatement
+      setLook(lookMode);                   // …et le regard avec elle
+    }
+
     // ---- REGARD : l'avatar regarde l'élève (caméra) ou le TABLEAU (à sa gauche = droite de l'écran) ----
     const lookTarget = new THREE.Object3D(); scene.add(lookTarget);
     let lookMode='front', headYaw=0;        // headYaw = rotation de tête visée (easée dans la boucle)
     function setLook(where){
       lookMode = (where==='board') ? 'board' : 'front';
-      headYaw  = (lookMode==='board') ? 0.55 : 0;   // tourne la tête vers le tableau
+      headYaw  = (lookMode==='board') ? 0.55*sens() : 0;   // tourne la tête DU CÔTÉ du tableau
     }
     // regard automatique selon le geste : pointer/écrire = tableau, sinon face à l'élève
     const GESTURE_LOOK = { point:'board', write:'board' };
@@ -234,7 +275,7 @@
       if(!vrm) return;
       if(!POSES[name]) name='explain';
       activeGesture = name; gestureT = 0;
-      curPose = POSES[name] || POSES.explain;
+      curPose = poseDe(name);
       setLook(GESTURE_LOOK[name] || 'front');
     }
 
@@ -256,7 +297,7 @@
       if(name==='greet'   ) expr('happy', .6);
       if(name==='think'   ) expr('relaxed', .5);
       if(name==='motivate') expr('happy', 1);
-      curPose = POSES[name] || POSES.rest;
+      curPose = POSES[name] ? poseDe(name) : POSES.rest;
     }
 
     // ---- doigts ----
@@ -291,10 +332,13 @@
         const o=(sway&&sway[n])||[0,0,0];
         b.rotation.x+=((r[0]+o[0])-b.rotation.x)*0.08; b.rotation.y+=((r[1]+o[1])-b.rotation.y)*0.08; b.rotation.z+=((r[2]+o[2])-b.rotation.z)*0.08; };
       ['rightUpperArm','rightLowerArm','leftUpperArm','leftLowerArm','leftHand','rightHand'].forEach(ease);
-      // mains : la gauche pointe en explication ; les deux se joignent à l'accueil
+      // mains : celle du CÔTÉ DU TABLEAU porte le geste (index tendu pour pointer) ;
+      // les deux se joignent à l'accueil.
       const h=curPose.hand||'rest';
-      setHand('left',  h);
-      setHand('right', h==='clasp' ? 'clasp' : (h==='open' ? 'open' : 'rest'));
+      const active = tableauAGauche ? 'right' : 'left';
+      const autre  = tableauAGauche ? 'left'  : 'right';
+      setHand(active, h);
+      setHand(autre,  h==='clasp' ? 'clasp' : (h==='open' ? 'open' : 'rest'));
     }
 
     // ---- boucle d'animation ----
@@ -327,8 +371,8 @@
         applyGestures();
 
         // ---- REGARD : yeux + rotation douce de la tête/du cou vers la cible ----
-        // (le tableau est à la GAUCHE de l'avatar = droite de l'écran → cible en x positif)
-        if(lookMode==='board') lookTarget.position.set(1.7, headY()-0.05, 1.1);
+        // (cible du côté du tableau : x positif quand il est à droite de l'écran, négatif sinon)
+        if(lookMode==='board') lookTarget.position.set(1.7*sens(), headY()-0.05, 1.1);
         else                   lookTarget.position.copy(camera.position);
         const hd=bone('head'), nk=bone('neck');
         // micro-vie : quand il PARLE, la tête bouge légèrement (plus vivant, comme un vrai prof)
@@ -359,7 +403,8 @@
             // ASSIGNATION (pas +=) sinon la rotation s'accumule et la tête reste penchée
             const hd=bone('head'); if(hd) hd.rotation.x = Math.sin(gestureT*7)*0.12 + 0.03;
           } else if(activeGesture==='count'){
-            const a=bone('leftLowerArm'); if(a) a.rotation.z += Math.sin(gestureT*5)*0.18;
+            // le bras qui énumère est celui tourné vers le tableau (cf. miroir)
+            const a=bone(cote('leftLowerArm')); if(a) a.rotation.z += Math.sin(gestureT*5)*0.18*sens();
           } else if(activeGesture==='clap'){
             // battement : ASSIGNATION autour de la pose (pas += : l'ajout s'accumule via le lissage)
             const s=Math.abs(Math.sin(gestureT*10))*0.30;
@@ -368,14 +413,14 @@
             if(b) b.rotation.y =  0.55 - s;   // …et s'écartent en rythme
           } else if(activeGesture==='write'){
             // la main "écrit" : poignet qui trace + bras qui suit la ligne (ASSIGNATION)
-            const a=bone('leftLowerArm'), h=bone('leftHand');
-            if(h) h.rotation.z = -0.20 + Math.sin(gestureT*9)*0.16;
+            const a=bone(cote('leftLowerArm')), h=bone(cote('leftHand'));
+            if(h) h.rotation.z = (-0.20 + Math.sin(gestureT*9)*0.16)*sens();
             if(a) a.rotation.x = -0.45 + Math.sin(gestureT*4.5)*0.10;
           }
           // fin du geste -> on remet la tête droite et on revient à l'explication neutre
           if(gestureT > TRANSIENT[activeGesture]){
             const hd2=bone('head'); if(hd2) hd2.rotation.x = 0;
-            activeGesture='explain'; curPose=POSES.explain; setLook('front');
+            activeGesture='explain'; curPose=poseDe('explain'); setLook('front');
           }
         }
 
@@ -390,7 +435,7 @@
             talkPoseT = 0; talkPoseNext = 4.5 + Math.random()*3;
             const opts = TALK_POSES.filter(n=>n!==activeGesture);
             const pick = opts[(Math.random()*opts.length)|0];
-            activeGesture = pick; curPose = POSES[pick];
+            activeGesture = pick; curPose = poseDe(pick);
           }
         } else talkPoseT = 0;
 

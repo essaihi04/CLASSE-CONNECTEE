@@ -405,7 +405,7 @@ function supportLayoutPreview(m, idx, whole){
   const title=esc((whole?'Support toute la leçon ':'Support ')+(idx+1));
   const caption=m.caption?`<b>${esc(m.caption)}</b>`:'';
   if(m.type==='image' && m.url) return `<div class="layout-support-preview"><span class="tag">${title}</span>${caption}<div class="body"><img src="${esc(m.url)}" alt=""></div></div>`;
-  if(m.type==='video' && m.url) return `<div class="layout-support-preview"><span class="tag">${title}</span>${caption}<div class="body"><video src="${esc(m.url)}" muted playsinline></video></div></div>`;
+  if(m.type==='video' && m.url) return `<div class="layout-support-preview"><span class="tag">${title}</span>${caption}<div class="body"><video src="${esc(m.url)}" muted playsinline preload="metadata"></video></div></div>`;
   if(m.type==='link') return `<div class="layout-support-preview"><span class="tag">${title}</span><div class="body" style="color:#a5f3fc">${caption?caption+'<br>':''}${esc(m.url||'Lien')}</div></div>`;
   if(m.type==='quiz') return `<div class="layout-support-preview"><span class="tag">${title}</span><div class="body"><b>❓ ${esc(m.question||'Question')}</b><br>${(m.options||[]).map((o,i)=>'<span style="display:inline-block;margin:4px 4px 0 0;padding:3px 6px;border:1px solid '+(i===m.correct?'#22c55e':'#475569')+';border-radius:6px">'+esc(o)+'</span>').join('')}</div></div>`;
   // Le corps d'un support texte est du HTML enrichi produit par notre éditeur (gras, italique, couleur, taille).
@@ -413,9 +413,12 @@ function supportLayoutPreview(m, idx, whole){
 }
 function builtinMediaLayoutPreview(media,src){
   media=media||{};src=src||media.src||'';const safe=esc(src),label=esc(media.desc||media.objective||'Ressource pédagogique');
+  // Simulation INTÉGRÉE (document HTML dans media.srcdoc, sans src) : cours importés du PDF.
+  // pointer-events:none → la simulation reste un simple aperçu, le bloc se déplace normalement.
+  if(media.type==='simulation'&&media.srcdoc)return '<iframe srcdoc="'+esc(media.srcdoc)+'" sandbox="allow-scripts" style="width:100%;height:100%;border:0;border-radius:4px;background:#fff;pointer-events:none"></iframe>';
   if(!src)return '🖼️ '+label;
-  if(media.type==='video')return '<video src="'+safe+'" muted controls playsinline style="width:100%;height:100%;object-fit:contain;border-radius:4px"></video>';
-  if(media.type==='simulation')return '<iframe src="'+safe+'" sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock" style="width:100%;height:100%;border:0;border-radius:4px;background:#fff"></iframe>';
+  if(media.type==='video')return '<video src="'+safe+'" muted controls playsinline preload="metadata" style="width:100%;height:100%;object-fit:contain;border-radius:4px"></video>';
+  if(media.type==='simulation')return '<iframe src="'+safe+'" sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock" style="width:100%;height:100%;border:0;border-radius:4px;background:#fff;pointer-events:none"></iframe>';
   if(media.type==='audio')return '<div style="height:100%;display:grid;place-items:center"><audio src="'+safe+'" controls style="width:90%"></audio></div>';
   if(media.type==='link')return '<div style="height:100%;display:grid;place-items:center;text-align:center;color:#a5f3fc;padding:10px">📎<br>'+label+'<br><small>Ressource à ouvrir</small></div>';
   return '<img src="'+safe+'" style="width:100%;height:100%;max-height:none;object-fit:contain;border-radius:4px">';
@@ -437,7 +440,7 @@ function simLayoutPreview(board, ov){
   }
   const mt=(!ov.hideSim)?(ov.match||board.match):null;
   if(mt && Array.isArray(mt.pairs) && mt.pairs.length)
-    return { label:'🔗 Activité de tri', html:'<div style="font-size:11px;line-height:1.5">'+mt.pairs.map(p=>'🔗 '+esc(p.l||p.left||'')+' → '+esc(p.r||p.right||'')).join('<br>')+'</div>' };
+    return { label:'🔗 Activité de tri', html:'<div style="font-size:11px;line-height:1.5">'+mt.pairs.map(p=>'🔗 '+esc(p.a||p.l||p.left||'')+' → '+esc(p.b||p.r||p.right||'')).join('<br>')+'</div>' };
   if(!ov.hideSim && (board.experiment||board.experiment3d||board.labExperiment))
     return { label:'🧪 Expérience simulée', html:'<div style="font-size:12px;color:#a5f3fc;padding:6px">🧪 Expérience simulée<br><span style="color:#94a3b8;font-size:11px">(zone interactive)</span></div>' };
   return null;
@@ -828,10 +831,28 @@ function openCourseLayoutOverview(){
       if(boardTitle){ const el=document.createElement('b'); el.style.cssText='display:block;color:#fff;font-size:1.15em'; el.textContent=plainBoardText(boardTitle); frame.appendChild(el); }
       if(problem){ const el=document.createElement('div'); el.style.cssText='margin-top:4%;color:#fde68a;font-weight:700'; el.textContent='🧩 '+plainBoardText(problem); frame.appendChild(el); }
       if(lines.length){ const el=document.createElement('div'); el.style.cssText='margin-top:4%;color:#e2e8f0;white-space:pre-line'; el.textContent=lines.map(x=>plainBoardText(x&&x.t)).filter(Boolean).join('\n'); frame.appendChild(el); }
+      // MINIATURE réelle du contenu visuel : carrousel (1re diapo), image, vidéo (1re image),
+      // simulation (aperçu vivant) ou activité interactive — pas seulement une étiquette.
+      const carS=Array.isArray(ov.mediaSlides)?ov.mediaSlides.filter(s=>s&&(s.src||s.svg)):[];
+      const sim=simLayoutPreview(board,ov);
+      let thumbHtml='';
+      if(!ov.hideMedia && carS.length) thumbHtml=carS[0].svg?carS[0].svg:'<img src="'+esc(carS[0].src)+'" style="width:100%;height:100%;object-fit:contain">';
+      else if(!ov.hideMedia && (board.media||ov.mediaSrc)){ const media=Object.assign({},board.media||{},ov.mediaType?{type:ov.mediaType}:{}); thumbHtml=builtinMediaLayoutPreview(media,ov.mediaSrc||media.src); }
+      else if(sim) thumbHtml=sim.html;
+      else if(!ov.hideSchema && (ov.schema||board.schema)) thumbHtml=ov.schema||board.schema;
+      if(thumbHtml){
+        const thumb=document.createElement('div');
+        thumb.style.cssText='margin-top:4%;height:44%;min-height:52px;border-radius:6px;overflow:hidden;pointer-events:none;background:rgba(2,6,23,.25)';
+        thumb.innerHTML=thumbHtml;
+        thumb.querySelectorAll('svg').forEach(sv=>{ sv.removeAttribute('width'); sv.removeAttribute('height'); sv.style.width='100%'; sv.style.height='100%'; });
+        thumb.querySelectorAll('img,video').forEach(el=>{ el.style.width='100%'; el.style.height='100%'; el.style.maxHeight='none'; el.style.objectFit='contain'; });
+        frame.appendChild(thumb);
+      }
       const labels=[];
-      if(!ov.hideMedia && (board.media||ov.mediaSrc||(ov.mediaSlides||[]).length)) labels.push('Image / carrousel');
+      if(!ov.hideMedia && carS.length) labels.push('Carrousel ('+carS.length+' diapos)');
+      else if(!ov.hideMedia && (board.media||ov.mediaSrc)){ const t=ov.mediaType||(board.media&&board.media.type)||'image'; labels.push(({video:'🎬 Vidéo',simulation:'🧪 Simulation',audio:'🔊 Audio',link:'📎 Lien'})[t]||'🖼️ Image'); }
       if(!ov.hideSchema && (ov.schema||board.schema)) labels.push('Schéma');
-      const sim=simLayoutPreview(board,ov); if(sim) labels.push(sim.label);
+      if(sim) labels.push(sim.label);
       layoutSupportEntries(sel.chapter,slide.step).forEach(item=>labels.push(item.media.type==='quiz'?'Mini-quiz':item.media.caption||('Support '+(item.idx+1))));
       if(labels.length){ const tags=document.createElement('div'); tags.style.cssText='position:absolute;left:7%;right:7%;bottom:7%;display:flex;gap:4px;flex-wrap:wrap'; labels.slice(0,4).forEach(label=>{ const tag=document.createElement('span'); tag.style.cssText='padding:2px 5px;border-radius:4px;background:#155e75;color:#cffafe;font-size:.8em'; tag.textContent=plainBoardText(label); tags.appendChild(tag); }); if(labels.length>4){ const more=document.createElement('span'); more.style.cssText='color:#94a3b8;font-size:.8em'; more.textContent='+'+(labels.length-4); tags.appendChild(more); } frame.appendChild(tags); }
     }

@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="cc-reponses" content="mouton,moto,pyjama">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Le grand panier du son [m]</title>
+<style>
+/* ===================================================================================
+   LE GRAND PANIER DU SON [m] — 1re année du primaire (GS/CP)
+   Règles tenues ici :
+   - AUCUN DÉFILEMENT : la scène est une image 16:9 qui se met à l'échelle du cadre.
+     Toutes les positions sont en % de cette scène, donc rien ne sort jamais du cadre.
+   - MUETTE dans le tableau : chaque mot part vers l'avatar ({type:'cc-sim-voice'}),
+     c'est lui la seule voix du cours. La voix du navigateur ne sert qu'en page seule.
+   - PILOTABLE À 100 % : window.CourseSimulation + messages {type:'cc-sim'}.
+   - Non-lecteurs : très peu de texte, gros objets, couleurs vives, retour parlé.
+   =================================================================================== */
+:root{
+  --or:#F9A825; --or-fonce:#E65100; --bleu:#1B6CA8; --rouge:#D7263D;
+  --vert:#2E9E5B; --violet:#7C3AED; --encre:#12315A;
+  font-family:'Trebuchet MS',Verdana,Arial,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+/* Fond TRANSPARENT : la scène garde son format 16:9, donc il reste toujours un peu de place
+   autour d'elle. Un fond coloré y dessinerait de grosses bandes bleues dans le tableau ;
+   transparent, c'est le tableau lui-même qu'on voit et la simulation s'y fond. */
+html,body{height:100%;margin:0;overflow:hidden;background:transparent;touch-action:manipulation}
+body{display:flex;align-items:center;justify-content:center}
+
+/* La scène garde EXACTEMENT le format de l'image de fond : le rectangle affiché et
+   l'image coïncident, donc un pourcentage à l'écran = le même pourcentage dans le jeu.
+   C'est ce qui rend le glisser précis quelle que soit la forme du cadre. */
+.scene{position:relative;width:100%;height:100%;max-width:calc(100vh * 1672 / 941);
+  max-height:calc(100vw * 941 / 1672);aspect-ratio:1672/941;margin:auto;
+  background:url('images/scene-panier.webp') center/100% 100% no-repeat;
+  border-radius:14px;overflow:hidden;box-shadow:0 10px 40px #0006;user-select:none;touch-action:none}
+
+/* ---- consigne + compteur, en haut, très lisibles ---- */
+.bandeau{position:absolute;left:1.5%;right:1.5%;top:2.2%;display:flex;align-items:center;gap:1.2%;
+  z-index:5;pointer-events:none}
+.consigne{flex:1;background:#FFFFFFEE;border:0.5vmin solid var(--or);border-radius:2.4vmin;
+  padding:1.1vmin 2vmin;color:var(--encre);font-weight:900;font-size:clamp(13px,2.9vmin,30px);
+  line-height:1.25;box-shadow:0 .6vmin 0 #E6A21766}
+.consigne .m{color:var(--rouge)}
+.jauge{display:flex;gap:.9vmin;background:#FFFFFFEE;border:0.5vmin solid var(--vert);
+  border-radius:2.4vmin;padding:1.1vmin 1.6vmin;box-shadow:0 .6vmin 0 #2E9E5B55}
+.pastille{width:3.4vmin;height:3.4vmin;border-radius:50%;background:#D8E3EE;
+  border:.45vmin solid #A9BED2;transition:.25s}
+.pastille.on{background:var(--vert);border-color:#1B7A43;transform:scale(1.12)}
+
+/* ---- les cartes-objets ---- */
+.carte{position:absolute;width:13.5%;aspect-ratio:1/1.16;background:#fff;
+  border:0.62vmin solid var(--bleu);border-radius:2.6vmin;box-shadow:0 .9vmin 0 #1B6CA855,0 1.4vmin 2.4vmin #0004;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  padding:.9vmin;cursor:grab;touch-action:none;z-index:5;overflow:hidden;
+  transition:transform .18s ease,box-shadow .18s ease,opacity .3s}
+/* Hauteur d'image IMPOSÉE : sans elle, une image en portrait (pyjama : 1024x1536) étire sa
+   carte de ~9 % et son bas vient mordre sur le panier — l'enfant la « déposerait » sans le
+   vouloir. Toutes les cartes doivent être rigoureusement identiques. */
+.carte img{width:100%;height:74%;flex:0 0 74%;min-height:0;object-fit:contain;pointer-events:none}
+.carte span{font-weight:900;color:var(--encre);font-size:clamp(10px,2.35vmin,24px);letter-spacing:.04em;
+  line-height:1;padding-bottom:.2vmin;pointer-events:none}
+.carte:active{cursor:grabbing}
+.carte.prise{transform:scale(1.12) rotate(-3deg);box-shadow:0 1.6vmin 3vmin #0006;z-index:9}
+.carte.refus{animation:non .45s}
+.carte.dedans{opacity:0;pointer-events:none;transform:scale(.35)}
+@keyframes non{0%,100%{transform:translateX(0)}20%{transform:translateX(-2.2%) rotate(-5deg)}
+  50%{transform:translateX(2.2%) rotate(5deg)}80%{transform:translateX(-1.2%)}}
+
+/* ---- halo du panier quand on survole avec un objet ---- */
+.zone{position:absolute;left:27%;top:48%;width:47%;height:48%;border-radius:50%/38%;
+  z-index:1;transition:.18s;border:0 solid transparent}
+.zone.vise{border:1vmin dashed var(--or-fonce);background:#FFD54F44;
+  box-shadow:0 0 4vmin #F9A82588 inset}
+
+/* ---- objets rangés DANS le panier -------------------------------------------------
+   Mesuré sur l'image : le panier occupe y 47%→93%, et son OUVERTURE (l'intérieur visible)
+   se situe entre y≈52% et 68%, x 28%→71%. Les objets sont donc posés dans cette ouverture
+   et alignés sur son fond, jamais plus bas — sinon ils semblent collés devant le panier. */
+.dedansBox{position:absolute;left:34%;top:50%;width:32%;height:17%;display:flex;
+  align-items:flex-end;justify-content:center;gap:1.2%;z-index:2;pointer-events:none}
+.dedansBox img{height:96%;width:auto;max-width:31%;object-fit:contain;
+  filter:drop-shadow(0 .5vmin .7vmin #00000066);animation:tombe .45s ease-out}
+@keyframes tombe{from{transform:translateY(-160%) scale(1.4);opacity:0}to{transform:none;opacity:1}}
+/* Le DEVANT du panier redessiné par-dessus les objets : c'est la même image, au même
+   cadrage, découpée sous le rebord. Les objets passent donc DERRIÈRE la paroi avant et
+   paraissent vraiment posés à l'intérieur, au lieu d'être plaqués sur le panier. */
+.avantPanier{position:absolute;inset:0;z-index:3;pointer-events:none;
+  background:url('images/scene-panier.webp') center/100% 100% no-repeat;
+  clip-path:inset(63.5% 0 0 0)}
+
+/* ---- bravo final ---- */
+.bravo{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:2.6vmin;
+  background:#0b1f3699;z-index:12;backdrop-filter:blur(2px)}
+.bravo.on{display:flex;animation:pop .4s}
+/* ---- bouton rejouer, montré une fois la simulation terminée (dans l'écran Bravo) ---- */
+.rejouer-fin{border:0;cursor:pointer;background:var(--violet);color:#fff;font-weight:900;
+  font-family:inherit;font-size:clamp(15px,3.6vmin,32px);border-radius:2.8vmin;
+  padding:1.6vmin 3.4vmin;box-shadow:0 1vmin 0 #4C1D95}
+.rejouer-fin:active{transform:translateY(.5vmin);box-shadow:0 .5vmin 0 #4C1D95}
+.bravo b{background:#fff;border:1vmin solid var(--or);border-radius:4vmin;padding:3vmin 5vmin;
+  color:var(--vert);font-size:clamp(20px,7vmin,64px);box-shadow:0 2vmin 4vmin #0007;text-align:center}
+@keyframes pop{from{transform:scale(.7);opacity:0}to{transform:none;opacity:1}}
+
+/* ---- bouton recommencer ---- */
+.rejouer{position:absolute;right:1.8%;bottom:3%;z-index:10;border:0;cursor:pointer;
+  background:var(--violet);color:#fff;font-weight:900;font-family:inherit;
+  font-size:clamp(11px,2.5vmin,24px);border-radius:2.4vmin;padding:1.3vmin 2.4vmin;
+  box-shadow:0 .8vmin 0 #4C1D95}
+.rejouer:active{transform:translateY(.4vmin);box-shadow:0 .4vmin 0 #4C1D95}
+</style>
+</head>
+<body>
+<div class="scene" id="scene" aria-label="Range dans le panier les images dont le nom contient le son m">
+  <div class="zone" id="zone"></div>
+  <div class="dedansBox" id="dedansBox"></div>
+  <div class="avantPanier"></div>
+  <div class="bandeau">
+    <div class="consigne">Mets dans le grand panier les images où tu entends <span class="m">mmmm</span></div>
+    <div class="jauge" id="jauge"></div>
+  </div>
+  <button class="rejouer" id="rejouer" type="button">↻ Encore</button>
+  <div class="bravo" id="bravo"><b>🎉 Bravo !<br>Tu as trouvé les 3 mots.</b><button class="rejouer-fin" id="rejouerFin" type="button">↻ Rejouer</button></div>
+</div>
+
+<script>
+'use strict';
+/* --------------------------------------------------------------------------------
+   Données : 6 objets, 3 contiennent le son [m]. Position de départ en % de la scène,
+   dans la bande haute (le panier occupe le bas). */
+var OBJETS=[
+  {id:'mouton',mot:'MOUTON',dit:'mouton',img:'images/mouton.webp',aLeSon:true, x:3.5, y:16},
+  {id:'moto',  mot:'MOTO',  dit:'moto',  img:'images/moto.webp',  aLeSon:true, x:19.5,y:11},
+  {id:'ballon',mot:'BALLON',dit:'ballon',img:'images/ballon.webp',aLeSon:false,x:35.5,y:15},
+  {id:'pyjama',mot:'PYJAMA',dit:'pyjama',img:'images/pyjama.webp',aLeSon:true, x:51.5,y:11},
+  {id:'table', mot:'TABLE', dit:'table', img:'images/table.webp', aLeSon:false,x:67.5,y:15},
+  {id:'singe', mot:'SINGE', dit:'singe', img:'images/singe.webp', aLeSon:false,x:83.5,y:11}
+];
+/* LE SON CONTINU, DIT PAR L'AVATAR — la graphie du début de la leçon (« Le son peut
+   durer : mmmm ») est la seule que la voix du cours prononce en son tenu ; « mmmm » se fait
+   épeler (« èm, èm, èm »). Tout ce qui est PRONONCÉ passe donc par SON. */
+/* LA SEULE FORMULE QUI FAIT TENIR LE SON — mesurée sur la voix du cours.
+   La synthèse ne réagit pas à la graphie mais au SENS de la phrase : « mmmm » en fin de
+   phrase ordinaire est prononcé « èm » (0,30 s, comme le nom de la lettre), alors que la
+   phrase de l'écran 2, qui DIT que le son dure, le fait vraiment tenir (0,65 s, sans voyelle).
+   Règle : on ne glisse jamais le son dans une phrase quelconque. On dit la phrase normale,
+   puis on CLÔT par PHRASE_SON, mot pour mot. Mesures : seule → 0,65 s ; après une phrase
+   courte → 0,55 s ; après une phrase longue → 0,49 s (le nom de la lettre : 0,32 s). */
+var PHRASE_SON='Le son peut durer : mmmm.';   // ← phrase EXACTE de l'écran 2
+var BRAVOS=['Bravo !','Super !','Très bien joué !'];   // on félicite AVANT d'expliquer
+var ZONE={x:27,y:48,w:47,h:48};              // le grand panier, en % de la scène
+var scene=document.getElementById('scene'), zone=document.getElementById('zone'),
+    dedansBox=document.getElementById('dedansBox'), jauge=document.getElementById('jauge'),
+    bravo=document.getElementById('bravo');
+var cartes={}, ranges=[], drag=null;
+var ATTENDUS=OBJETS.filter(function(o){return o.aLeSon}).length;
+
+/* --------------------------------------------------------------------------------
+   VOIX — dans le tableau la simulation est MUETTE : elle envoie le texte à l'avatar,
+   qui est la seule voix du cours. Ouverte seule, elle garde une voix de secours. */
+var EMBEDDED=(function(){try{return !!(window.parent&&window.parent!==window)}catch(e){return true}})();
+function parle(kind,texte,extra){
+  texte=String(texte||'').trim(); if(!texte)return;
+  if(EMBEDDED){
+    var msg={type:'cc-sim-voice',kind:kind,text:texte};
+    if(extra)for(var k in extra)msg[k]=extra[k];
+    try{parent.postMessage(msg,'*')}catch(e){}
+    return;
+  }
+  if(!('speechSynthesis' in window))return;
+  try{speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(texte);u.lang='fr-FR';u.rate=.85;speechSynthesis.speak(u)}catch(e){}
+}
+
+/* -------------------------------------------------------------------------------- */
+function construire(){
+  Object.keys(cartes).forEach(function(id){cartes[id].el.remove()});
+  cartes={}; ranges=[]; dedansBox.innerHTML=''; bravo.className='bravo';
+  OBJETS.forEach(function(o){
+    var el=document.createElement('div');
+    el.className='carte'; el.dataset.id=o.id;
+    el.style.left=o.x+'%'; el.style.top=o.y+'%';
+    el.innerHTML='<img src="'+o.img+'" alt="'+o.mot+'"><span>'+o.mot+'</span>';
+    el.addEventListener('pointerdown',prendre);
+    scene.appendChild(el);
+    cartes[o.id]={el:el,def:o,x:o.x,y:o.y,range:false};
+  });
+  dessinerJauge();
+  publierEtat();
+}
+function dessinerJauge(){
+  jauge.innerHTML='';
+  for(var i=0;i<ATTENDUS;i++){
+    var p=document.createElement('i');
+    p.className='pastille'+(i<ranges.length?' on':'');
+    jauge.appendChild(p);
+  }
+}
+
+/* -------- conversion pointeur → % de la scène (exacte : la scène a le format de l'image) */
+function enPourcent(ev){
+  var r=scene.getBoundingClientRect();
+  return {x:(ev.clientX-r.left)/r.width*100, y:(ev.clientY-r.top)/r.height*100};
+}
+function centre(c){
+  var r=scene.getBoundingClientRect(), b=c.el.getBoundingClientRect();
+  return {x:(b.left+b.width/2-r.left)/r.width*100, y:(b.top+b.height/2-r.top)/r.height*100};
+}
+function dansPanier(pt){
+  return pt.x>=ZONE.x && pt.x<=ZONE.x+ZONE.w && pt.y>=ZONE.y && pt.y<=ZONE.y+ZONE.h;
+}
+
+/* -------- glisser -------- */
+function prendre(ev){
+  var c=cartes[this.dataset.id]; if(!c||c.range)return;
+  ev.preventDefault();
+  try{this.setPointerCapture(ev.pointerId)}catch(e){}
+  var p=enPourcent(ev);
+  drag={id:c.def.id,pid:ev.pointerId,dx:p.x-c.x,dy:p.y-c.y};
+  this.classList.add('prise');
+  parle('word',c.def.dit,{elementId:c.def.id});      // l'avatar prononce le mot touché
+  this.addEventListener('pointermove',bouger);
+  this.addEventListener('pointerup',lacher);
+  this.addEventListener('pointercancel',lacher);
+}
+function bouger(ev){
+  if(!drag||ev.pointerId!==drag.pid)return;
+  var c=cartes[drag.id], p=enPourcent(ev);
+  c.x=Math.max(0,Math.min(86.5,p.x-drag.dx));
+  c.y=Math.max(0,Math.min(84,p.y-drag.dy));
+  c.el.style.left=c.x+'%'; c.el.style.top=c.y+'%';
+  zone.className='zone'+(dansPanier(centre(c))?' vise':'');
+}
+function lacher(ev){
+  if(!drag||ev.pointerId!==drag.pid)return;
+  var c=cartes[drag.id];
+  c.el.classList.remove('prise'); zone.className='zone';
+  c.el.removeEventListener('pointermove',bouger);
+  c.el.removeEventListener('pointerup',lacher);
+  c.el.removeEventListener('pointercancel',lacher);
+  drag=null;
+  if(dansPanier(centre(c))) deposer(c.def.id,false); else revenir(c);
+}
+function revenir(c){
+  c.x=c.def.x; c.y=c.def.y;
+  c.el.style.left=c.x+'%'; c.el.style.top=c.y+'%';
+}
+
+/* -------- dépôt : la seule règle du jeu -------- */
+function deposer(id,silencieux){
+  var c=cartes[id]; if(!c||c.range)return false;
+  if(c.def.aLeSon){
+    c.range=true; c.el.classList.add('dedans');
+    ranges.push(id);
+    var img=document.createElement('img'); img.src=c.def.img; img.alt=c.def.mot;
+    dedansBox.appendChild(img);
+    dessinerJauge();
+    if(!silencieux) parle('progress',BRAVOS[(ranges.length-1)%BRAVOS.length]+
+      ' Dans '+c.def.dit+', on entend le son. '+PHRASE_SON,{elementId:id});
+    publierEtat();
+    if(ranges.length===ATTENDUS) setTimeout(fini,420);
+    return true;
+  }
+  revenir(c);
+  c.el.classList.add('refus');
+  setTimeout(function(){c.el.classList.remove('refus')},480);
+  // Reprise : pas de son ici — on ne fait pas entendre un [m] au moment où on dit qu'il est absent.
+  if(!silencieux) parle('retry','Écoute encore '+c.def.dit+'. On n\'y entend pas le son.',{elementId:id});
+  return false;
+}
+function fini(){
+  bravo.className='bravo on';
+  parle('success','Bravo ! Tu as trouvé les trois mots. '+PHRASE_SON);
+  try{parent.postMessage({type:'cc-sim-complete',mode:'drag_drop',state:etat()},'*')}catch(e){}
+}
+
+/* --------------------------------------------------------------------------------
+   PILOTAGE PAR L'AVATAR — l'IA du cours manipule la simulation à 100 %. */
+function etat(){
+  var s={};
+  OBJETS.forEach(function(o){s[o.id]={range:!!cartes[o.id]&&cartes[o.id].range,aLeSon:o.aLeSon}});
+  return s;
+}
+function capacites(){
+  return {actions:['demo','reset','place','finish'],
+    elements:OBJETS.map(function(o){return {id:o.id,label:o.mot,word:o.dit,attendu:o.aLeSon}}),
+    zones:[{id:'panier',label:'Le grand panier',accepts:OBJETS.filter(function(o){return o.aLeSon}).map(function(o){return o.id})}]};
+}
+function publierEtat(){
+  try{parent.postMessage({type:'cc-sim-state',mode:'drag_drop',state:etat(),
+    completed:ranges.length===ATTENDUS,capabilities:capacites()},'*')}catch(e){}
+}
+function demo(){
+  var aFaire=OBJETS.filter(function(o){return o.aLeSon&&!cartes[o.id].range});
+  aFaire.forEach(function(o,i){setTimeout(function(){deposer(o.id,false)},i*900)});
+}
+window.CourseSimulation={
+  getState:etat, getCapabilities:capacites,
+  dispatch:function(m){
+    if(!m)return;
+    if(m.action==='reset')construire();
+    else if(m.action==='demo')demo();
+    else if(m.action==='finish')fini();
+    else if(m.action==='place')deposer(String(m.elementId||''),m.quiet===true);
+  }
+};
+window.addEventListener('message',function(e){
+  var m=e.data||{};
+  if(m.type==='cc-sim')window.CourseSimulation.dispatch(m);
+});
+
+document.getElementById('rejouer').onclick=function(){construire();parle('word','On recommence !')};
+document.getElementById('rejouerFin').onclick=function(){document.getElementById('rejouer').onclick()};
+construire();
+</script>
+</body>
+</html>

@@ -74,6 +74,11 @@ window.classesReaderAccessReady=(async function(){
   .board{position:relative;background:linear-gradient(160deg,var(--board),var(--board2));
     border-radius:16px;border:10px solid #5b3a1f;box-shadow:inset 0 0 70px rgba(0,0,0,.45),0 10px 30px rgba(0,0,0,.4);
     flex:1 1 auto;min-height:0;padding:22px 30px;overflow:auto}
+  /* Logo Digischool : visible sur toutes les diapositives du cours M 1 en plein écran. */
+  .course-brand{display:none;position:absolute;right:18px;bottom:12px;width:min(22vw,230px);height:auto;
+    max-height:64px;object-fit:contain;object-position:right bottom;z-index:11;pointer-events:none;
+    opacity:.9;filter:drop-shadow(0 2px 4px rgba(0,0,0,.45))}
+  body.presenting.m1-course .course-brand{display:block}
   .content{padding-bottom:10px;padding-left:300px}
   @media(max-width:760px){.content{padding-left:0;padding-bottom:280px}}
   .board h2{color:#fff;margin:0 0 22px;font-size:32px;line-height:1.2;text-decoration:underline;
@@ -112,6 +117,97 @@ window.classesReaderAccessReady=(async function(){
   .line .box{border:2px solid currentColor;border-radius:7px;padding:0 7px}
   .line.sub{font-size:24px;font-weight:800;margin-top:18px;color:#fde68a}
   .line.sub::before{content:"✦ ";color:var(--accent2)}
+
+  /* ================= TABLEAU DU PRIMAIRE (GS / CP) — body.kids =================
+     À six ans on lit de loin et lentement : le vert d'ardoise et les craies pastel du collège
+     sont trop ternes et trop petits. Le tableau passe donc à un fond bleu-violet franc encadré
+     de jaune, et TOUTES les couleurs de craie sont reprises sur ce fond — c'est indissociable :
+     sur un fond saturé, les pastels d'origine (vert d'eau, orange pâle) perdent leur contraste
+     et deviennent illisibles au fond de la classe. Textes et images grandissent d'un tiers.
+     Les rôles des couleurs, eux, ne changent pas : def = définition, ex = exemple,
+     imp = point important, key = mot-clé. ============================================== */
+  body.kids{--board:#3245d8;--board2:#7b3ff2;--chalk:#ffffff;--accent:#2ee6f6;--accent2:#ffd84d}
+  body.kids .board{border-color:#ffb020;border-width:12px;
+    box-shadow:inset 0 0 90px rgba(23,10,80,.32),0 12px 34px rgba(0,0,0,.42)}
+  body.kids .board h2{font-size:44px;color:#fff8d6;text-decoration-color:#ffd84d;
+    text-shadow:0 3px 0 rgba(23,10,80,.45)}
+  body.kids .line{font-size:34px;line-height:1.65;margin:16px 0;max-width:none;font-weight:700;
+    text-shadow:0 2px 0 rgba(23,10,80,.4)}
+  body.kids .line.sub{font-size:32px;color:#ffe066}
+  body.kids .def{border-left-width:7px;border-left-color:#2ee6f6;padding-left:16px;color:#bdf6ff}
+  body.kids .line.ex{color:#a8ffb8}
+  body.kids .line.imp{color:#ffd166}
+  body.kids .key{background:rgba(255,216,77,.32);color:#fff8d6;padding:2px 10px;border-radius:9px}
+  /* craies vives : mêmes rôles, teintes assez franches pour tenir sur le bleu-violet */
+  body.kids .line .r{color:#ff9aa8}  body.kids .line .b{color:#93e0ff}
+  body.kids .line .g{color:#a8ffb8}  body.kids .line .o{color:#ffc46b}
+  body.kids .line .p{color:#ffb3e6}  body.kids .line .w{color:#ffffff}
+  body.kids .line .y{color:#ffe066}
+  body.kids .line .r,body.kids .line .b,body.kids .line .g,body.kids .line .o,
+  body.kids .line .p,body.kids .line .w,body.kids .line .y{font-weight:800}
+  body.kids .line .box{border-width:3px;border-radius:11px;padding:0 11px}
+  /* images de la leçon : nettement plus grandes, cadre jaune, mais SANS fond blanc — le blanc
+     débordait de l'illustration et posait une bande claire sur le tableau bleu.
+     Les simulations et les compositions posées par le prof gardent leur propre cadrage. */
+  body.kids .lesson-media:not(.simulation-embedded):not(.resource-link){max-width:min(900px,95%)}
+  body.kids .board:not(.has-layout) .lesson-media img,
+  body.kids .board:not(.has-layout) .lesson-media video{max-height:min(54vh,480px);
+    border:0;border-radius:22px;background:transparent}
+  body.kids .lesson-media .lm-cap{font-size:19px;color:#fff8d6}
+  /* PLEIN ÉCRAN AU PRIMAIRE : `body.presenting` rapetissait titres et lignes aux tailles du
+     collège (26/20 px) — illisible pour des GS/CP au fond de la classe. On reprend la main
+     avec des tailles calculées sur la hauteur d'écran, pour rester grand SANS déborder. */
+  body.kids.presenting .board h2{font-size:clamp(26px,4.6vh,44px);margin-bottom:clamp(6px,1.2vh,12px)}
+  body.kids.presenting .line{font-size:clamp(21px,3.7vh,34px);line-height:1.45;
+    margin:clamp(6px,1.4vh,16px) 0}
+  body.kids.presenting .line.sub{font-size:clamp(20px,3.4vh,32px)}
+  body.kids.presenting .lesson-media .lm-cap{font-size:clamp(15px,2.2vh,19px)}
+  /* en plein écran le tableau coupe ce qui dépasse : l'image laisse la place au titre et aux
+     lignes (sur un écran bas, une image en 54vh chassait la dernière ligne hors de l'écran). */
+  body.kids.presenting .board:not(.has-layout) .lesson-media img,
+  body.kids.presenting .board:not(.has-layout) .lesson-media video{max-height:min(44vh,440px)}
+  /* ===== ÉVALUATION SUR LE TABLEAU BLEU (body.kids) =====
+     Les couleurs de l'évaluation venaient du tableau vert foncé du collège : sur le bleu-violet
+     du primaire, les boutons gris-marine et les cadres blancs autour des images faisaient des
+     taches. Ici : cartes bleu nuit translucides bordées de jaune, texte blanc épais, et images
+     posées SANS cadre ni fond blanc (les illustrations portent déjà leur propre fond clair). */
+  /* au primaire on lit de loin : question et réponses montent d'un cran (plafond 34/28 px),
+     tout en restant calculées sur la hauteur d'écran pour tenir en plein écran. */
+  body.kids .quiz-xl.quiz-layout-block .line{font-size:clamp(22px,4vh,34px);
+    color:#ffffff;text-shadow:0 2px 0 rgba(23,10,80,.4)}
+  body.kids .quiz-xl .quiz-opt{font-size:clamp(19px,3.2vh,28px)}
+  body.kids .quiz-xl .quiz-enonce{font-size:clamp(17px,2.5vh,25px)}
+  body.kids .quiz-enonce{background:rgba(255,255,255,.13);border-left-color:#ffd84d;
+    color:#fff8d6;font-weight:600;text-shadow:0 2px 0 rgba(23,10,80,.35)}
+  body.kids .quiz-enonce .doc-tag{color:#ffe066}
+  body.kids .quiz-opt{background:rgba(23,10,80,.42);border-color:rgba(255,216,77,.55);
+    color:#ffffff;font-weight:800;text-shadow:0 2px 0 rgba(23,10,80,.4)}
+  body.kids .quiz-opt:hover:not(:disabled){background:rgba(46,230,246,.22);border-color:#2ee6f6;color:#ffffff}
+  body.kids .quiz-opt.good{background:#17a34a;border-color:#a8ffb8;color:#ffffff}
+  body.kids .quiz-opt.bad{background:#d33049;border-color:#ff9aa8;color:#ffffff}
+  body.kids .quiz-input,body.kids .assoc-sel{background:rgba(23,10,80,.5);
+    border-color:rgba(255,216,77,.55);color:#ffffff}
+  body.kids .quiz-input::placeholder{color:rgba(255,248,214,.6)}
+  body.kids .assoc-l{color:#ffe066}
+  body.kids .quiz-fb.ok{color:#a8ffb8}
+  body.kids .quiz-fb.no{color:#ffb3b3}
+  body.kids .quiz-fb{text-shadow:0 2px 0 rgba(23,10,80,.4)}
+  /* images de question et vignettes : plus de cadre blanc, juste des coins arrondis */
+  body.kids .quiz-img img,body.kids .quiz-img svg{background:transparent;border:0;padding:0;
+    border-radius:20px;box-shadow:0 10px 26px rgba(23,10,80,.35)}
+  body.kids .quiz-img .qi-cap{color:#fff8d6;font-style:normal}
+  body.kids .qo-svg.qo-img{background:transparent}
+  body.kids .qo-svg:not(.qo-img){background:#fff8ef}   /* lettres tracées : carte claire conservée */
+  /* écran « Choisis ton évaluation » */
+  body.kids .quizpick{background:rgba(23,10,80,.38);border-color:rgba(255,216,77,.55)}
+  body.kids .quizpick .qp-label{color:#ffffff;text-shadow:0 2px 0 rgba(23,10,80,.4)}
+  body.kids .quizpick .qp-desc{color:#fff8d6}
+  body.kids .quizpick .qp-badge{background:rgba(255,216,77,.22);color:#ffe066}
+  body.kids .quizpick .qp-meta{color:#2ee6f6}
+  body.kids .quizpick .qp-start{background:#ffd84d;border-color:#ffd84d;color:#3a1d00}
+  body.kids .quizpick .qp-change{color:#2ee6f6;border-color:#2ee6f6}
+  body.kids .quizpick .qp-dot{background:rgba(255,255,255,.35)}
+  body.kids .quizpick .qp-dot.on{background:#ffd84d}
   @keyframes chalk{to{opacity:1;transform:none}}
   /* écriture lettre par lettre : chaque lettre "zoome" en apparaissant */
   .line.typed{opacity:1;transform:none;animation:none}
@@ -130,6 +226,7 @@ window.classesReaderAccessReady=(async function(){
   .quiz-opt.has-visual{display:grid;grid-template-columns:92px 1fr;align-items:center;gap:14px;min-height:92px;font-size:19px}
   .quiz-opt .qo-svg{display:flex;align-items:center;justify-content:center;width:88px;height:76px;border-radius:10px;background:#fff;overflow:hidden}
   .quiz-opt .qo-svg svg{width:100%;height:100%;max-height:76px}
+  .qo-svg img{width:100%;height:100%;object-fit:contain}   /* vignette-image (options ET associations) */
   .quiz-input{flex:1;background:#0b1220;border:1px solid #334155;color:#e2e8f0;
     padding:11px 15px;border-radius:11px;font-size:16px}
   .quiz-input:focus{outline:none;border-color:var(--accent)}
@@ -145,6 +242,50 @@ window.classesReaderAccessReady=(async function(){
   .quiz-img img,.quiz-img svg{display:block;width:100%;height:auto;max-height:320px;object-fit:contain;
     border-radius:12px;border:1px solid #334155;background:#0b1220}
   .quiz-img .qi-cap{font-size:13px;color:#94a3b8;margin-top:6px;text-align:center;font-style:italic}
+  /* ===== QUESTION À IMAGE : 2 colonnes — propositions À GAUCHE, image À DROITE.
+     Empilés, l'image occupait toute la hauteur du tableau en plein écran et l'élève ne
+     voyait plus que la première proposition. En écran étroit, on repasse en colonnes. ===== */
+  .quiz-two-col{display:flex;gap:24px;align-items:flex-start;width:100%}
+  .quiz-two-col .qtc-left{flex:1 1 52%;min-width:0;display:flex;flex-direction:column;justify-content:center}
+  .quiz-two-col .qtc-right{flex:1 1 48%;min-width:0;max-width:660px}
+  .quiz-two-col .quiz-img{margin:0;max-width:100%}
+  .quiz-two-col .quiz-opts{max-width:none;margin-top:12px}
+  .quiz-two-col > .qtc-left > .line{margin-top:0}
+  @media (max-width:900px){
+    .quiz-two-col{flex-direction:column;gap:12px}
+    .quiz-two-col .qtc-right{order:-1;max-width:100%;align-self:center}
+  }
+  /* ===== GRAND AFFICHAGE (lecon.quizBigVisuals) : évaluations du primaire (GS/CP).
+     Textes épais et boutons-images XXL, mais dimensionnés en vh : toute la question
+     (énoncé + image + réponses) tient sur UN écran, même en plein écran. ===== */
+  .quiz-xl .quiz-enonce{font-size:clamp(16px,2.15vh,23px);line-height:1.5;
+    padding:clamp(8px,1.3vh,14px) 18px;margin-bottom:clamp(8px,1.4vh,14px);border-left-width:5px}
+  .quiz-xl .quiz-enonce .doc-tag{font-size:14px;display:block;margin-bottom:4px}
+  /* 3 classes : passe devant `body.presenting .line` qui rapetisse le texte en plein écran */
+  .quiz-xl.quiz-layout-block .line{font-size:clamp(19px,3vh,30px);line-height:1.35;font-weight:800;
+    font-family:'Comic Sans MS','Segoe UI',cursive;max-width:none;margin:clamp(6px,1.2vh,12px) 0}
+  .quiz-xl .quiz-img{max-width:min(820px,96%)}
+  .quiz-xl .quiz-img img,.quiz-xl .quiz-img svg{max-height:min(58vh,470px);background:#fff;
+    border-radius:20px;border:3px solid #334155;padding:6px}
+  .quiz-xl .quiz-img .qi-cap{font-size:clamp(14px,1.9vh,18px);color:#cbd5e1;margin-top:8px;font-style:normal}
+  .quiz-xl .quiz-opts{max-width:860px;gap:clamp(7px,1.3vh,14px);margin-top:clamp(8px,1.6vh,18px)}
+  .quiz-xl .quiz-opt{font-size:clamp(17px,2.5vh,26px);padding:clamp(9px,1.5vh,16px) 20px;
+    border-radius:16px;border-width:2px}
+  .quiz-xl .quiz-opt.has-visual{grid-template-columns:auto 1fr;gap:18px;
+    min-height:0;font-size:clamp(18px,2.7vh,28px)}
+  .quiz-xl .quiz-opt .qo-svg{width:clamp(76px,12.5vh,150px);height:clamp(70px,11.5vh,140px);border-radius:16px}
+  .quiz-xl .quiz-opt .qo-svg svg{max-height:100%}
+  .quiz-xl .quiz-input{font-size:clamp(17px,2.3vh,24px);padding:13px 18px}
+  .quiz-xl .quiz-fb{font-size:clamp(17px,2.3vh,24px);margin-top:8px}
+  .quiz-xl .assoc-row{margin:clamp(4px,.9vh,8px) 0}
+  .quiz-xl .assoc-l{font-size:clamp(17px,2.3vh,24px);min-width:190px}
+  .quiz-xl .assoc-l .qo-svg{width:clamp(64px,10vh,118px);height:clamp(58px,9vh,104px)}
+  .quiz-xl .assoc-sel{font-size:clamp(16px,2.1vh,22px);padding:11px 15px}
+  .quiz-xl .quizpick{max-width:760px;padding:26px 28px}
+  .quiz-xl .quizpick .qp-label{font-size:30px}
+  .quiz-xl .quizpick .qp-desc{font-size:20px;color:#cbd5e1}
+  .quiz-xl .quizpick .qp-meta,.quiz-xl .quizpick .qp-badge{font-size:17px}
+  .quiz-xl .quizpick .qp-btn{font-size:20px;padding:14px 22px}
   /* ===== CHOIX DU QUIZ (3 quiz ; un seul montré, changeable) ===== */
   .quizpick{max-width:600px;margin:10px 0;border:1px solid #334155;border-radius:16px;
     background:linear-gradient(180deg,rgba(15,23,42,.6),rgba(2,6,23,.4));padding:20px 22px}
@@ -452,8 +593,22 @@ window.classesReaderAccessReady=(async function(){
   .lesson-media iframe{display:block;width:100%;height:330px;border:1px solid #334155;border-radius:12px;background:#fff}
   /* Simulation intégrée : elle remplit tout son cadre du tableau (mode normal ET plein
      écran), sans défilement interne — la page de la simulation gère elle-même son échelle. */
-  .lesson-media.simulation-embedded{min-height:260px;display:flex;flex-direction:column;height:100%}
-  .lesson-media.simulation-embedded iframe{flex:1 1 auto;min-height:220px;height:100%;pointer-events:auto;touch-action:none}
+  /* La simulation suit la hauteur DISPONIBLE du tableau au lieu d'imposer un plancher fixe :
+     un minimum de 560 px la faisait déborder sous un tableau plus court (jusqu'à ~290 px hors
+     cadre), ce qui faisait défiler le tableau et coupait le bas de la scène. Le tableau devient
+     une colonne flex, la simulation prend simplement la place restante. */
+  .board:has(.simulation-embedded){overflow:hidden;display:flex;flex-direction:column}
+  .board:has(.simulation-embedded) .content{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding-bottom:0}
+  /* La simulation est souvent enveloppée dans un div intermédiaire : sans ces deux règles, ce
+     div garde sa hauteur automatique (190 px) et écrase l'iframe à ~150 px, ce qui réduit la
+     scène à 22 % de la largeur et laisse d'énormes bandes vides autour. */
+  .board:has(.simulation-embedded) .content>*{flex:0 0 auto;min-height:0}
+  .board:has(.simulation-embedded) .content>*:has(.simulation-embedded){flex:1 1 auto;display:flex;flex-direction:column}
+  .lesson-media.simulation-embedded{width:100%;max-width:none;min-height:200px;height:auto;display:flex;flex:1 1 auto;flex-direction:column;margin:12px 0 0}
+  /* Ni cadre ni fond blanc pour une simulation : elle se fond dans le tableau au lieu de
+     dessiner un rectangle clair autour de la scène. */
+  .lesson-media.simulation-embedded iframe{display:block;flex:1 1 auto;min-height:0;height:100%;width:100%;pointer-events:auto;touch-action:none;background:transparent;border:0;border-radius:0}
+  body.avatar-head .content:has(.simulation-embedded){padding-left:0;padding-right:0}
   .lesson-media audio{display:block;width:min(100%,560px);margin:28px auto}
   .lesson-media .lm-cap{font-size:13px;color:#94a3b8;margin-top:6px}
   .lesson-media .lm-open{display:inline-flex;align-items:center;justify-content:center;gap:8px;margin-top:9px;
@@ -691,6 +846,14 @@ window.classesReaderAccessReady=(async function(){
   body.presenting .boardtop{position:absolute;top:8px;right:10px;margin:0;padding:0}
   body.presenting .boardtop .chips{display:none!important}
   body.presenting .content{height:100%;overflow:hidden;padding-bottom:0}
+  /* Le tableau en plein écran coupe ce qui dépasse : l'évaluation garde donc son propre
+     ascenseur en dernier recours, pour qu'aucune proposition ne reste hors de l'écran. */
+  body.presenting .quiz-layout-block{max-height:100%;overflow-y:auto;overscroll-behavior:contain}
+  /* Une simulation est une activité à manipuler : elle prend toute la largeur et toute la hauteur
+     restante du tableau, sans être réduite par la colonne de l'avatar. */
+  body.presenting .content:has(.simulation-embedded){display:flex;flex-direction:column;height:100%;overflow:hidden;padding:0}
+  body.presenting .content:has(.simulation-embedded) .line{font-size:18px;line-height:1.25;margin:3px 0}
+  body.presenting .content:has(.simulation-embedded) .lesson-media.simulation-embedded{min-height:0;height:auto;flex:1 1 auto}
   body.presenting .phase-strip,
   body.presenting .phase-badge{display:none!important}
   body.presenting .board h2{font-size:26px;margin:0 0 10px;line-height:1.15}
@@ -707,6 +870,13 @@ window.classesReaderAccessReady=(async function(){
     color:#e2e8f0; border:1px solid #334155; border-radius:10px; padding:8px 12px; cursor:pointer;
     font-size:13px; opacity:0; pointer-events:none; transition:opacity .3s }
   body.presenting .exitPresent.show{ opacity:1; pointer-events:auto }
+  /* Capture du tableau : même comportement que « Quitter » (apparaît au mouvement de souris). */
+  .shotBtn{ position:fixed; top:10px; right:104px; z-index:60; background:rgba(2,6,23,.65);
+    color:#e2e8f0; border:1px solid #334155; border-radius:10px; padding:8px 12px; cursor:pointer;
+    font-size:13px; opacity:0; pointer-events:none; transition:opacity .3s }
+  body.presenting .shotBtn.show{ opacity:1; pointer-events:auto }
+  .shotBtn:disabled{ cursor:progress }
+  .shotBtn.ok{ border-color:#15803d; background:#14532d; color:#dcfce7 }
   .presentHint{ position:fixed; bottom:16px; left:50%; transform:translateX(-50%); z-index:60;
     background:rgba(2,6,23,.72); color:#a5f3fc; padding:7px 16px; border-radius:20px; font-size:13px;
     opacity:0; pointer-events:none; transition:opacity .4s }
@@ -754,6 +924,7 @@ window.classesReaderAccessReady=(async function(){
 
   <!-- ====== LE TABLEAU ====== -->
   <div class="board">
+    <img id="courseBrand" class="course-brand" src="son-m-nouveau/images/digischool-logo.png" alt="Digischool — Votre école numérique">
     <!-- barre du haut : questions suggérées (gauche) + bouton Suivant (droite), collée en haut -->
     <div class="boardtop">
       <div class="chips" id="chips"></div>
@@ -865,6 +1036,7 @@ window.classesReaderAccessReady=(async function(){
 </div>
 
 <!-- MODE PRÉSENTATION : bouton quitter discret + indice de navigation -->
+<button class="shotBtn" id="shotBtn" title="Capturer le tableau et copier l'image (elle est copiée automatiquement)">📸 Capturer</button>
 <button class="exitPresent" id="exitPresent" title="Quitter le plein écran (Échap)">⤢ Quitter</button>
 <div class="presentHint" id="presentHint">Clique sur le tableau pour avancer · ← Précédent · Échap pour quitter</div>
 
@@ -1024,6 +1196,66 @@ const board=document.getElementById('boardBody'), title=document.getElementById(
       speech=document.getElementById('speech'), bar=document.getElementById('bar'),
       mouth=document.querySelector('.mouth'), thinking=document.getElementById('thinking');
 
+/* PUBLIC VISÉ. Au primaire (GS/CP), le tableau change d'habit : fond vif, craies franches,
+   textes et images nettement plus grands (voir body.kids dans la feuille de style). On le
+   repère au niveau annoncé par le chapitre — ou à quizBigVisuals, déjà réservé aux évaluations
+   du primaire. Un chapitre de collège n'est pas concerné et garde l'ardoise verte. */
+function isKidsLesson(l){
+  if(!l) return false;
+  if(l.quizBigVisuals) return true;
+  const niveau=[l.gradeLabel||'', (l.targetContext&&l.targetContext.gradeLevelName)||''].join(' ');
+  return /préscolaire|primaire|apep|grande\s+section|\bcp\b/i.test(niveau);
+}
+function applyCourseBrand(){ document.body.classList.toggle('m1-course', !!(lecon && lecon.id==='son-m-nouveau')); }
+function applyAudienceTheme(){
+  document.body.classList.toggle('kids', isKidsLesson(lecon));
+  applyCourseBrand();
+}
+
+/* ================= RÈGLES DE PAROLE AU PRIMAIRE (GS / CP / 1re année) =================
+   Un enfant de six ans n'apprend pas comme un collégien : il décode lentement, et il retient
+   ce qu'il RÉPÈTE. Deux règles s'appliquent donc automatiquement à tout cours de niveau
+   primaire (isKidsLesson), sans avoir à les réécrire cours par cours :
+     1. DÉBIT RALENTI — la voix est jouée à 82 % de sa vitesse (hauteur préservée) ;
+     2. ANCRAGE PAR RÉPÉTITION — après l'explication, le prof redit la phrase clé de l'étape
+        DEUX fois de plus, en laissant un blanc pour que la classe répète avec lui
+        (« écoute → répète → encore une fois » : le procédé d'imprégnation du CP).
+   La phrase clé vient de `etape.ancrage` si l'auteur l'a écrite ; sinon on la déduit de la
+   première ligne « définition » du tableau, à défaut de la première phrase courte du texte
+   parlé. Une étape sans phrase clé exploitable ne déclenche aucune répétition. */
+const KIDS_RATE=0.82;                 // vitesse de lecture au primaire (1 = vitesse normale)
+const KIDS_REPEATS=3;                 // nombre de RAPPELS après l'explication (→ 4 écoutes en tout : dire et redire pour apprendre par cœur)
+const KIDS_GAP_MS=1500;               // blanc laissé aux élèves pour répéter à leur tour
+function kidsMode(){ return !!(typeof lecon!=='undefined' && lecon && isKidsLesson(lecon)); }
+function kidsSpeechRate(){ return kidsMode() ? KIDS_RATE : 1; }
+function plainText(html){ const d=document.createElement('div'); d.innerHTML=html||''; return (d.textContent||'').replace(/\s+/g,' ').trim(); }
+function kidsAnchor(etape, eb, say){
+  if(etape && etape.ancrage) return String(etape.ancrage).trim();
+  const def=(eb&&eb.lines||[]).find(l=>l&&/\bdef\b/.test(l.cls||'')&&l.t);
+  const fromBoard=def?plainText(def.t):'';
+  if(fromBoard && fromBoard.length<=90) return fromBoard;
+  const phrases=String(say||'').split(/(?<=[.!?])\s+/).map(s=>s.trim()).filter(Boolean);
+  const courte=phrases.find(p=>p.length>=12 && p.length<=80);
+  return courte||'';
+}
+/* Fait répéter la phrase clé, avec un vrai silence entre chaque passage. Les rappels 2 et 3
+   utilisent EXACTEMENT le même texte : la deuxième synthèse sort du cache, sans coût ni latence. */
+function speakKidsAnchor(phrase, done){
+  const fin=()=>{ if(typeof done==='function') done(); };
+  if(!phrase || !kidsMode() || !(typeof voiceOn==='function' ? voiceOn() : true)) { fin(); return; }
+  const rappels=['Écoute bien. '+phrase, 'À toi ! Répète avec moi. '+phrase, 'Encore une fois, tous ensemble. '+phrase];
+  let k=0;
+  const suivant=()=>{
+    if(k>=Math.min(KIDS_REPEATS, rappels.length)){ fin(); return; }
+    const texte=rappels[k++];
+    // il compte les répétitions sur ses doigts — sauf s'il y a un média : la règle « l'avatar
+    // montre ce que l'étape affiche » reste prioritaire pendant qu'il fait répéter.
+    avatarExpress(boardFocusEl()?'point':'count','happy');
+    speak(texte, ()=>setTimeout(suivant, KIDS_GAP_MS));   // blanc : la classe répète
+  };
+  setTimeout(suivant, KIDS_GAP_MS);
+}
+
 /* ---- pilotage de l'avatar VRM (iframe avatar3d.html, même origine) ---- */
 function avatarPost(m){ const f=document.querySelector('#avatarBox iframe'); if(f&&f.contentWindow) f.contentWindow.postMessage(m,'*'); }
 function avatarScene(name){ avatarPost({type:'scene',name}); }
@@ -1097,7 +1329,50 @@ function applyAvatarTransform(ms){
   const box=document.getElementById('avatarBox');
   box.style.transition='transform '+(ms||450)+'ms ease-in-out';
   box.style.transform='translateX('+avatarTx+'px) scale('+avatarScale+')';
+  scheduleAvatarSide(ms||450);
 }
+/* CÔTÉ DE L'AVATAR SUR LE TABLEAU. Les poses du modèle 3D montrent le tableau du bras tourné
+   vers lui. Tant que l'avatar reste à gauche, c'est le bras qui apparaît à droite de l'écran ;
+   dès qu'il se déplace au-delà du milieu (marche vers un schéma, rangement à droite pendant
+   une question), le tableau passe de l'autre côté et il doit changer de bras — sinon il pointe
+   hors de l'écran. On envoie donc simplement sa position ; l'avatar miroite sa pose et son
+   regard. Inutile en mode visage : les bras ne sont pas cadrés. */
+let avatarSide='left', _sideT=null;
+/* CE QUE L'AVATAR DOIT MONTRER : le média de l'étape — image, vidéo, simulation, carrousel,
+   schéma — ou, pendant l'évaluation, l'image de la question. C'est ça qu'il pointe et qu'il
+   regarde ; à défaut seulement, le centre du tableau. */
+function boardFocusEl(){
+  const bd=document.querySelector('.board'); if(!bd) return null;
+  for(const el of bd.querySelectorAll('.lesson-media,.schema,.quiz-img,.media-card')){
+    const r=el.getBoundingClientRect();
+    if(r.width>40 && r.height>40) return el;        // ignore un cadre vide ou pas encore mesuré
+  }
+  return null;
+}
+function updateAvatarSide(){
+  const box=document.getElementById('avatarBox'), parent=document.querySelector('.board');
+  if(!box||!parent||!parent.clientWidth) return;
+  // On raisonne sur la position VISÉE, pas sur le rectangle affiché : le déplacement dure
+  // 1,7 s et une mesure prise pendant l'animation (ou dans un onglet en arrière-plan, où les
+  // transitions sont gelées) renverrait encore l'ancienne place.
+  const pr=parent.getBoundingClientRect();
+  const glisse=!!(box.style.transform && box.style.transform!=='none');
+  const br=box.getBoundingClientRect();
+  // centre de l'avatar, en px depuis le bord gauche du tableau (bulle visage comprise :
+  // elle est posée en haut à droite, donc le contenu est toujours à sa gauche).
+  const centreAvatar = glisse ? (avatarTx + box.offsetWidth*avatarScale/2)
+                              : (br.left - pr.left + br.width/2);
+  const focus=boardFocusEl();
+  const cible = focus ? ((f=>f.left-pr.left+f.width/2)(focus.getBoundingClientRect()))
+                      : parent.clientWidth/2;
+  // `side` = où se trouve l'avatar ; l'avatar tend le bras du côté OPPOSÉ. On le déclare donc
+  // à gauche quand ce qu'il montre est à sa droite, et inversement.
+  const side = (cible >= centreAvatar) ? 'left' : 'right';
+  if(side===avatarSide) return;
+  avatarSide=side; avatarPost({type:'side',at:side});
+}
+// On attend la fin du déplacement pour basculer : l'avatar se retourne en arrivant, pas au départ.
+function scheduleAvatarSide(ms){ clearTimeout(_sideT); _sideT=setTimeout(updateAvatarSide, Math.max(0,ms||0)+40); }
 // RÉDUCTION DU PROF : plus petit pendant l'explication, taille pleine à l'accueil
 function setAvatarSize(scale){ if(headMode) return; avatarScale=scale; applyAvatarTransform(500); }
 function avatarWalkTo(toBoard, finalGesture){
@@ -1146,6 +1421,7 @@ function avatarDockRight(finalGesture){
 window.addEventListener('message',e=>{ if(e.data&&e.data.type==='avatarReady'){
   avatarScene('greet'); avatarExpress('wave','happy');
   avatarPost({type:'framing', mode: headMode?'head':'body'});          // cadrage courant (corps entier = pieds visibles)
+  avatarPost({type:'side', at:avatarSide});                            // côté courant (les messages postés avant le chargement sont perdus)
   try{ if(typeof lecon!=='undefined' && typeof i!=='undefined' && i>=0) applyLayout(lecon.id, i); }catch(_){}
 } });
 
@@ -1237,7 +1513,8 @@ function speakBrowser(text){
     const phrase=parts[i++];
     const u=new SpeechSynthesisUtterance(phrase);
     // débit LENT (collégiens) + légère variation aléatoire (timbre/débit) = moins monotone, plus vivant
-    u.lang='fr-FR'; u.rate=0.78+(Math.random()*0.06-0.03); u.pitch=1.03+(Math.random()*0.08-0.04);
+    // Au primaire, ENCORE plus lent : un enfant de 6 ans décode le son syllabe par syllabe.
+    u.lang='fr-FR'; u.rate=(0.78+(Math.random()*0.06-0.03))*kidsSpeechRate(); u.pitch=1.03+(Math.random()*0.08-0.04);
     if(v) u.voice=v;
     // La bouche s'ouvre quand le son COMMENCE vraiment (onstart) et se ferme à la fin de
     // chaque phrase (onend) : plus de décalage dû à la latence de démarrage ni de battement
@@ -1314,8 +1591,9 @@ function schedule3DTour(text, audio, my){
     if(my!==ttsToken) return;
     if(window.__cc3d && window.__cc3d.focusOrgan){
       const organs=window.__cc3d.organs||[];
-      const dur=(audio && isFinite(audio.duration) && audio.duration>0.5) ? audio.duration*1000
-                                                                          : Math.max(2600, text.length/9.5*1000);
+      // durée RÉELLE d'écoute : la piste est ralentie au primaire (playbackRate < 1)
+      const dur=(audio && isFinite(audio.duration) && audio.duration>0.5) ? audio.duration*1000/(audio.playbackRate||1)
+                                                                          : Math.max(2600, text.length/9.5*1000)/kidsSpeechRate();
       const elapsed=performance.now()-t0;
       const hits=[];
       ORGAN_WORDS_3D.forEach(o=>{ const idx=nt.search(o.re); if(idx>=0 && organs.includes(o.key)) hits.push({at:(idx/Math.max(1,nt.length))*dur, key:o.key}); });
@@ -1364,6 +1642,10 @@ function playBlob(blob, text, my){
   ttsLoading=true;                                  // attend aussi le démarrage réel du lecteur audio
   const url=URL.createObjectURL(blob);
   const a=new Audio(url); currentAudio=a;
+  // RÈGLE PRIMAIRE : la piste est rejouée plus lentement pour les GS/CP (hauteur de voix
+  // préservée par le navigateur → le prof parle lentement, il ne devient pas grave).
+  a.preservesPitch=true; a.mozPreservesPitch=true; a.webkitPreservesPitch=true;
+  a.playbackRate=kidsSpeechRate();
   const schemaEl=curSchemaEl;                        // le schéma associé à CETTE parole
   a.onplay =()=>{ if(my===ttsToken){ ttsLoading=false; animateMouth(true); startLipLevel(a, my); scheduleHighlights(schemaEl, text, a, my); schedule3DTour(text, a, my); } };
   a.onended=()=>{ if(my===ttsToken)ttsLoading=false; stopLipLevel(); animateMouth(false); URL.revokeObjectURL(url); if(currentAudio===a) currentAudio=null;
@@ -1412,8 +1694,8 @@ function glowPart(svg, lab){
 function scheduleHighlights(schemaEl, text, audio, my){
   if(!schemaEl) return;
   const svg=schemaEl.querySelector('svg'); if(!svg) return;
-  const dur = (audio && isFinite(audio.duration) && audio.duration>0.5) ? audio.duration*1000
-                                                                        : Math.max(2600, text.length/9.5*1000);
+  const dur = (audio && isFinite(audio.duration) && audio.duration>0.5) ? audio.duration*1000/(audio.playbackRate||1)
+                                                                        : Math.max(2600, text.length/9.5*1000)/kidsSpeechRate();
   const nt=norm(text);
   // POSITION SENSIBLE AUX PAUSES : la voix marque un silence sur . ! ? : ; , — ces signes
   // coûtent peu de caractères mais beaucoup de temps. On leur donne un poids supplémentaire
@@ -1653,6 +1935,11 @@ function paint(d, sayText){
     typeLetters(lineEls, estSec);
   }
   if(schemaEl) animateDrawing(schemaEl);   // le prof "trace" le schéma
+  // RÈGLE : l'avatar se tourne vers ce que l'étape montre. On vise une première fois dès la
+  // mise en page, puis à nouveau quand l'image ou l'iframe de simulation a pris sa taille
+  // définitive (avant chargement, le média mesure quelques pixels et fausserait la visée).
+  scheduleAvatarSide(60);
+  clearTimeout(window._focusT); window._focusT=setTimeout(updateAvatarSide, 900);
 }
 
 /* ---- EMPLACEMENT MÉDIA d'une étape : image/vidéo réelle, sinon cadre « à générer » ----
@@ -2491,12 +2778,15 @@ function applyLayout(cid, n){
       box.classList.remove('manual-head');
       avatarPost({type:'framing',mode:'body'});                      // corps entier : tête → pieds
     }
+    scheduleAvatarSide(0);   // le prof a pu le poser à droite du tableau : il change de bras
   }
 }
 // le tableau change de taille (entrée/sortie plein écran, fenêtre redimensionnée) :
 // on ré-applique la disposition pour recalculer le cadre de référence
-window.addEventListener('resize', ()=>{ try{ if(typeof lecon!=='undefined') applyLayout(lecon.id, board&&board.querySelector('.quiz-layout-block')?activeQuizLayoutKey:i); }catch(e){} });
+window.addEventListener('resize', ()=>{ try{ if(typeof lecon!=='undefined') applyLayout(lecon.id, board&&board.querySelector('.quiz-layout-block')?activeQuizLayoutKey:i); }catch(e){}
+  scheduleAvatarSide(120); });   // le média a changé de place : l'avatar re-vise
 function render(n){ const e=lecon.etapes[n];
+  applyAudienceTheme();
   cancelAutoNext(); cancelAutoResume();  // nouvelle étape → on repart de zéro (avance auto)
   const eb=effectiveBoard(e.board, lecon.id, n);   // applique les réglages prof (masquer/remplacer)
   const say=effSay(e.say, lecon.id, n);            // texte parlé effectif (réécrit/vidé par le prof)
@@ -2527,6 +2817,15 @@ function render(n){ const e=lecon.etapes[n];
   const forcedGesture = !!(avOv.gesture && avOv.gesture!=='auto');
   if(forcedGesture) gesture=avOv.gesture;
   if(avOv.emotion && avOv.emotion!=='auto') emotion=avOv.emotion;
+  /* RÈGLE : une étape qui MONTRE quelque chose (image, vidéo, simulation, carrousel, schéma)
+     doit être montrée du doigt. Le geste 'point' tourne le bras ET le regard vers le tableau,
+     et il est tenu pendant toute la parole (les poses de conversation ne le remplacent pas).
+     On respecte les gestes voulus : celui imposé par le prof, le salut d'accueil, les
+     applaudissements de félicitation et la posture de réflexion d'une question. */
+  const mm=eb.media||null;
+  const montreQuelqueChose = !!(eb.schema || eb.schema3d
+    || (mm && (mm.src || mm.srcdoc || (Array.isArray(mm.slides) && mm.slides.length))));
+  if(montreQuelqueChose && !forcedGesture && !['wave','clap','think'].includes(gesture)) gesture='point';
   // Choix de la taille de l'avatar selon le type d'étape :
   //  • PRÉSENTATION (peu de texte, pas de schéma) -> avatar en GRAND (corps entier)
   //  • EXPLICATION (texte au tableau) ou SCHÉMA   -> avatar RÉDUIT (bulle en haut)
@@ -2534,7 +2833,8 @@ function render(n){ const e=lecon.etapes[n];
   const txt=(eb.lines||[]).map(l=>l.t||'').join(' ').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim();
   const nLines=(eb.lines||[]).filter(l=>l&&l.t&&l.t.trim()).length;
   // PRÉSENTATION (avatar en grand) = pas de schéma, pas une question, et seulement 1-2 phrases courtes
-  const isPresentation = (n===0) || (!hasSchema && !e.reveal && nLines<=2 && txt.length < 200);
+  const isSimulation = !!(eb.media && eb.media.type==='simulation');
+  const isPresentation = (n===0) || (!isSimulation && !hasSchema && !e.reveal && nLines<=2 && txt.length < 200);
   // MISE EN PAGE MANUELLE : si le prof a fixé une disposition avec un avatar placé,
   // on DÉSACTIVE la marche/redimension automatique et on laisse applyLayout le positionner.
   const activeLayout=(stepOverride(lecon.id,n).layout)||(e.presentation&&e.presentation.layout);
@@ -2562,6 +2862,13 @@ function render(n){ const e=lecon.etapes[n];
     if(eb.schema) avatarWalkTo(true, forcedGesture ? gesture : 'point');
     else          avatarWalkTo(false, gesture);
   }
+  // Salut d'accueil et applaudissements sont des gestes COURTS (≈2 s) après lesquels l'avatar
+  // reprend une pose neutre. Si l'étape montre quelque chose, il enchaîne alors sur le geste
+  // qui la désigne : la règle « l'avatar montre le média » tient jusqu'au bout de l'étape.
+  clearTimeout(window._pointT);
+  if(montreQuelqueChose && !forcedGesture && (gesture==='wave'||gesture==='clap')){
+    window._pointT=setTimeout(()=>{ if(i===n && !inQuiz && boardFocusEl()) avatarGesture('point'); }, 2200);
+  }
   // REGARD forcé par le prof : appliqué APRÈS le geste (qui règle son propre regard)
   if(avOv.look && avOv.look!=='auto'){
     clearTimeout(window._lookT);
@@ -2585,13 +2892,20 @@ function render(n){ const e=lecon.etapes[n];
   const carousel = (eb.media && eb.media.type==='carousel') ? window.__currentCarousel : null;
   // fin de parole : révèle les lignes différées (board.linesAfterSpeech) AVANT toute autre suite
   const revealLines=()=>{ if(typeof window.__revealBoardLines==='function') window.__revealBoardLines(); };
+  /* RÈGLE PRIMAIRE : entre la fin de l'explication et la suite (question de contrôle, avance
+     automatique…), le prof fait RÉPÉTER la phrase clé. La trace écrite apparaît d'abord, pour
+     que les élèves aient le modèle sous les yeux pendant qu'ils répètent. */
+  const ancrage = kidsMode() ? kidsAnchor(e, eb, say) : '';
+  const ancrer = (suite)=>()=>{ revealLines();
+    if(ancrage && i===n) speakKidsAnchor(ancrage, ()=>{ if(i===n) suite(); });
+    else suite(); };
   if(isCheckStep){
     // le prof explique d'ABORD, puis demande « as-tu compris ? » et ATTEND la réponse
-    speakStepNarration(say, carousel, ()=>{ revealLines(); if(i===n) askComprehension(n); });   // à la fin : la question compris
+    speakStepNarration(say, carousel, ancrer(()=>{ if(i===n) askComprehension(n); }));   // à la fin : la question compris
   } else {
     // pas de point de contrôle : fin de la parole → petite pause (question possible) → diapo suivant
     const autoOk = !e.reveal && !interactive && !e.pauseForAnswer && n < lecon.etapes.length-1;
-    speakStepNarration(say, carousel, ()=>{ revealLines(); if(e.studentQuestion&&i===n)showStudentQuestionHint();else if(autoOk && i===n) scheduleAutoNext(n, AUTO_NEXT_MS); });
+    speakStepNarration(say, carousel, ancrer(()=>{ if(e.studentQuestion&&i===n)showStudentQuestionHint();else if(autoOk && i===n) scheduleAutoNext(n, AUTO_NEXT_MS); }));
   }
   bar.style.width=((n+1)/lecon.etapes.length*100)+'%';
   // précharge l'audio de l'étape SUIVANTE pendant la lecture (→ "Suivant" instantané)
@@ -2748,6 +3062,26 @@ function lessonTarget(){
   const t=(lecon&&lecon.targetContext)||{};
   return { subjectName:t.subjectName||'SVT', gradeLevelName:t.gradeLevelName||'3ème année collège (3APIC)' };
 }
+/* CONTEXTE D'UN COURS LOCAL NON-SVT (ex : le cours de Français « Cours M 1 » en GS/CP).
+   Le tuteur IA /api/ask utilise le prompt SVT « Prof Zouhair » par défaut pour les cours NON
+   importés → il répondrait « système nerveux » à une question sur la lettre M. En envoyant un
+   `courseContext` non vide (CIBLE + résumé de la leçon), le serveur bascule automatiquement sur
+   son prompt neutre, qui respecte la matière/niveau de la cible et adapte le langage au primaire.
+   Le cours SVT natif (sans targetContext, matière SVT) garde volontairement son prompt dédié. */
+function localLessonContext(){
+  const t=lessonTarget();
+  if(/svt|sciences de la vie/i.test(t.subjectName||'')) return '';   // cours SVT natif → prompt SVT conservé
+  const parts=['CIBLE EXACTE DU COURS : matière = '+t.subjectName+' ; niveau = '+t.gradeLevelName+'.'];
+  if(lecon&&lecon.titre) parts.push('Titre du cours : '+lecon.titre+'.');
+  if(lecon&&lecon.categoryLabel) parts.push('Domaine : '+lecon.categoryLabel+'.');
+  const lignes=[];
+  ((lecon&&lecon.etapes)||[]).forEach(e=>{
+    if(e&&e.say) lignes.push(plainText(e.say));
+    ((e&&e.board&&e.board.lines)||[]).forEach(l=>{ if(l&&l.t) lignes.push(plainText(l.t)); });
+  });
+  if(lignes.length) parts.push('Contenu de la leçon (source pédagogique) :\n- '+lignes.slice(0,40).join('\n- '));
+  return parts.join('\n').slice(0,6500);
+}
 function stepMethod(e){
   if(!e) return 'texte';
   if(e.__reexplainMethod) return e.__reexplainMethod;              // méthode de la dernière réexplication
@@ -2798,7 +3132,7 @@ function reexplain(n){
       stepTitle:(e.board&&e.board.title)||'',
       stepText:String(e.say||'').slice(0,2200),
       lessonTitle:lecon.titre,
-      courseContext:(lecon&&lecon.imported)?String(lecon.aiContext||'').slice(0,4000):'',
+      courseContext:(lecon&&lecon.imported)?String(lecon.aiContext||'').slice(0,4000):localLessonContext().slice(0,4000),
       target, methodsTried:e.__reexplainTried.slice(-6)
     })})
     .then(r=>r.json())
@@ -2859,6 +3193,8 @@ let presenting=false, hintT=null, exitBtnT=null;
 const boardEl=document.querySelector('.board');
 const exitPresentBtn=document.getElementById('exitPresent');
 const presentHint=document.getElementById('presentHint');
+const shotBtn=document.getElementById('shotBtn');
+const INDICE_PRESENTATION=presentHint.textContent;
 // le tableau vient de changer de taille (entrée/sortie plein écran) → on recadre la disposition.
 // La bascule CSS n'émet pas d'événement 'resize' : on ré-applique nous-mêmes (2 passes : la
 // transition du navigateur vers le plein écran prend quelques centaines de ms).
@@ -2869,14 +3205,16 @@ function enterPresentation(){
   document.body.classList.add('presenting');
   try{ const el=document.documentElement, rf=el.requestFullscreen||el.webkitRequestFullscreen;
     if(rf){ const p=rf.call(el); if(p&&p.catch) p.catch(()=>{}); } }catch(e){}
-  // indice de navigation, qui s'efface après quelques secondes
+  // indice de navigation, qui s'efface après quelques secondes (les messages de capture
+  // réutilisent ce bandeau : on remet toujours le texte d'origine en entrant)
+  presentHint.textContent=INDICE_PRESENTATION;
   presentHint.classList.add('show'); clearTimeout(hintT); hintT=setTimeout(()=>presentHint.classList.remove('show'), 4500);
   flashExit(); relayoutSoon();
 }
 function exitPresentation(){
   if(!presenting) return; presenting=false;
   document.body.classList.remove('presenting');
-  presentHint.classList.remove('show'); exitPresentBtn.classList.remove('show');
+  presentHint.classList.remove('show'); exitPresentBtn.classList.remove('show'); shotBtn.classList.remove('show');
   try{ if(document.fullscreenElement) (document.exitFullscreen||document.webkitExitFullscreen||(()=>{})).call(document); }catch(e){}
   relayoutSoon();
 }
@@ -2912,8 +3250,76 @@ if(pauseBtn) pauseBtn.onclick=togglePause;
 if(stopBtn)  stopBtn.onclick=stopCourse;
 
 // le bouton "Quitter" apparaît quand la souris bouge, puis se cache
-function flashExit(){ if(!presenting) return; exitPresentBtn.classList.add('show');
-  clearTimeout(exitBtnT); exitBtnT=setTimeout(()=>exitPresentBtn.classList.remove('show'), 2500); }
+function flashExit(){ if(!presenting) return; exitPresentBtn.classList.add('show'); shotBtn.classList.add('show');
+  clearTimeout(exitBtnT); exitBtnT=setTimeout(()=>{exitPresentBtn.classList.remove('show');shotBtn.classList.remove('show')}, 2500); }
+
+/* ====== CAPTURE DU TABLEAU, COPIÉE AUTOMATIQUEMENT ======
+   Le tableau contient l'avatar (WebGL) et les simulations (iframe) : une conversion du DOM
+   en image les rendrait vides. On passe donc par getDisplayMedia, qui photographie ce qui est
+   RÉELLEMENT affiché. Le navigateur demande une fois quel écran/onglet partager (preferCurrentTab
+   présélectionne l'onglet en cours) ; l'image part ensuite seule dans le presse-papiers. */
+function noteCapture(texte){ presentHint.textContent=texte; presentHint.classList.add('show');
+  clearTimeout(hintT); hintT=setTimeout(()=>presentHint.classList.remove('show'), 3200); }
+
+async function capturerTableau(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia){
+    noteCapture('Capture impossible : navigateur trop ancien.'); return;
+  }
+  const libelle=shotBtn.textContent;
+  shotBtn.disabled=true; shotBtn.textContent='📸 …';
+  let flux=null;
+  try{
+    flux=await navigator.mediaDevices.getDisplayMedia({
+      video:{displaySurface:'browser'}, audio:false,
+      preferCurrentTab:true, selfBrowserSurface:'include'
+    });
+    const video=document.createElement('video');
+    video.srcObject=flux; video.muted=true; video.playsInline=true;
+    await video.play();
+    // laisser deux rendus passer, sinon la première image peut être noire
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    const largeur=video.videoWidth, hauteur=video.videoHeight;
+    if(!largeur||!hauteur) throw new Error('image vide');
+    const toile=document.createElement('canvas');
+    toile.width=largeur; toile.height=hauteur;
+    toile.getContext('2d').drawImage(video,0,0,largeur,hauteur);
+    video.pause(); video.srcObject=null;
+    const image=await new Promise(r=>toile.toBlob(r,'image/png'));
+    if(!image) throw new Error('encodage impossible');
+
+    let copiee=false;
+    try{
+      if(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+        await navigator.clipboard.write([new ClipboardItem({'image/png':image})]);
+        copiee=true;
+      }
+    }catch(e){ copiee=false; }
+
+    if(copiee){
+      shotBtn.classList.add('ok'); shotBtn.textContent='✓ Copiée';
+      noteCapture('Capture copiée : colle-la avec Ctrl+V.');
+      setTimeout(()=>{shotBtn.classList.remove('ok');shotBtn.textContent=libelle},1800);
+    }else{
+      // Repli : certains navigateurs refusent d'écrire une image dans le presse-papiers.
+      const lien=document.createElement('a');
+      lien.href=URL.createObjectURL(image);
+      lien.download='tableau-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.png';
+      lien.click();
+      setTimeout(()=>URL.revokeObjectURL(lien.href),5000);
+      noteCapture('Presse-papiers refusé : la capture a été téléchargée.');
+      shotBtn.textContent=libelle;
+    }
+  }catch(erreur){
+    const annule=erreur && (erreur.name==='NotAllowedError' || erreur.name==='AbortError');
+    noteCapture(annule?'Capture annulée.':'Capture impossible : '+String(erreur.message||erreur).slice(0,80));
+    shotBtn.textContent=libelle;
+  }finally{
+    if(flux) flux.getTracks().forEach(p=>p.stop());   // rend la main : plus rien n'est partagé
+    shotBtn.disabled=false;
+    flashExit();
+  }
+}
+shotBtn.onclick=capturerTableau;
 document.addEventListener('mousemove',()=>{ if(presenting) flashExit(); });
 exitPresentBtn.onclick=exitPresentation;
 // clic sur le tableau = étape suivante (sauf si on clique un bouton / champ / liste de la leçon)
@@ -2942,6 +3348,15 @@ let quiz=null, qi=0, qScore=0, qMax=0;
 function stripHtml(s){ const d=document.createElement('div'); d.innerHTML=s||''; return d.textContent||''; }
 function mkOpt(label, cls){ const b=document.createElement('button');
   b.className='quiz-opt'+(cls?' '+cls:''); b.innerHTML=label; return b; }
+/* Vignette d'une option / d'un élément à relier : SVG inline (…Svgs) ou fichier image (…Imgs). */
+function optVisual(svg, img, alt){
+  if(svg) return '<span class="qo-svg">'+svg+'</span>';   // lettre/schéma tracé : posé sur une carte claire
+  // photo/illustration : classe `qo-img` → aucune carte blanche derrière, l'image sort du fond
+  if(img) return '<span class="qo-svg qo-img"><img src="'+img+'" alt="'+(alt||'').replace(/"/g,'')+'"></span>';
+  return '';
+}
+/* Grand affichage (GS/CP) : le chapitre demande des visuels XXL pour toute l'évaluation. */
+function applyQuizScale(el){ if(el) el.classList.toggle('quiz-xl', !!(lecon&&lecon.quizBigVisuals)); }
 
 /* ÉVALUATION : un chapitre peut proposer PLUSIEURS quiz (lecon.quizSets = [{label,intro?,quiz:[…]}]).
    On en montre UN SEUL à la fois (choisi au hasard), avec un bouton « 🔄 Changer de quiz ». Rétro-
@@ -2999,6 +3414,7 @@ function renderQuizChooser(sets, cur){
     card.appendChild(dots);
   }
   const quizLayout=document.createElement('div'); quizLayout.className='quiz-layout-block';
+  applyQuizScale(quizLayout);
   quizLayout.appendChild(card); board.appendChild(quizLayout);
   applyLayout(lecon.id,activeQuizLayoutKey);
   avatarExpress('explain','happy');
@@ -3016,22 +3432,30 @@ function renderQ(){
   title.textContent=(lecon.quizGameMode?'🎲 Jeu — Défi ':'📝 Évaluation — Question ')+(qi+1)+' / '+qMax;
   board.innerHTML='';
   clearBoardFloatingBlocks();
-  const quizLayout=document.createElement('div'); quizLayout.className='quiz-layout-block'; board.appendChild(quizLayout);
+  const quizLayout=document.createElement('div'); quizLayout.className='quiz-layout-block'; applyQuizScale(quizLayout); board.appendChild(quizLayout);
   // ÉNONCÉ (texte de contexte) affiché avant la question — pour les exercices « à énoncé »
   if(item.enonce){ const en=document.createElement('div'); en.className='quiz-enonce';
     en.innerHTML='<span class="doc-tag">📄 Énoncé</span>'+item.enonce; quizLayout.appendChild(en); }
-  // IMAGE de la question : soit un SVG inline (item.svg), soit un fichier (item.img). Facultatif.
+  // MISE EN PAGE : quand la question porte une image, on la place À DROITE et la question +
+  // les propositions À GAUCHE. Empilés, l'image mangeait toute la hauteur du tableau en plein
+  // écran et l'élève ne voyait plus que la première réponse. Sans image : une seule colonne.
+  let host=quizLayout;
   if(item.svg || item.img){
+    const two=document.createElement('div'); two.className='quiz-two-col';
+    const left=document.createElement('div'); left.className='qtc-left';
+    const right=document.createElement('div'); right.className='qtc-right';
+    two.appendChild(left); two.appendChild(right); quizLayout.appendChild(two);
     const box=document.createElement('div'); box.className='quiz-img';
     box.innerHTML = item.svg ? item.svg : '<img src="'+item.img+'" alt="'+(item.imgCaption||'illustration de la question')+'">';
     if(item.imgCaption){ const cap=document.createElement('div'); cap.className='qi-cap'; cap.textContent=item.imgCaption; box.appendChild(cap); }
-    quizLayout.appendChild(box);
+    right.appendChild(box);
+    host=left;
   }
-  const q=document.createElement('div'); q.className='line'; q.innerHTML=item.q; quizLayout.appendChild(q);
-  const opts=document.createElement('div'); opts.className='quiz-opts'; quizLayout.appendChild(opts);
+  const q=document.createElement('div'); q.className='line'; q.innerHTML=item.q; host.appendChild(q);
+  const opts=document.createElement('div'); opts.className='quiz-opts'; host.appendChild(opts);
 
   if(item.type==='qcm'){
-    item.options.forEach((o,idx)=>{ const visual=item.optionSvgs&&item.optionSvgs[idx];const b=mkOpt(visual?'<span class="qo-svg">'+visual+'</span><span>'+o+'</span>':o);if(visual)b.classList.add('has-visual');b.onclick=()=>answerChoice(idx,opts); opts.appendChild(b); });
+    item.options.forEach((o,idx)=>{ const visual=optVisual(item.optionSvgs&&item.optionSvgs[idx], item.optionImgs&&item.optionImgs[idx], o);const b=mkOpt(visual?visual+'<span>'+o+'</span>':o);if(visual)b.classList.add('has-visual');b.onclick=()=>answerChoice(idx,opts); opts.appendChild(b); });
   } else if(item.type==='vf'){
     const row=document.createElement('div'); row.className='quiz-row';
     [['✔ Vrai',true],['✘ Faux',false]].forEach(([lab,val])=>{ const b=mkOpt(lab); b.onclick=()=>answerChoice(val,opts); row.appendChild(b); });
@@ -3040,7 +3464,7 @@ function renderQ(){
     const rights=shuffle(item.pairs.map(p=>p.r));     // réponses mélangées
     item.pairs.forEach((p,idx)=>{
       const row=document.createElement('div'); row.className='assoc-row';
-      const l=document.createElement('div'); l.className='assoc-l'; l.innerHTML=(p.lSvg?'<span class="qo-svg">'+p.lSvg+'</span>':'')+p.l;
+      const l=document.createElement('div'); l.className='assoc-l'; l.innerHTML=optVisual(p.lSvg,p.lImg,p.l)+p.l;
       const sel=document.createElement('select'); sel.className='assoc-sel'; sel.dataset.idx=idx;
       const o0=document.createElement('option'); o0.value=''; o0.textContent='— choisir —'; sel.appendChild(o0);
       rights.forEach(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=r; sel.appendChild(o); });
@@ -3057,7 +3481,10 @@ function renderQ(){
     row.appendChild(inp); row.appendChild(b); opts.appendChild(row); setTimeout(()=>inp.focus(),50);
   }
   applyLayout(lecon.id,activeQuizLayoutKey);
-  avatarExpress('think','curious');
+  // même règle qu'au cours : une question illustrée est MONTRÉE du doigt, les autres font réfléchir
+  avatarExpress((item.svg||item.img) ? 'point' : 'think','curious');
+  scheduleAvatarSide(60);
+  clearTimeout(window._focusT); window._focusT=setTimeout(updateAvatarSide, 900);
   speak(stripHtml(item.q));
 }
 function lockChoice(opts, item, chosen){
@@ -3225,6 +3652,7 @@ function showNoAvailableLessons(){
 // Écran d'accueil du chapitre courant (avant « Démarrer », ou après « Arrêter »)
 function showChapterHome(){
   if(!lecon){showNoAvailableLessons();return;}
+  applyAudienceTheme();                                      // tableau vif au primaire, ardoise au collège
   i=-1; bar.style.width='0%'; stopAudio(); renderPhase(-1); // coupe l'audio + masque le bandeau de phases
   resumePlayback();                                          // annule un éventuel état "pause"
   compClear();
@@ -3514,7 +3942,10 @@ window.addEventListener('message',event=>{
   const actions=['demo','reset'].concat(variables.length?['set']:[]).concat(elements.length&&zones.length?['place']:[]);
   activeSimulationContext={state,observation:String(data.observation||'').slice(0,300),capabilities:{actions,variables,elements,zones}};
   const completed=window.ccSimulationStateCompleted?window.ccSimulationStateCompleted(data,elements,zones):data.completed===true;
-  if(completed)scheduleSimulationAdvance();
+  // Terminé → on programme l'avance ; REVENU À « non terminé » (ex : l'élève a cliqué « Rejouer »
+  // pendant que l'avance attendait la fin de la parole) → on ANNULE l'avance déjà programmée,
+  // sinon le cours passerait au diapo suivant alors que l'élève vient de relancer le jeu.
+  if(completed)scheduleSimulationAdvance();else cancelSimulationAdvance();
 });
 window.addEventListener('message',event=>{const data=event.data||{};if(data.type==='cc-sim-complete'&&currentSimulationFrame(event))scheduleSimulationAdvance()});
 /* VOIX DÉLÉGUÉE DE LA SIMULATION : la simulation est muette et envoie
@@ -3574,7 +4005,7 @@ function answer(q){
   fetch('/api/ask',{ method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ question:q, lessonTitle:lecon.titre,
                              chapterId:(lecon&&lecon.id)||null, step:(typeof i==='number'?i:null),
-                             courseContext:(lecon&&lecon.imported)?String(lecon.aiContext||'').slice(0,6500):'',
+                             courseContext:(lecon&&lecon.imported)?String(lecon.aiContext||'').slice(0,6500):localLessonContext(),
                              simulationContext, target:lessonTarget() }) })
     .then(r=>r.json())
     .then(d=>{

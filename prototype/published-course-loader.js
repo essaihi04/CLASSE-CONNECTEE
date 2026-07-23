@@ -141,6 +141,22 @@
       const legacyDragPatch=`<script id="ccLegacyDragPatch">(()=>{const NS='http://www.w3.org/2000/svg',scene=document.getElementById('scene');if(!scene)return;const patch=()=>scene.querySelectorAll('g.draggable[data-element]').forEach(group=>{if(Array.from(group.children).some(node=>node.classList&&node.classList.contains('drag-hit')))return;const holder=Array.from(group.children).find(node=>node.tagName&&node.tagName.toLowerCase()==='g'&&node.getAttribute('pointer-events')==='none'),art=holder&&holder.querySelector('svg');if(!art)return;const hit=document.createElementNS(NS,'rect');hit.setAttribute('x',art.getAttribute('x')||'0');hit.setAttribute('y',art.getAttribute('y')||'0');hit.setAttribute('width',art.getAttribute('width')||'16');hit.setAttribute('height',art.getAttribute('height')||'16');hit.setAttribute('rx','2');hit.setAttribute('fill','transparent');hit.setAttribute('pointer-events','all');hit.setAttribute('class','drag-hit');group.insertBefore(hit,group.firstChild)});new MutationObserver(patch).observe(scene,{childList:true,subtree:true});patch()})();<\/script>`;
       document=document.replace(/<\/body>/i,legacyDragPatch+'</body>');
     }
+    // Migration sans republication (2) : les cours déjà publiés embarquent une page figée.
+    //  - GÉOMÉTRIE : leur conversion du pointeur suppose que la scène remplit tout le cadre.
+    //    Or le viewBox 100x70 est centré avec des bandes vides dès que le cadre n'est pas au
+    //    ratio 10:7 (plein écran du tableau) : le doigt était lu jusqu'à ~24 unités à côté de
+    //    l'objet, donc les dépôts en zone échouaient. On réinstalle la conversion exacte.
+    //  - SILENCE : dans le tableau, la simulation ne doit JAMAIS parler elle-même. Elle relaie
+    //    chaque mot à l'avatar ({type:'cc-sim-voice'}) qui est la seule voix du cours.
+    // Les fonctions de la page sont déclarées au premier niveau du script : elles sont donc
+    // globales et remplaçables. Le pilotage (window.CourseSimulation) existe déjà, on n'y touche pas.
+    if(/window\.CourseSimulation\s*=/.test(document)&&!/ccSimBoardPatch/.test(document)&&/<\/body>/i.test(document)){
+      const boardPatch=`<script id="ccSimBoardPatch">(()=>{const scene=document.getElementById('scene');
+if(scene&&typeof window.point==='function'&&!/getScreenCTM/.test(String(window.point))){window.point=function(event){const m=scene.getScreenCTM&&scene.getScreenCTM();if(m){const p=scene.createSVGPoint();p.x=event.clientX;p.y=event.clientY;const r=p.matrixTransform(m.inverse());return{x:r.x,y:r.y}}const rect=scene.getBoundingClientRect();return{x:(event.clientX-rect.left)*100/rect.width,y:(event.clientY-rect.top)*70/rect.height}}}
+if(typeof window.voice==='function'){window.voice=function(kind,message,extra){message=String(message==null?'':message).trim();if(!message)return;try{parent.postMessage(Object.assign({type:'cc-sim-voice',kind:kind,text:message},extra||{}),'*')}catch(e){}}}
+try{const ss=window.speechSynthesis;if(ss){ss.cancel();ss.speak=function(){}}}catch(e){}})();<\/script>`;
+      document=document.replace(/<\/body>/i,boardPatch+'</body>');
+    }
     return /^<\s*(?:!doctype|html)\b/i.test(document)?document:'';
   }
   function standaloneResourceStep(source,mediaIndex){

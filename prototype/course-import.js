@@ -132,8 +132,7 @@
       // l'écran ne doit jamais rester bloqué pour toujours si le serveur ne répond plus.
       const response=await fetch('/api/analyze-course-import',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},signal:AbortSignal.timeout(13*60*1000),body:JSON.stringify({pdf:{name:state.pdf.name,mimeType:'application/pdf',data:pdfData},resources,request:{assignmentId:assignment.id,title:$('courseTitle').value.trim(),durationHours:Number($('durationHours').value),teacherInstructions:$('teacherInstructions').value.trim()}})}).catch(error=>{throw new Error(error&&(error.name==='TimeoutError'||error.name==='AbortError')?'L’analyse a dépassé le délai maximum. Réessayez, ou réduisez la taille du PDF / la durée demandée.':'Serveur inaccessible : vérifiez que le serveur tourne, puis réessayez.')});
       const body=await response.json();if(!response.ok)throw new Error(body.error||'Analyse impossible');state.plan=normalizePlan(body);
-      await generateMissingImages(token);
-      await generateMissingSimulations(token);
+      reportPromptSlots();
       enablePlanStages();renderPlan();
       toast('Cours structuré. Enregistrement des tableaux et ressources…');
       await saveCourse(false,{openBoards:true});
@@ -144,49 +143,76 @@
     const bytes=atob(String(data||'')),array=new Uint8Array(bytes.length);for(let i=0;i<bytes.length;i++)array[i]=bytes.charCodeAt(i);
     return new File([array],fileName,{type:mimeType||'application/octet-stream'});
   }
-  async function generateMissingImages(token){
-    const candidates=allBlocks().filter(block=>(block.type==='image'||block.type==='schema')&&!block.resourceName&&block.image&&block.image.useful===true);
-    const target=state.plan&&state.plan.targetContext||{};
-    const primary=/préscolaire|primaire|apep|grande\s+section|\bcp\b/i.test(`${target.cycle||''} ${target.gradeLevelName||''} ${target.gradeLevelCode||''}`);
-    const configured=Number(window.OPENAI_MAX_COURSE_IMAGES);
-    // Au primaire, chaque mot concret utile doit garder son couple mot + image : ne tronque
-    // donc plus silencieusement la liste à quatre illustrations. Une configuration explicite
-    // peut toujours imposer un plafond à l'établissement.
-    const limit=Number.isFinite(configured)&&configured>=0?configured:(primary?candidates.length:4);
-    const targets=candidates.slice(0,Math.max(0,limit));
-    if(!targets.length){skipLoadingStage('images','Aucune image manquante jugée indispensable');return}
-    let completed=0;setLoadingStage('images','Génération des illustrations utiles',`${targets.length} image${targets.length>1?'s':''} pédagogique${targets.length>1?'s':''} à créer. Deux générations peuvent avancer en parallèle.`,52);
-    await runPool(targets,2,async block=>{
-      try{
-        const response=await fetch('/api/generate-course-image',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({title:block.title,image:block.image,targetContext:state.plan.targetContext||null})});
-        const out=await response.json();if(!response.ok)throw new Error(out.error||'génération impossible');
-        const file=fileFromBase64(out.data,out.fileName,out.mimeType);
-        state.resources.push({id:uid('res'),file,kind:block.type==='schema'?'schema':'image',objective:block.objective||block.image.reason||'Observer et identifier'});block.resourceName=out.fileName;
-      }catch(error){state.plan.warnings.push('Image non générée pour « '+block.title+' » : '+error.message);}
-      finally{completed++;updateLoadingProgress(52+(completed/targets.length)*10,`${completed}/${targets.length} illustration${targets.length>1?'s':''} traitée${completed>1?'s':''}. Les images fournies par le professeur sont conservées ; seules les images utiles manquantes sont créées.`)}
-    });
-    if(targets.length)renderResources();
+  // ---- EMPLACEMENTS DE PROMPT ----------------------------------------------------------
+  // L'IA ne fabrique AUCUNE image : elle décrit seulement ce qu'il faudrait voir. Chaque
+  // description devient un « emplacement » que le professeur remplit en important sa propre
+  // ressource dédiée (photo, illustration, capture…). Un emplacement laissé vide retombe sur
+  // le SVG dessiné par l'IA pour les simulations, ou reste sans média pour les blocs image.
+  function promptSlots(block){
+    const slots=[];
+    if(!block)return slots;
+    if((block.type==='image'||block.type==='schema')&&block.image&&block.image.imagePrompt){
+      slots.push({key:'image',label:block.title||'Illustration du bloc',
+        prompt:String(block.image.imagePrompt||''),filled:!!block.resourceName,
+        fileName:block.resourceName||''});
+    }
+    if(block.type==='simulation'&&block.simulation){
+      const sim=block.simulation;
+      (Array.isArray(sim.elements)?sim.elements:[]).forEach(item=>{
+        if(!item||!item.imagePrompt)return;
+        slots.push({key:'element:'+item.id,label:(item.label||item.id)+' · objet',
+          prompt:String(item.imagePrompt||''),filled:!!item.importedImage,
+          fileName:item.importedImageName||''});
+      });
+      (Array.isArray(sim.zones)?sim.zones:[]).forEach(item=>{
+        if(!item||!item.imagePrompt)return;
+        slots.push({key:'zone:'+item.id,label:(item.label||item.id)+' · zone',
+          prompt:String(item.imagePrompt||''),filled:!!item.importedImage,
+          fileName:item.importedImageName||''});
+      });
+    }
+    return slots;
   }
-  // Pour chaque bloc simulation sans ressource importée, l'IA fabrique une page HTML
-  // interactive (énoncé, curseurs, schéma SVG, observations) ajoutée comme ressource du
-  // cours et associée au bloc. Un échec sur une simulation n'interrompt pas l'import.
-  async function generateMissingSimulations(token){
-    const targets=allBlocks().filter(block=>block.type==='simulation'&&!block.resourceName&&block.simulation);
-    const selected=targets.slice(0,6);if(!selected.length){skipLoadingStage('simulations','Aucune simulation à fabriquer');return}
-    let completed=0;setLoadingStage('simulations','Création des simulations interactives',`${selected.length} simulation${selected.length>1?'s':''} à assembler : objets, cartes-images générées par IA, sons et règles du jeu (environ 1 min par simulation).`,63);
-    await runPool(selected,2,async block=>{
-      try{
-        const response=await fetch('/api/generate-simulation',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({title:block.title,objective:block.objective,content:block.content,simulation:block.simulation,targetContext:state.plan.targetContext||null})});
-        const out=await response.json();if(!response.ok)throw new Error(out.error||'génération impossible');if(out.warning)state.plan.warnings.push(out.warning);
-        const file=new File([out.html],out.fileName,{type:'text/html'});
-        state.resources.push({id:uid('res'),file,kind:'simulation',objective:block.simulation.goal||'Manipuler et expérimenter'});
-        block.simulationHtml=out.html;
-        block.resourceName=out.fileName;
-      }catch(error){console.warn('Simulation non générée ('+block.title+') :',error.message)}
-      finally{completed++;updateLoadingProgress(63+(completed/selected.length)*8,`${completed}/${selected.length} simulation${selected.length>1?'s':''} préparée${completed>1?'s':''}.`)}
-    });
-    if(targets.length)renderResources();
+  function slotTarget(block,key){
+    if(key==='image')return block;
+    const [kind,id]=String(key).split(':');
+    const list=kind==='zone'?(block.simulation&&block.simulation.zones):(block.simulation&&block.simulation.elements);
+    return (Array.isArray(list)?list:[]).find(x=>x&&x.id===id)||null;
   }
+  function allSlots(){return allBlocks().flatMap(block=>promptSlots(block).map(slot=>({block,slot})))}
+  // Après l'analyse : on annonce ce qu'il reste à importer, aucune génération n'est lancée.
+  function reportPromptSlots(){
+    const slots=allSlots();
+    const images=slots.filter(x=>x.slot.key==='image').length;
+    const sims=slots.length-images;
+    skipLoadingStage('images',images?`${images} emplacement${images>1?'s':''} d’image décrit${images>1?'s':''} : à remplir par import`:'Aucune image demandée par le cours');
+    skipLoadingStage('simulations',sims?`${sims} carte${sims>1?'s':''} de simulation décrite${sims>1?'s':''} : à remplir par import`:'Aucune carte de simulation à illustrer');
+  }
+  // Assemble la page HTML d'une simulation A PARTIR DES IMAGES IMPORTEES par le professeur.
+  // Aucune image n'est generee : un emplacement laisse vide retombe sur le SVG dessine par
+  // l'IA. A relancer apres chaque import pour rafraichir la simulation du bloc.
+  async function assembleSimulation(block){
+    const token=window.currentTeacher&&window.currentTeacher.session&&window.currentTeacher.session.access_token;
+    const importedImages={};
+    [...(block.simulation.elements||[]),...(block.simulation.zones||[])].forEach(item=>{
+      if(item&&item.importedImage)importedImages[item.id]=item.importedImage;
+    });
+    const response=await fetch('/api/generate-simulation',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({title:block.title,objective:block.objective,content:block.content,simulation:block.simulation,targetContext:state.plan&&state.plan.targetContext||null,noAiImages:true,importedImages})});
+    const out=await response.json();if(!response.ok)throw new Error(out.error||'assemblage impossible');
+    const previous=block.resourceName;
+    if(previous){
+      const old=state.resources.find(r=>resourceName(r)===previous&&r.kind==='simulation');
+      if(old){
+        if(old.dbId&&!state.removedSources.some(x=>x.id===old.dbId))state.removedSources.push({id:old.dbId,storagePath:old.storagePath||''});
+        state.resources=state.resources.filter(r=>r!==old);
+      }
+    }
+    const file=new File([out.html],out.fileName,{type:'text/html'});
+    state.resources.push({id:uid('res'),file,kind:'simulation',objective:(block.simulation&&block.simulation.goal)||'Manipuler et experimenter'});
+    block.simulationHtml=out.html;block.resourceName=out.fileName;
+    renderResources();
+  }
+
   function enablePlanStages(){document.querySelector('[data-go-stage="2"]').disabled=false;document.querySelector('[data-go-stage="3"]').disabled=false}
 
   function allBlocks(){return (state.plan&&state.plan.sessions||[]).flatMap(s=>s.blocks||[])}
@@ -228,8 +254,73 @@
 
   function openBlock(session,block){
     state.selected={session,block};$('drawerTitle').textContent=block.title;const type=$('editBlockType');type.innerHTML=Object.entries(BLOCK_TYPES).map(([value,x])=>`<option value="${value}">${x.label}</option>`).join('');type.value=block.type;$('editBlockTitle').value=block.title;$('editBlockObjective').value=block.objective;$('editBlockDuration').value=block.durationMinutes;$('editBlockContent').value=block.content;$('editTeacherNote').value=block.teacherNote||'';
-    const res=$('editBlockResource');res.innerHTML='<option value="">Aucune ressource</option>'+state.resources.map(x=>`<option value="${escapeHtml(resourceName(x))}">${escapeHtml(resourceName(x))}</option>`).join('');res.value=block.resourceName||'';$('blockDrawer').hidden=false;
+    const res=$('editBlockResource');res.innerHTML='<option value="">Aucune ressource</option>'+state.resources.map(x=>`<option value="${escapeHtml(resourceName(x))}">${escapeHtml(resourceName(x))}</option>`).join('');res.value=block.resourceName||'';renderPromptSlots(block);$('blockDrawer').hidden=false;
   }
+  async function fileAsDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onerror=()=>reject(new Error('Lecture impossible : '+file.name));r.onload=()=>resolve(String(r.result));r.readAsDataURL(file)})}
+  // Un emplacement = une description d'image écrite par l'IA + le fichier que le professeur
+  // importe pour la remplir. Rien n'est généré : tant qu'aucun fichier n'est importé,
+  // l'emplacement reste vide (repli SVG pour les simulations).
+  function renderPromptSlots(block){
+    const section=$('promptSlots'),list=$('promptSlotsList'),assemble=$('assembleSimulationBtn');
+    const slots=promptSlots(block);
+    section.hidden=!slots.length;
+    assemble.hidden=block.type!=='simulation'||!slots.length;
+    list.innerHTML='';
+    if(!slots.length)return;
+    slots.forEach(slot=>{
+      const target=slotTarget(block,slot.key);if(!target)return;
+      const card=document.createElement('div');
+      card.className='prompt-slot'+(slot.filled?' filled':'');
+      card.innerHTML=`<div class="prompt-slot-head"><b>${escapeHtml(slot.label)}</b><span class="prompt-slot-state">${slot.filled?'✓ '+escapeHtml(slot.fileName||'ressource importée'):'à importer'}</span></div>`+
+        `<textarea class="prompt-slot-text" rows="3" aria-label="Prompt de l’image">${escapeHtml(slot.prompt)}</textarea>`+
+        `<div class="prompt-slot-actions"><button class="quiet-button" data-act="copy" type="button">⧉ Copier le prompt</button><label class="quiet-button file-pick"><input type="file" accept="${slot.key==='image'?'image/*':'image/png,image/jpeg,image/webp'}" hidden>⤓ Importer la ressource</label>${slot.filled?'<button class="quiet-button" data-act="clear" type="button">× Retirer</button>':''}</div>`+
+        (slot.key==='image'?'':'<p class="prompt-slot-hint">PNG, JPEG ou WebP — seuls formats intégrables dans la simulation.</p>');
+      const textarea=card.querySelector('.prompt-slot-text');
+      textarea.oninput=()=>{
+        if(slot.key==='image'){block.image=block.image||{};block.image.imagePrompt=textarea.value}
+        else target.imagePrompt=textarea.value;
+      };
+      card.querySelector('[data-act="copy"]').onclick=async()=>{
+        try{await navigator.clipboard.writeText(textarea.value);toast('Prompt copié.')}
+        catch(e){textarea.select();toast('Sélectionné : copiez avec Ctrl+C.')}
+      };
+      const clear=card.querySelector('[data-act="clear"]');
+      if(clear)clear.onclick=()=>{
+        if(slot.key==='image'){block.resourceName=''}
+        else{delete target.importedImage;delete target.importedImageName}
+        renderPromptSlots(block);renderPlan();
+      };
+      card.querySelector('input[type="file"]').onchange=async event=>{
+        const file=event.target.files&&event.target.files[0];if(!file)return;
+        try{
+          if(slot.key==='image'){
+            // Le bloc image utilise le mécanisme normal de ressource du cours.
+            state.resources.push({id:uid('res'),file,kind:block.type==='schema'?'schema':'image',objective:block.objective||(block.image&&block.image.reason)||'Observer et identifier'});
+            block.resourceName=file.name;renderResources();
+            const select=$('editBlockResource');
+            select.innerHTML='<option value="">Aucune ressource</option>'+state.resources.map(x=>`<option value="${escapeHtml(resourceName(x))}">${escapeHtml(resourceName(x))}</option>`).join('');
+            select.value=block.resourceName;
+          }else{
+            // Carte de simulation : l'image est intégrée en data URL dans la page assemblée.
+            // Le gabarit n'accepte que png/jpeg/webp : refuser tout de suite les autres
+            // formats évite un repli silencieux sur le SVG que le professeur ne comprendrait pas.
+            if(!/^image\/(png|jpeg|webp)$/i.test(file.type))throw new Error('Format non intégrable : utilisez PNG, JPEG ou WebP.');
+            target.importedImage=await fileAsDataUrl(file);
+            target.importedImageName=file.name;
+          }
+          renderPromptSlots(block);renderPlan();toast('Ressource importée.');
+        }catch(error){toast(error.message||'Import impossible.',true)}
+      };
+      list.appendChild(card);
+    });
+  }
+  $('assembleSimulationBtn').onclick=async()=>{
+    const selected=state.selected;if(!selected)return;
+    const button=$('assembleSimulationBtn');button.disabled=true;button.textContent='⟳ Assemblage…';
+    try{await assembleSimulation(selected.block);renderPromptSlots(selected.block);renderPlan();toast('Simulation assemblée avec vos images.')}
+    catch(error){toast(error.message||'Assemblage impossible.',true)}
+    finally{button.disabled=false;button.textContent='⟳ Assembler la simulation'}
+  };
   function closeDrawer(){$('blockDrawer').hidden=true;state.selected=null}
   $('closeDrawer').onclick=closeDrawer;$('blockDrawer').onclick=e=>{if(e.target===$('blockDrawer'))closeDrawer()};
   $('saveBlock').onclick=()=>{const selected=state.selected;if(!selected)return;const b=selected.block;b.type=$('editBlockType').value;b.title=$('editBlockTitle').value.trim()||BLOCK_TYPES[b.type].label;b.objective=$('editBlockObjective').value.trim();b.durationMinutes=Math.max(1,Number($('editBlockDuration').value)||1);b.content=$('editBlockContent').value.trim();b.resourceName=$('editBlockResource').value;b.teacherNote=$('editTeacherNote').value.trim();b.validated=true;closeDrawer();renderPlan();toast('Bloc modifié et validé.')};

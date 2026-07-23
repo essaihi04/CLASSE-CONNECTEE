@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="cc-reponses" content="M m cursif">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Le monstre mangeur de M</title>
+<style>
+/* ===================================================================================
+   LE MONSTRE MANGEUR DE M — 1re année du primaire
+   L'enfant fait GLISSER les lettres dans la bouche du monstre. Le monstre n'avale que
+   les trois écritures du m ; il recrache gentiment les intrus (N, W, n, u).
+   Contrat respecté : pas de défilement, fond transparent, muette, pilotable.
+   Règle pédagogique : on ne dit pas quelles lettres sont bonnes avant l'essai.
+   Le m CURSIF est DESSINÉ (path SVG) et non écrit avec le caractère Unicode 𝓂,
+   qui s'affiche en carré vide sur beaucoup de postes et n'a pas le bon tracé.
+   =================================================================================== */
+:root{
+  --or:#F9A825; --rouge:#D7263D; --bleu:#1B6CA8; --vert:#2E9E5B;
+  --violet:#7C3AED; --encre:#12315A;
+  font-family:'Trebuchet MS',Verdana,Arial,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden;background:transparent;touch-action:manipulation}
+body{display:flex;align-items:center;justify-content:center}
+
+.scene{position:relative;width:100%;height:100%;max-width:calc(100vh * 16 / 9);
+  max-height:calc(100vw * 9 / 16);aspect-ratio:16/9;margin:auto;overflow:hidden;
+  border-radius:14px;user-select:none;touch-action:none;
+  background:linear-gradient(160deg,#C4B5FD 0%,#FDE68A 60%,#67E8F9 100%)}
+.scene::after{content:'';position:absolute;inset:0;opacity:.18;pointer-events:none;
+  background:url('images/scene-monstre.webp') center/cover no-repeat}
+
+.consigne{position:absolute;left:2%;right:2%;top:3%;z-index:6;pointer-events:none;
+  background:#FFFFFFF0;border:.55vmin solid var(--or);border-radius:2.4vmin;
+  padding:1.1vmin 2vmin;color:var(--encre);font-weight:900;text-align:center;
+  font-size:clamp(13px,3vmin,30px);box-shadow:0 .6vmin 0 #E6A21766}
+.consigne .m{color:var(--rouge)}
+
+/* ---- le monstre : corps + bouche qui est la zone de dépôt ---- */
+.monstre{position:absolute;left:36%;top:40%;width:28%;height:52%;z-index:2;
+  display:flex;align-items:flex-start;justify-content:center}
+.corps{width:100%;height:100%;border-radius:0;position:relative;
+  background:url('images/monstre-m-3d.png') center/100% 100% no-repeat;
+  border:0;box-shadow:none;transition:.2s}
+.oeil{display:none}
+/* Zone transparente conservée pour détecter le dépôt des lettres. */
+.bouche{position:absolute;left:17%;top:36%;width:66%;height:40%;border-radius:44%;
+  background:transparent;border:0;overflow:hidden;box-shadow:none;transition:.18s;opacity:0}
+.bouche .dent{display:none}
+.monstre.vise .corps{transform:scale(1.05)}
+.monstre.vise .bouche{height:44%;background:#2E1065}
+.monstre.miam .corps{animation:miam .5s}
+@keyframes miam{0%,100%{transform:none}40%{transform:scale(1.12) rotate(-3deg)}}
+
+/* ---- les lettres à trier ---- */
+.lettre{position:absolute;width:10.5%;aspect-ratio:1;z-index:5;background:#fff;
+  border:.7vmin solid var(--bleu);border-radius:2.6vmin;cursor:grab;touch-action:none;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 1vmin 0 #1B6CA855,0 1.4vmin 2.4vmin #0004;
+  color:var(--encre);font-weight:900;font-size:clamp(18px,6.4vmin,66px);line-height:1;
+  transition:transform .18s,box-shadow .18s,opacity .3s}
+.lettre svg{width:74%;height:74%;pointer-events:none}
+.lettre:active{cursor:grabbing}
+.lettre.prise{transform:scale(1.14) rotate(-3deg);box-shadow:0 1.8vmin 3.2vmin #0006;z-index:9}
+.lettre.mangee{opacity:0;transform:scale(.3);pointer-events:none}
+.lettre.recrachee{animation:recrache .55s}
+@keyframes recrache{0%{transform:scale(1)}30%{transform:translateY(-16%) rotate(-12deg) scale(1.1)}
+  100%{transform:none}}
+
+.jauge{position:absolute;right:3%;bottom:4%;z-index:6;display:flex;gap:1vmin;
+  background:#FFFFFFF0;border:.5vmin solid var(--vert);border-radius:2.4vmin;padding:1vmin 1.6vmin}
+.pastille{width:3.2vmin;height:3.2vmin;border-radius:50%;background:#D8E3EE;border:.45vmin solid #A9BED2;transition:.25s}
+.pastille.on{background:var(--vert);border-color:#1B7A43;transform:scale(1.12)}
+
+.rejouer{position:absolute;left:3%;bottom:4%;z-index:6;border:0;cursor:pointer;
+  background:var(--violet);color:#fff;font-weight:900;font-family:inherit;
+  font-size:clamp(11px,2.5vmin,24px);border-radius:2.4vmin;padding:1.2vmin 2.2vmin;
+  box-shadow:0 .8vmin 0 #4C1D95}
+.rejouer:active{transform:translateY(.4vmin);box-shadow:0 .4vmin 0 #4C1D95}
+
+.bravo{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:2.6vmin;
+  background:#0b1f3699;z-index:12}
+.bravo.on{display:flex;animation:pop .4s}
+/* ---- bouton rejouer, montré une fois la simulation terminée (dans l'écran Bravo) ---- */
+.rejouer-fin{border:0;cursor:pointer;background:var(--violet);color:#fff;font-weight:900;
+  font-family:inherit;font-size:clamp(15px,3.6vmin,32px);border-radius:2.8vmin;
+  padding:1.6vmin 3.4vmin;box-shadow:0 1vmin 0 #4C1D95}
+.rejouer-fin:active{transform:translateY(.5vmin);box-shadow:0 .5vmin 0 #4C1D95}
+.bravo b{background:#fff;border:1vmin solid var(--or);border-radius:4vmin;padding:3vmin 5vmin;
+  color:var(--vert);font-size:clamp(20px,6.5vmin,60px);text-align:center;box-shadow:0 2vmin 4vmin #0007}
+@keyframes pop{from{transform:scale(.7);opacity:0}to{transform:none;opacity:1}}
+</style>
+</head>
+<body>
+<div class="scene" id="scene" aria-label="Donne au monstre les trois écritures de la lettre M">
+  <div class="consigne">Le monstre ne mange que la lettre <span class="m">M</span> — donne-lui les bonnes !</div>
+  <div class="monstre" id="monstre">
+    <div class="corps">
+      <div class="oeil g"><i></i></div><div class="oeil d"><i></i></div>
+      <div class="bouche" id="bouche"><span class="dent"></span><span class="dent"></span><span class="dent"></span></div>
+    </div>
+  </div>
+  <div class="jauge" id="jauge"></div>
+  <button class="rejouer" id="rejouer" type="button">↻ Encore</button>
+  <div class="bravo" id="bravo"><b>🎉 Bravo !<br>Le monstre a mangé les 3 écritures.</b><button class="rejouer-fin" id="rejouerFin" type="button">↻ Rejouer</button></div>
+</div>
+
+<script>
+'use strict';
+/* Le m cursif est DESSINÉ : trois ponts + attache, comme à l'école. Jamais le caractère
+   Unicode 𝓂, qui s'affiche en carré vide sur de nombreux postes. */
+var M_CURSIF='<svg viewBox="0 0 100 100" aria-hidden="true">'+
+  '<path d="M12 70 C12 44 26 44 26 70 C26 44 42 44 42 70 C42 44 58 44 58 70 C58 78 70 76 80 66"'+
+  ' fill="none" stroke="#12315A" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+/* 3 bonnes écritures + 4 intrus qui ressemblent. On ne dit PAS lesquelles sont bonnes.
+   IMPORTANT (voix) : `dit` ne doit JAMAIS être une lettre seule. Le texte part vers l'avatar
+   et le moteur TTS devine la langue d'après le texte reçu ; un caractère isolé (« n », « W »)
+   n'a aucun indice de français et se fait lire en ANGLAIS (« double-you », « yoo »).
+   On enveloppe donc chaque lettre dans une phrase française complète. */
+var LETTRES=[
+  {id:'M-maj', aff:'M',        dit:'la majuscule',         bon:true,  x:4,  y:16},
+  {id:'n-min', aff:'n',        dit:'la lettre n minuscule', bon:false, x:17, y:16},
+  {id:'m-min', aff:'m',        dit:'la minuscule',         bon:true,  x:30, y:16},
+  {id:'W-maj', aff:'W',        dit:'la lettre W majuscule', bon:false, x:56, y:16},
+  {id:'m-cur', aff:M_CURSIF,   dit:"l'écriture attachée",  bon:true,  x:69, y:16},
+  {id:'N-maj', aff:'N',        dit:'la lettre N majuscule', bon:false, x:82, y:16},
+  {id:'u-min', aff:'u',        dit:'la lettre u minuscule', bon:false, x:82, y:62}
+];
+var scene=document.getElementById('scene'), monstre=document.getElementById('monstre'),
+    jauge=document.getElementById('jauge'), bravo=document.getElementById('bravo');
+var cartes={}, mangees=[], drag=null;
+var ATTENDUS=LETTRES.filter(function(l){return l.bon}).length;
+
+var EMBEDDED=(function(){try{return !!(window.parent&&window.parent!==window)}catch(e){return true}})();
+function parle(kind,texte,extra){
+  texte=String(texte||'').trim(); if(!texte)return;
+  if(EMBEDDED){var m={type:'cc-sim-voice',kind:kind,text:texte};
+    if(extra)for(var k in extra)m[k]=extra[k];
+    try{parent.postMessage(m,'*')}catch(e){} return;}
+  if(!('speechSynthesis' in window))return;
+  try{speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(texte);u.lang='fr-FR';u.rate=.85;speechSynthesis.speak(u)}catch(e){}
+}
+
+function construire(){
+  Object.keys(cartes).forEach(function(id){cartes[id].el.remove()});
+  cartes={}; mangees=[]; bravo.className='bravo';
+  LETTRES.forEach(function(l){
+    var el=document.createElement('div');
+    el.className='lettre'; el.dataset.id=l.id;
+    el.style.left=l.x+'%'; el.style.top=l.y+'%';
+    el.innerHTML=l.aff;
+    el.addEventListener('pointerdown',prendre);
+    scene.appendChild(el);
+    cartes[l.id]={el:el,def:l,x:l.x,y:l.y,mangee:false};
+  });
+  dessinerJauge(); publierEtat();
+}
+function dessinerJauge(){
+  jauge.innerHTML='';
+  for(var i=0;i<ATTENDUS;i++){
+    var p=document.createElement('i'); p.className='pastille'+(i<mangees.length?' on':''); jauge.appendChild(p);
+  }
+}
+
+function enPourcent(ev){
+  var r=scene.getBoundingClientRect();
+  return {x:(ev.clientX-r.left)/r.width*100, y:(ev.clientY-r.top)/r.height*100};
+}
+function surLaBouche(c){
+  var b=document.getElementById('bouche').getBoundingClientRect();
+  var r=c.el.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+  return cx>=b.left&&cx<=b.right&&cy>=b.top&&cy<=b.bottom;
+}
+function prendre(ev){
+  var c=cartes[this.dataset.id]; if(!c||c.mangee)return;
+  ev.preventDefault();
+  try{this.setPointerCapture(ev.pointerId)}catch(e){}
+  var p=enPourcent(ev);
+  drag={id:c.def.id,pid:ev.pointerId,dx:p.x-c.x,dy:p.y-c.y};
+  this.classList.add('prise');
+  parle('word',c.def.dit,{elementId:c.def.id});
+  this.addEventListener('pointermove',bouger);
+  this.addEventListener('pointerup',lacher);
+  this.addEventListener('pointercancel',lacher);
+}
+function bouger(ev){
+  if(!drag||ev.pointerId!==drag.pid)return;
+  var c=cartes[drag.id], p=enPourcent(ev);
+  c.x=Math.max(0,Math.min(89,p.x-drag.dx)); c.y=Math.max(0,Math.min(86,p.y-drag.dy));
+  c.el.style.left=c.x+'%'; c.el.style.top=c.y+'%';
+  monstre.classList.toggle('vise',surLaBouche(c));
+}
+function lacher(ev){
+  if(!drag||ev.pointerId!==drag.pid)return;
+  var c=cartes[drag.id];
+  c.el.classList.remove('prise'); monstre.classList.remove('vise');
+  c.el.removeEventListener('pointermove',bouger);
+  c.el.removeEventListener('pointerup',lacher);
+  c.el.removeEventListener('pointercancel',lacher);
+  drag=null;
+  if(surLaBouche(c)) donner(c.def.id,false); else revenir(c);
+}
+function revenir(c){c.x=c.def.x;c.y=c.def.y;c.el.style.left=c.x+'%';c.el.style.top=c.y+'%'}
+
+/* ---- la seule règle du jeu ---- */
+function donner(id,silencieux){
+  var c=cartes[id]; if(!c||c.mangee)return false;
+  if(c.def.bon){
+    c.mangee=true; c.el.classList.add('mangee'); mangees.push(id);
+    monstre.classList.add('miam'); setTimeout(function(){monstre.classList.remove('miam')},520);
+    dessinerJauge(); publierEtat();
+    if(!silencieux) parle('progress','Miam ! C\'est bien '+c.def.dit+'. Le son peut durer : mmmm.',{elementId:id});
+    if(mangees.length===ATTENDUS) setTimeout(fini,500);
+    return true;
+  }
+  revenir(c);
+  c.el.classList.add('recrachee');
+  setTimeout(function(){c.el.classList.remove('recrachee')},560);
+  // Pas d'interjection de dégoût (« Beurk ») : le filtre de modération du moteur de voix la
+  // refuse, la phrase resterait muette. Le monstre qui refuse dit la même chose à l'enfant.
+  if(!silencieux) parle('retry','Le monstre n\'en veut pas : c\'est '+c.def.dit+'. Regarde bien ses jambes.',{elementId:id});
+  return false;
+}
+function fini(){
+  bravo.className='bravo on';
+  parle('success','Bravo ! Tu as trouvé les trois écritures : la majuscule, la minuscule et l\'attaché. Le son peut durer : mmmm.');
+  try{parent.postMessage({type:'cc-sim-complete',mode:'drag_drop',state:etat()},'*')}catch(e){}
+}
+
+/* ---- pilotage par l'avatar ---- */
+function etat(){var s={};LETTRES.forEach(function(l){s[l.id]={mangee:!!cartes[l.id]&&cartes[l.id].mangee,bon:l.bon}});return s}
+function capacites(){
+  return {actions:['demo','reset','place','finish'],
+    elements:LETTRES.map(function(l){return {id:l.id,label:l.dit}}),
+    zones:[{id:'bouche',label:'La bouche du monstre',
+      accepts:LETTRES.filter(function(l){return l.bon}).map(function(l){return l.id})}]};
+}
+function publierEtat(){
+  try{parent.postMessage({type:'cc-sim-state',mode:'drag_drop',state:etat(),
+    completed:mangees.length===ATTENDUS,capabilities:capacites()},'*')}catch(e){}
+}
+window.CourseSimulation={
+  getState:etat, getCapabilities:capacites,
+  dispatch:function(o){
+    if(!o)return;
+    if(o.action==='reset')construire();
+    else if(o.action==='finish')fini();
+    else if(o.action==='place')donner(String(o.elementId||''),o.quiet===true);
+    else if(o.action==='demo'){
+      LETTRES.filter(function(l){return l.bon&&!cartes[l.id].mangee})
+        .forEach(function(l,i){setTimeout(function(){donner(l.id,false)},i*950)});
+    }
+  }
+};
+window.addEventListener('message',function(e){var m=e.data||{};if(m.type==='cc-sim')window.CourseSimulation.dispatch(m)});
+
+document.getElementById('rejouer').onclick=function(){construire();parle('word','On recommence !')};
+document.getElementById('rejouerFin').onclick=function(){document.getElementById('rejouer').onclick()};
+construire();
+</script>
+</body>
+</html>

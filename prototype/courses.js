@@ -6,13 +6,18 @@
   function button(label,danger,handler){const b=document.createElement('button');b.type='button';if(danger)b.className='danger';b.textContent=label;b.onclick=handler;return b}
   function link(label,href){const a=document.createElement('a');a.href=href;a.textContent=label;return a}
 
+  // Ce cours local est publié dans la bibliothèque avec les cours Supabase.
+  // Son lecteur utilise le chapitre intégré afin de rester disponible sans compte professeur.
+  const LOCAL_M1={id:'son-m-nouveau',subject_id:'local-francais',grade_level_id:'local-gs-cp',title:'Cours M 1',description:'Cours de phonologie : produire le son [m], le repérer dans les mots et reconnaître M, m et 𝓂 avec des images et cinq simulations nouvelles.',settings:{duration_minutes:40},subjects:{name:'Français',color:'#155e75'},grade_levels:{name:'Grande Section / CP'}};
+
   // ---- Cours publiés (Supabase) : visibles par TOUS, gérables par l'administrateur ----
   function render(){
     const term=$('search').value.trim().toLowerCase(),subject=$('subjectFilter').value,grade=$('gradeFilter').value;
-    const courses=state.courses.filter(course=>(!subject||course.subject_id===subject)&&(!grade||course.grade_level_id===grade)&&(!term||(course.title+' '+course.description+' '+(course.subjects&&course.subjects.name||'')+' '+(course.grade_levels&&course.grade_levels.name||'')).toLowerCase().includes(term)));
+    const published=[LOCAL_M1,...state.courses.filter(course=>course.id!==LOCAL_M1.id)];
+    const courses=published.filter(course=>(!subject||course.subject_id===subject)&&(!grade||course.grade_level_id===grade)&&(!term||(course.title+' '+course.description+' '+(course.subjects&&course.subjects.name||'')+' '+(course.grade_levels&&course.grade_levels.name||'')).toLowerCase().includes(term)));
     $('resultCount').textContent=`${courses.length} cours disponible${courses.length>1?'s':''}`;const grid=$('courseGrid');grid.innerHTML='';
-    courses.forEach(course=>{const p=progress(course),hours=Math.round(Number(course.settings&&course.settings.duration_minutes||0)/6)/10,card=document.createElement('article');card.className='card';card.style.setProperty('--course-color',course.subjects&&course.subjects.color||'#0f7b5f');card.innerHTML=`<div class="card-top"></div><div class="card-body"><div class="tags"><span class="tag">${safe(course.subjects&&course.subjects.name||'Cours')}</span><span class="tag">${safe(course.grade_levels&&course.grade_levels.name||'Tous niveaux')}</span></div><h3>${safe(course.title)}</h3><div class="description">${safe(course.description||'Cours pédagogique structuré par le professeur.')}</div><div class="progress"><i style="width:${p.percent}%"></i></div><div class="card-footer"><span class="meta">${hours?hours+' h · ':''}${p.total} blocs · ${p.percent}% terminé</span><a class="open" href="index.html?course=${encodeURIComponent(course.id)}">▶ Ouvrir avec l’avatar</a></div></div>`;
-      if(state.admin){
+    courses.forEach(course=>{const p=progress(course),hours=Math.round(Number(course.settings&&course.settings.duration_minutes||0)/6)/10,card=document.createElement('article');card.className='card';card.style.setProperty('--course-color',course.subjects&&course.subjects.color||'#0f7b5f');const openUrl=course.id===LOCAL_M1.id?'index.html?chapitre=son-m-nouveau':'index.html?course='+encodeURIComponent(course.id);const meta=course.id===LOCAL_M1.id?'5 simulations · 8 étapes · 0% terminé':`${hours?hours+' h · ':''}${p.total} blocs · ${p.percent}% terminé`;card.innerHTML=`<div class="card-top"></div><div class="card-body"><div class="tags"><span class="tag">${safe(course.subjects&&course.subjects.name||'Cours')}</span><span class="tag">${safe(course.grade_levels&&course.grade_levels.name||'Tous niveaux')}</span></div><h3>${safe(course.title)}</h3><div class="description">${safe(course.description||'Cours pédagogique structuré par le professeur.')}</div><div class="progress"><i style="width:${p.percent}%"></i></div><div class="card-footer"><span class="meta">${meta}</span><a class="open" href="${openUrl}">▶ Ouvrir avec l’avatar</a></div></div>`;
+      if(state.admin&&course.id!==LOCAL_M1.id){
         const actions=document.createElement('div');actions.className='admin-actions';
         actions.appendChild(link('✏️ Modifier','prof.html?course='+encodeURIComponent(course.id)+'&boards=1'));
         actions.appendChild(button('⏸ Dépublier',false,()=>unpublishCourse(course)));
@@ -47,12 +52,13 @@
   function renderDemos(){
     const grid=$('demoGrid'),lessons=Array.isArray(window.LECONS)?window.LECONS:[];grid.innerHTML='';
     const hidden=new Set(state.hiddenDefaults);
-    const shown=lessons.filter(lesson=>state.admin||!hidden.has(lesson.id));
+    const shown=lessons.filter(lesson=>lesson.id!==LOCAL_M1.id&&(state.admin||!hidden.has(lesson.id)));
     $('demoCount').textContent=shown.length?`${shown.length} chapitre${shown.length>1?'s':''} intégré${shown.length>1?'s':''}`:'';
     shown.forEach(lesson=>{
       const isHidden=hidden.has(lesson.id);
       const card=document.createElement('article');card.className='card'+(isHidden?' hidden-card':'');card.style.setProperty('--course-color','#155e75');
-      card.innerHTML=`<div class="card-top"></div><div class="card-body"><div class="tags"><span class="tag">SVT</span><span class="tag">3e année collège</span><span class="tag">Démo intégrée</span>${isHidden?'<span class="tag hidden-badge">Masqué pour les élèves</span>':''}</div><h3>${safe(lesson.titre)}</h3><div class="description">Chapitre de démonstration prêt à jouer avec l’avatar : explications, schémas et évaluation.</div><div class="card-footer"><span class="meta">${(lesson.etapes||[]).length} étapes</span><a class="open" href="index.html?chapitre=${encodeURIComponent(lesson.id)}">▶ Ouvrir avec l’avatar</a></div></div>`;
+      const subject=lesson.subjectLabel||'SVT',grade=lesson.gradeLabel||'3e année collège',category=lesson.categoryLabel||'Démo intégrée';
+      card.innerHTML=`<div class="card-top"></div><div class="card-body"><div class="tags"><span class="tag">${safe(subject)}</span><span class="tag">${safe(grade)}</span><span class="tag">${safe(category)}</span>${isHidden?'<span class="tag hidden-badge">Masqué pour les élèves</span>':''}</div><h3>${safe(lesson.titre)}</h3><div class="description">Cours interactif prêt à jouer avec l’avatar : explications, gestes, images, simulations et évaluation.</div><div class="card-footer"><span class="meta">${(lesson.etapes||[]).length} étapes</span><a class="open" href="index.html?chapitre=${encodeURIComponent(lesson.id)}">▶ Ouvrir avec l’avatar</a></div></div>`;
       if(state.admin){
         const actions=document.createElement('div');actions.className='admin-actions';
         actions.appendChild(link('✏️ Modifier','prof.html?chapitre='+encodeURIComponent(lesson.id)));

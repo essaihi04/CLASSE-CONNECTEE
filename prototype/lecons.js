@@ -10,6 +10,14 @@
 
 (function(){   // IIFE : garde les variables internes locales (pas de conflit global)
 
+/* Vignette d'une LETTRE en très grand (boutons-images des évaluations du primaire).
+   La vignette est posée sur fond blanc : la lettre est tracée en sombre. */
+function LETTRE_SVG(lettre, couleur){
+  return "<svg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'>"
+    +"<text x='50' y='74' text-anchor='middle' font-size='70' font-weight='800'"
+    +" font-family='Comic Sans MS, Segoe UI, sans-serif' fill='"+(couleur||'#0f172a')+"'>"+lettre+"</text></svg>";
+}
+
 /* ===================== SCHÉMAS SVG (style craie, colorés) ===================== */
 
 /* --- structure du système nerveux : encéphale + moelle + nerfs --- */
@@ -1393,6 +1401,155 @@ window.LECONS = [
       board:{title:"L'essentiel à retenir 📌", lines:[
         {t:"• Problèmes : <span class='r'>allergie</span> (trop forte) & <span class='r'>déficience</span> (trop faible, ex. SIDA).",cls:""},
         {t:"• <span class='o'>Vaccination</span> = préventive ; <span class='g'>sérothérapie</span> = curative.",cls:""} ] } },
+  ]
+},
+
+/* ============== COURS : LE SON [M] ET LA LETTRE M ============== */
+{
+  id:"son-m-nouveau", sem:3,
+  subjectLabel:"Français", gradeLabel:"Grande Section / CP", categoryLabel:"Phonologie",
+  /* CIBLE EXACTE : sans ce champ, le tuteur IA retombe sur le prompt SVT/collège par défaut
+     (il répondrait « système nerveux », « digestion »…). Ici : Français, GS/CP → le tuteur
+     reste sur la lettre M et adapte son langage au primaire. */
+  targetContext:{subjectName:"Français", gradeLevelName:"Grande Section / CP"},
+    titre:"Cours M 1",
+  /* Élèves de GS/CP : toute l'évaluation s'affiche en TRÈS GRAND (images XXL, gros boutons). */
+  quizBigVisuals:true,
+  /* ÉVALUATION : 3 tests illustrés. L'élève en voit UN SEUL, tiré au hasard, et le professeur
+     peut en choisir un autre avant de commencer (« 🔄 Changer de quiz » + pastilles 1·2·3).
+     Chaque question s'appuie sur une IMAGE : soit une image de la question (img + imgCaption),
+     soit des boutons-images (optionImgs / optionSvgs), soit des vignettes à relier (lImg). */
+  quizSets:[
+    /* ── TEST 1 · J'entends [m] ? (boutons-images) ── */
+    {label:"Test 1 · J'entends le son [m] ?",
+     intro:"Regarde bien les images, dis le mot dans ta tête et écoute : est-ce qu'il y a « mmmm » ?",
+     quiz:[
+      {type:'qcm',
+        enonce:"Regarde cette image et dis son nom à voix haute : MOUTON.",
+        img:"son-m-nouveau/images/mouton.webp", imgCaption:"Un mouton",
+        q:"Entends-tu le son <b>[m]</b> dans MOUTON ?",
+        options:["Oui, j'entends mmmm","Non, je n'entends pas mmmm"], correct:0,
+        fb:"Bravo ! MOUTON commence par mmmm."},
+      {type:'qcm',
+        enonce:"Voici deux images. Dis leur nom : MOTO … TABLE.",
+        q:"Clique sur l'image où tu entends le son <b>[m]</b>.",
+        options:["MOTO","TABLE"],
+        optionImgs:["son-m-nouveau/images/moto.webp","son-m-nouveau/images/table.webp"], correct:0,
+        fb:"Oui : MOTO commence par mmmm. Dans TABLE, il n'y a pas de son [m]."},
+      {type:'qcm',
+        enonce:"Trois images, un seul mot cache le son [m] : SINGE … PYJAMA … BALLON.",
+        q:"Où se cache le son <b>[m]</b> ?",
+        options:["SINGE","PYJAMA","BALLON"],
+        optionImgs:["son-m-nouveau/images/singe.webp","son-m-nouveau/images/pyjama.webp","son-m-nouveau/images/ballon.webp"], correct:1,
+        fb:"C'est PYJAMA : on entend mmmm au milieu. SINGE et BALLON n'ont pas le son mmmm."},
+      {type:'vf',
+        enonce:"Écoute bien ce mot : TABLE.",
+        img:"son-m-nouveau/images/table.webp", imgCaption:"Une table",
+        q:"Dans TABLE, on entend le son <b>[m]</b>.",
+        correct:false, fb:"Non ! Dans TABLE il n'y a pas de mmmm. Attention à ne pas confondre avec la lettre B."},
+      {type:'qcm',
+        enonce:"Le détective range les images qui chantent mmmm dans son panier.",
+        img:"son-m-nouveau/images/scene-panier.webp", imgCaption:"Le panier du son [m]",
+        q:"Quelle image va dans le panier ?",
+        options:["PLUME","BALLON"],
+        optionImgs:["son-m-nouveau/images/plume.webp","son-m-nouveau/images/ballon.webp"], correct:0,
+        fb:"PLUME finit par mmmm. Elle va dans le panier !"}
+    ]},
+    /* ── TEST 2 · Où se cache le son [m] ? (début / milieu / fin) ── */
+    {label:"Test 2 · Où se cache le son [m] ?",
+     intro:"Le son [m] se cache au début, au milieu ou à la fin du mot. À toi de le retrouver !",
+     quiz:[
+      {type:'qcm',
+        enonce:"Observe les trois cartes : MOTO, PLUME, PYJAMA.",
+        img:"son-m-nouveau/images/cartes-position-son-m.webp", imgCaption:"Les cartes du son [m]",
+        q:"Dans <b>MOTO</b>, où entends-tu le son [m] ?",
+        options:["Au début","Au milieu","À la fin"], correct:0,
+        fb:"Dans MOTO, on entend mmmm tout au début du mot."},
+      {type:'qcm',
+        enonce:"Dis le mot lentement : py-ja-ma.",
+        img:"son-m-nouveau/images/pyjama.webp", imgCaption:"Un pyjama",
+        q:"Où entends-tu le son <b>[m]</b> dans PYJAMA ?",
+        options:["Au début","Au milieu","À la fin"], correct:1,
+        fb:"Dans PYJAMA, on entend mmmm au milieu."},
+      {type:'qcm',
+        enonce:"Dis le mot lentement : plu-me.",
+        img:"son-m-nouveau/images/plume.webp", imgCaption:"Une plume",
+        q:"Où entends-tu le son <b>[m]</b> dans PLUME ?",
+        options:["Au début","Au milieu","À la fin"], correct:2,
+        fb:"Dans PLUME, on entend mmmm à la fin."},
+      {type:'association',
+        enonce:"Chaque image cache le son [m] à un endroit différent.",
+        q:"Relie chaque image à la place du son <b>[m]</b> :",
+        pairs:[
+          {l:"MOUTON", lImg:"son-m-nouveau/images/mouton.webp", r:"au début"},
+          {l:"PYJAMA", lImg:"son-m-nouveau/images/pyjama.webp", r:"au milieu"},
+          {l:"PLUME",  lImg:"son-m-nouveau/images/plume.webp",  r:"à la fin"}
+        ],
+        fb:"MOUTON : au début · PYJAMA : au milieu · PLUME : à la fin."},
+      {type:'vf',
+        enonce:"Regarde la moto et écoute : mmmm, comme au début de MOTO.",
+        img:"son-m-nouveau/images/moto.webp", imgCaption:"Une moto",
+        q:"Le son [m] est à la <b>fin</b> du mot MOTO.",
+        correct:false, fb:"Non : dans MOTO, le son [m] est au DÉBUT du mot."}
+    ]},
+    /* ── TEST 3 · Je reconnais la lettre M (les trois écritures) ── */
+    {label:"Test 3 · Je reconnais la lettre M",
+     intro:"Le monstre ne mange que la lettre M. Sauras-tu reconnaître M, m et 𝓂 sans te tromper ?",
+     quiz:[
+      {type:'qcm',
+        enonce:"Le monstre a très faim, mais il ne mange que la lettre M en majuscule.",
+        img:"son-m-nouveau/images/scene-monstre.webp", imgCaption:"Le monstre mangeur de lettres",
+        q:"Quelle lettre peut-il avaler ?",
+        options:["M","N","W"],
+        optionSvgs:[LETTRE_SVG('M'),LETTRE_SVG('N'),LETTRE_SVG('W')], correct:0,
+        fb:"C'est bien M : elle a trois jambes et deux pointes vers le bas."},
+      {type:'qcm',
+        enonce:"Voici la même lettre écrite en petit (script).",
+        q:"Quelle est la lettre <b>m</b> minuscule ?",
+        options:["m","n","u"],
+        optionSvgs:[LETTRE_SVG('m'),LETTRE_SVG('n'),LETTRE_SVG('u')], correct:0,
+        fb:"Le m minuscule a trois jambes ; le n n'en a que deux."},
+      {type:'qcm',
+        enonce:"Et maintenant l'écriture attachée (cursive), celle du cahier.",
+        q:"Quelle écriture est le <b>m</b> cursif ?",
+        options:["𝓂","𝓃","𝒾"],
+        optionSvgs:[LETTRE_SVG('𝓂'),LETTRE_SVG('𝓃'),LETTRE_SVG('𝒾')], correct:0,
+        fb:"Bravo : 𝓂 est le m attaché, avec ses trois ponts."},
+      {type:'vf',
+        enonce:"Pour faire le son [m], on ferme les deux lèvres, l'air passe par le nez et la gorge vibre.",
+        img:"son-m-nouveau/images/articulation-son-m.webp", imgCaption:"Le geste du son [m]",
+        q:"La lettre M fait un son continu : <b>mmmm</b>.",
+        correct:true, fb:"Oui ! On peut prolonger le son : mmmm. On ne dit pas « émé » pour lire M."},
+      {type:'qcm',
+        enonce:"Les trois écritures de la même lettre sont affichées au tableau.",
+        img:"son-m-nouveau/images/scene-mission-detective.webp", imgCaption:"La mission du détective M",
+        q:"Combien d'écritures a la lettre M ?",
+        options:["3 : M, m et 𝓂","1 seule","2 seulement"], correct:0,
+        fb:"Trois écritures : la majuscule M, la minuscule m et la cursive 𝓂."}
+    ]}
+  ],
+  /* ANCRAGE (règle primaire, cf. index.html) : après chaque explication, le prof redit la
+     phrase clé deux fois, lentement, en laissant un blanc pour que la classe répète avec lui.
+     Les phrases sont volontairement TRÈS courtes et prononçables d'un souffle par un CP. */
+  etapes:[
+    {ancrage:"Aujourd'hui, nous apprenons le son de la lettre M.",
+     intro:true,say:"Bonjour les détectives ! Aujourd'hui, nous découvrons la lettre M. Nous allons écouter un son. Nous allons le chercher dans des mots. Et nous allons apprendre à l'écrire. Prêts ? On commence !",board:{title:"Cours M 1",media:{type:'image',src:'son-m-nouveau/images/scene-mission-detective.webp',desc:"Le détective de la lettre M"},lines:[{t:"<span class='o'>Cours M 1</span> : découvrir le son <span class='b'>[m]</span> et la lettre <span class='g'>M</span>.",cls:"def"}]}},
+    {ancrage:"Le son peut durer : mmmm.",
+     phase:"concept",say:"Voici notre son. La lettre M chante le son [m]. Je ferme mes deux lèvres. L'air passe par le nez. Ma gorge vibre. Écoute bien : le son peut durer : mmmm. On ne dit pas « émé ». On entend ce son dans le mot maison. On l'entend dans camion. On l'entend dans pomme. Écoute encore : le son peut durer : mmmm.",board:{title:"Règle phonétique : M fait [m]",media:{type:'image',src:'son-m-nouveau/images/articulation-son-m.webp',desc:"Articulation du son [m]"},lines:[{t:"<span class='b'>M = [m]</span> : deux lèvres fermées, air par le nez, gorge qui vibre.",cls:"def"},{t:"<span class='g'>Son continu</span> : mmmm — pas « émé ».",cls:"imp"},{t:"<span class='o'>MAISON</span> : début · <span class='o'>CAMION</span> : milieu · <span class='o'>POMME</span> : fin.",cls:"ex"}]}},
+    {ancrage:"Je ferme les lèvres. Le son peut durer : mmmm.",
+     phase:"concept",say:"Regarde bien l'enfant. Il ferme les lèvres. Il pose une main sur sa gorge. Il pose l'autre main sur son ventre. Fais comme lui. Prolonge le son : mmmm. Sens ta gorge qui vibre.",board:{title:"Produire le son [m]",media:{type:'image',src:'son-m-nouveau/images/articulation-son-m.webp',desc:"Geste pour produire le son [m]"},lines:[{t:"Fermer les <span class='b'>lèvres</span>.",cls:"def"},{t:"Une main sur la <span class='o'>gorge</span>, une main sur le <span class='o'>ventre</span>.",cls:""},{t:"M fait <span class='g'>mmmm</span> : un son continu.",cls:"def"}]}},
+    {ancrage:"J'écoute bien le mot. Est-ce que j'entends le son de la lettre M ?",
+     phase:"simulation",say:"Maintenant, qui veut venir au tableau ? À toi de jouer ! Écoute bien chaque mot. Cherche le son de la lettre M. Le son peut durer : mmmm. Si tu entends ce son, pose l'image dans le panier. Si non, laisse-la en haut. Vas-y, je t'écoute.",board:{title:"",media:{type:'simulation',src:'son-m-nouveau/sim-01-panier-nouveau.html',desc:"Classer les mots selon la présence du son [m]"},lines:[]}},
+    {ancrage:"Au début, au milieu, ou à la fin ?",
+     phase:"simulation",say:"À qui le tour de venir au tableau ? Viens, je t'aide. Dis le mot tout doucement. Cherche le son de la lettre M. Le son peut durer : mmmm. Où se cache-t-il ? Au début ? Au milieu ? À la fin ? Trouve sa place pour chaque image.",board:{title:"",media:{type:'simulation',src:'son-m-nouveau/sim-02-position-nouveau.html',desc:"Localiser le son [m] dans un mot"},lines:[]}},
+    {ancrage:"Je reconnais la lettre M.",
+     phase:"simulation",say:"Qui veut nourrir le monstre au tableau ? À toi ! Le monstre a très faim. Mais il ne mange que la lettre M. Attention ! Certaines lettres lui ressemblent. Choisis bien les M.",board:{title:"",media:{type:'simulation',src:'son-m-nouveau/sim-03-monstre-nouveau.html',desc:"Trier les écritures de la lettre M"},lines:[]}},
+    {ancrage:"Lèvres fermées. Le son peut durer : mmmm.",
+     phase:"simulation",say:"À ton tour de venir fabriquer le son ! Ferme bien tes lèvres. Touche ta gorge, tout doucement. Touche ton ventre. Et fais le son : le son peut durer : mmmm. Bravo, tu fabriques le son [m] !",board:{title:"",media:{type:'simulation',src:'son-m-nouveau/sim-04-fabrique-nouveau.html',desc:"Reproduire le geste et prolonger le son [m]"},lines:[]}},
+    {ancrage:"J'écris M, m et 𝓂.",
+     phase:"simulation",say:"Pour finir, qui vient écrire au tableau ? Regarde les trois lettres. Prends bien ton temps. Commence en haut. Descends. Remonte. Redescends. Trace M, puis m, puis m attaché.",board:{title:"",media:{type:'simulation',src:'son-m-nouveau/sim-05-ecritures-nouveau.html',desc:"Tracer les trois écritures de la lettre M"},lines:[]}},
+    {ancrage:"Le son de la lettre M peut durer : mmmm.",
+     say:"Bravo les détectives ! Tu connais le son de la lettre M. Tu sais où il se cache dans les mots. Tu reconnais M, m et m attaché. Souviens-toi : le son peut durer : mmmm.",board:{title:"Trace finale",media:{type:'image',src:'son-m-nouveau/images/scene-enfant-gateau.webp',desc:"Le son [m] avec le gâteau"},lines:[{t:"<span class='b'>M fait [m]</span> : <span class='g'>mmmm</span>.",cls:"def"},{t:"Je ferme les lèvres et je prolonge le son.",cls:""},{t:"Je reconnais <span class='b'>M</span>, <span class='g'>m</span> et <span class='o'>𝓂</span>.",cls:""}]}}
   ]
 },
 

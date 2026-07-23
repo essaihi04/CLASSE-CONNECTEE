@@ -9,10 +9,21 @@ const root=path.join(__dirname,'..');
 const server=fs.readFileSync(path.join(root,'server.js'),'utf8');
 const importer=fs.readFileSync(path.join(root,'prototype','course-import.js'),'utf8');
 
-test('la création primaire exige le couple image et mot écrit sans plafond implicite de quatre',()=>{
+test('la création primaire exige le couple image et mot écrit',()=>{
   assert.match(server,/chaque mot concret important[^\n]+doit donc avoir un bloc image/i);
   assert.match(server,/même écran doit montrer son illustration ET le mot écrit/i);
-  assert.match(importer,/primary\?candidates\.length:4/);
+});
+
+// Le studio ne fabrique plus aucune image : l'IA décrit les visuels (imagePrompt), le
+// professeur importe lui-même sa ressource dédiée à chaque emplacement.
+test('l’import ne génère aucune image et propose un emplacement par prompt',()=>{
+  assert.doesNotMatch(importer,/generateMissingImages|generateMissingSimulations/);
+  assert.doesNotMatch(importer,/\/api\/generate-course-image/);
+  assert.match(importer,/function promptSlots\(block\)/);
+  assert.match(importer,/renderPromptSlots/);
+  // La simulation est assemblée à partir des images IMPORTÉES, jamais générées.
+  assert.match(importer,/noAiImages:true/);
+  assert.match(server,/const noAiImages=data\.noAiImages===true/);
 });
 
 test('seuls les vrais blocs question attendent une réponse de l’élève',()=>{

@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="cc-reponses" content="">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Je fabrique le son [m]</title>
+<style>
+/* ===================================================================================
+   JE FABRIQUE LE SON [m] — 1re année du primaire
+   Trois gestes du corps, dans l'ordre, chacun confirmé par l'enfant :
+     1. fermer les lèvres        2. sentir la voix dans la gorge
+     3. TENIR le son : appui MAINTENU, la jauge n'avance que tant que le doigt reste posé.
+   C'est le cœur de la séance : [m] est une consonne CONTINUE, on peut la tenir. Le geste
+   à l'écran épouse donc la durée du son, au lieu d'une barre qui se remplit toute seule.
+   Contrat respecté : pas de défilement, fond transparent, muette, pilotable.
+   =================================================================================== */
+:root{
+  --or:#F9A825; --rouge:#D7263D; --bleu:#1B6CA8; --vert:#2E9E5B;
+  --violet:#7C3AED; --encre:#12315A;
+  font-family:'Trebuchet MS',Verdana,Arial,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden;background:transparent;touch-action:manipulation}
+body{display:flex;align-items:center;justify-content:center}
+
+.scene{position:relative;width:100%;height:100%;max-width:calc(100vh * 16 / 9);
+  max-height:calc(100vw * 9 / 16);aspect-ratio:16/9;margin:auto;overflow:hidden;
+  border-radius:14px;user-select:none;touch-action:none;
+  background:linear-gradient(160deg,#BFDBFE 0%,#FDE68A 55%,#FBCFE8 100%)}
+
+.consigne{position:absolute;left:2%;right:2%;top:3%;z-index:6;pointer-events:none;
+  background:#FFFFFFF0;border:.55vmin solid var(--or);border-radius:2.4vmin;
+  padding:1.1vmin 2vmin;color:var(--encre);font-weight:900;text-align:center;
+  font-size:clamp(13px,3vmin,30px);box-shadow:0 .6vmin 0 #E6A21766}
+.consigne .m{color:var(--rouge)}
+
+/* ---- l'image de l'articulation, à gauche ---- */
+.photo{position:absolute;left:3.5%;top:17%;width:30%;height:66%;z-index:2;
+  background:#FFFFFFF2;border:.7vmin solid var(--bleu);border-radius:3vmin;padding:1.2vmin;
+  box-shadow:0 1vmin 0 #1B6CA844,0 1.6vmin 3vmin #0003;display:flex;align-items:center}
+.photo img{width:100%;height:100%;object-fit:contain}
+
+/* ---- les trois étapes ---- */
+.etapes{position:absolute;left:36.5%;right:3.5%;top:17%;height:66%;z-index:3;
+  display:flex;flex-direction:column;gap:2.2%}
+.etape{flex:1;display:flex;align-items:center;gap:2%;border-radius:2.8vmin;padding:0 2.2vmin;
+  background:#FFFFFFE8;border:.6vmin solid #C7D2DE;box-shadow:0 .9vmin 0 #00000018;
+  color:var(--encre);font-weight:900;font-size:clamp(12px,2.9vmin,29px);
+  cursor:pointer;touch-action:none;transition:.18s;position:relative;overflow:hidden}
+.etape .rond{flex:0 0 auto;width:7vmin;height:7vmin;border-radius:50%;display:flex;
+  align-items:center;justify-content:center;font-size:clamp(14px,3.6vmin,36px);
+  background:#E2E8F0;color:#64748B;border:.5vmin solid #CBD5E1;transition:.2s}
+.etape .txt{flex:1;line-height:1.15}
+.etape.active{border-color:var(--or);background:#FFFBEB;transform:scale(1.02);
+  box-shadow:0 1.2vmin 0 #E6A21744,0 1.4vmin 2.6vmin #0002}
+.etape.active .rond{background:var(--or);color:#fff;border-color:#B45309}
+.etape.faite{border-color:var(--vert);background:#ECFDF5}
+.etape.faite .rond{background:var(--vert);color:#fff;border-color:#1B7A43}
+.etape.bloquee{opacity:.5;cursor:not-allowed}
+/* la jauge de l'étape 3 se remplit DERRIÈRE le texte, seulement pendant l'appui */
+.remplissage{position:absolute;left:0;top:0;bottom:0;width:0;z-index:0;
+  background:linear-gradient(90deg,#86EFAC,#FCD34D,#FB923C);opacity:.55}
+.etape>*{position:relative;z-index:1}
+.etape.tenu{border-color:var(--rouge);box-shadow:0 0 0 .6vmin #FCA5A544,0 1.4vmin 2.6vmin #0003}
+
+.jauge{position:absolute;right:3%;bottom:4%;z-index:6;display:flex;gap:1vmin;
+  background:#FFFFFFF0;border:.5vmin solid var(--vert);border-radius:2.4vmin;padding:1vmin 1.6vmin}
+.pastille{width:3.2vmin;height:3.2vmin;border-radius:50%;background:#D8E3EE;border:.45vmin solid #A9BED2;transition:.25s}
+.pastille.on{background:var(--vert);border-color:#1B7A43;transform:scale(1.12)}
+
+.rejouer{position:absolute;left:3%;bottom:4%;z-index:6;border:0;cursor:pointer;
+  background:var(--violet);color:#fff;font-weight:900;font-family:inherit;
+  font-size:clamp(11px,2.5vmin,24px);border-radius:2.4vmin;padding:1.2vmin 2.2vmin;
+  box-shadow:0 .8vmin 0 #4C1D95}
+.rejouer:active{transform:translateY(.4vmin);box-shadow:0 .4vmin 0 #4C1D95}
+
+.bravo{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:2.6vmin;
+  background:#0b1f3699;z-index:12}
+.bravo.on{display:flex;animation:pop .4s}
+/* ---- bouton rejouer, montré une fois la simulation terminée (dans l'écran Bravo) ---- */
+.rejouer-fin{border:0;cursor:pointer;background:var(--violet);color:#fff;font-weight:900;
+  font-family:inherit;font-size:clamp(15px,3.6vmin,32px);border-radius:2.8vmin;
+  padding:1.6vmin 3.4vmin;box-shadow:0 1vmin 0 #4C1D95}
+.rejouer-fin:active{transform:translateY(.5vmin);box-shadow:0 .5vmin 0 #4C1D95}
+.bravo b{background:#fff;border:1vmin solid var(--or);border-radius:4vmin;padding:3vmin 5vmin;
+  color:var(--vert);font-size:clamp(20px,6.5vmin,60px);text-align:center;box-shadow:0 2vmin 4vmin #0007}
+@keyframes pop{from{transform:scale(.7);opacity:0}to{transform:none;opacity:1}}
+</style>
+</head>
+<body>
+<div class="scene" id="scene" aria-label="Fabrique le son m : ferme les lèvres, sens ta gorge, puis tiens le son">
+  <div class="consigne">Fabrique le son <span class="m">mmmm</span> — suis les trois étapes</div>
+  <div class="photo"><img src="images/articulation-son-m.webp" alt="Enfant qui ferme les lèvres et pose la main sur sa gorge"></div>
+  <div class="etapes" id="etapes">
+    <div class="etape" data-etape="0"><span class="rond">1</span><span class="txt">Ferme bien tes lèvres — touche ici quand c'est fait</span></div>
+    <div class="etape" data-etape="1"><span class="rond">2</span><span class="txt">Pose la main sur ta gorge : ça vibre ? touche ici</span></div>
+    <div class="etape" data-etape="2"><i class="remplissage" id="remplissage"></i><span class="rond">3</span><span class="txt" id="txt3">Appuie ET GARDE le doigt en faisant mmmm</span></div>
+  </div>
+  <div class="jauge" id="jauge"></div>
+  <button class="rejouer" id="rejouer" type="button">↻ Encore</button>
+  <div class="bravo" id="bravo"><b>🎉 Bravo !<br>Tu sais fabriquer le son mmmm.</b><button class="rejouer-fin" id="rejouerFin" type="button">↻ Rejouer</button></div>
+</div>
+
+<script>
+'use strict';
+var DUREE=3000;                       // il faut TENIR le son 3 secondes
+var etapes=[].slice.call(document.querySelectorAll('.etape'));
+var remplissage=document.getElementById('remplissage'), txt3=document.getElementById('txt3');
+var jauge=document.getElementById('jauge'), bravo=document.getElementById('bravo');
+var courante=0, faites=[], appui=null, tenu=0;
+/* LA SEULE FORMULE QUI FAIT TENIR LE SON — mesurée sur la voix du cours.
+   La synthèse ne réagit pas à la graphie mais au SENS de la phrase : « mmmm » en fin de
+   phrase ordinaire est prononcé « èm » (0,30 s, comme le nom de la lettre), alors que la
+   phrase de l'écran 2, qui DIT que le son dure, le fait vraiment tenir (0,65 s, sans voyelle).
+   Règle : on ne glisse jamais le son dans une phrase quelconque. On dit la phrase normale,
+   puis on CLÔT par PHRASE_SON, mot pour mot. Mesures : seule → 0,65 s ; après une phrase
+   courte → 0,55 s ; après une phrase longue → 0,49 s (le nom de la lettre : 0,32 s). */
+var PHRASE_SON='Le son peut durer : mmmm.';   // ← phrase EXACTE de l'écran 2
+
+var EMBEDDED=(function(){try{return !!(window.parent&&window.parent!==window)}catch(e){return true}})();
+function parle(kind,texte,extra){
+  texte=String(texte||'').trim(); if(!texte)return;
+  if(EMBEDDED){var m={type:'cc-sim-voice',kind:kind,text:texte};
+    if(extra)for(var k in extra)m[k]=extra[k];
+    try{parent.postMessage(m,'*')}catch(e){} return;}
+  if(!('speechSynthesis' in window))return;
+  try{speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(texte);u.lang='fr-FR';u.rate=.85;speechSynthesis.speak(u)}catch(e){}
+}
+
+function rendre(){
+  etapes.forEach(function(el,i){
+    el.classList.toggle('faite', faites.indexOf(i)>=0);
+    el.classList.toggle('active', i===courante && faites.indexOf(i)<0);
+    el.classList.toggle('bloquee', i>courante);
+    if(faites.indexOf(i)>=0) el.querySelector('.rond').textContent='✓';
+    else el.querySelector('.rond').textContent=String(i+1);
+  });
+  jauge.innerHTML='';
+  for(var i=0;i<etapes.length;i++){
+    var p=document.createElement('i'); p.className='pastille'+(faites.indexOf(i)>=0?' on':''); jauge.appendChild(p);
+  }
+}
+function valider(i,silencieux){
+  if(faites.indexOf(i)>=0 || i!==courante) return false;
+  faites.push(i); courante=Math.min(etapes.length, courante+1);
+  rendre(); publierEtat();
+  if(!silencieux){
+    // On félicite D'ABORD, on explique ensuite.
+    if(i===0) parle('progress','Bravo ! Tes lèvres sont fermées, l\'air ne passe plus par la bouche.');
+    if(i===1) parle('progress','Super ! La voix fait vibrer ta gorge.');
+    if(i===2) parle('progress','Très bien joué ! Tu as tenu le son. '+PHRASE_SON);
+  }
+  if(faites.length===etapes.length) setTimeout(fini,450);
+  return true;
+}
+
+/* ---- étapes 1 et 2 : un simple appui ---- */
+etapes[0].addEventListener('pointerdown',function(){valider(0,false)});
+etapes[1].addEventListener('pointerdown',function(){valider(1,false)});
+
+/* ---- étape 3 : APPUI MAINTENU. La jauge n'avance que pendant l'appui, et redescend
+   dès que le doigt se lève : c'est l'enfant qui tient le son, pas une minuterie. ---- */
+var boite3=etapes[2];
+boite3.addEventListener('pointerdown',function(ev){
+  if(courante!==2 || faites.indexOf(2)>=0) return;
+  ev.preventDefault();
+  try{boite3.setPointerCapture(ev.pointerId)}catch(e){}
+  appui={pid:ev.pointerId, depuis:Date.now()-tenu};
+  boite3.classList.add('tenu');
+  parle('word',PHRASE_SON);   // la phrase de l'écran 2, telle quelle : l'enfant tient le son avec elle
+  boucle();
+});
+function relacher(ev){
+  if(!appui || (ev && ev.pointerId!==appui.pid)) return;
+  appui=null; boite3.classList.remove('tenu');
+  if(faites.indexOf(2)<0){
+    tenu=0; remplissage.style.width='0%';
+    txt3.textContent='Garde le doigt posé plus longtemps en faisant mmmm';
+    parle('retry','Le son s\'est arrêté. Garde le doigt posé plus longtemps. '+PHRASE_SON);
+  }
+}
+boite3.addEventListener('pointerup',relacher);
+boite3.addEventListener('pointercancel',relacher);
+boite3.addEventListener('pointerleave',relacher);
+function boucle(){
+  if(!appui) return;
+  tenu=Date.now()-appui.depuis;
+  var part=Math.min(1,tenu/DUREE);
+  remplissage.style.width=(part*100)+'%';
+  if(part>=1){
+    appui=null; boite3.classList.remove('tenu');
+    remplissage.style.width='100%';
+    txt3.textContent='Tu as tenu le son mmmm !';
+    valider(2,false);
+    return;
+  }
+  requestAnimationFrame(boucle);
+}
+
+function fini(){
+  bravo.className='bravo on';
+  // « un son que tu sais tenir » était refusé par le filtre de modération du moteur de voix.
+  parle('success','Bravo ! Lèvres fermées, gorge qui vibre, et un son bien tenu. '+PHRASE_SON);
+  try{parent.postMessage({type:'cc-sim-complete',mode:'gestes',state:etat()},'*')}catch(e){}
+}
+function recommencer(){
+  courante=0; faites=[]; tenu=0; appui=null;
+  remplissage.style.width='0%';
+  txt3.textContent='Appuie ET GARDE le doigt en faisant mmmm';
+  bravo.className='bravo'; rendre(); publierEtat();
+}
+
+/* ---- pilotage par l'avatar ---- */
+function etat(){return {etapeCourante:courante, faites:faites.slice(), termine:faites.length===etapes.length}}
+function capacites(){
+  return {actions:['demo','reset','place','finish'],
+    elements:[{id:'levres',label:'Fermer les lèvres'},{id:'gorge',label:'Sentir la gorge'},
+              {id:'tenir',label:'Tenir le son mmmm'}],
+    zones:[]};
+}
+function publierEtat(){
+  try{parent.postMessage({type:'cc-sim-state',mode:'gestes',state:etat(),
+    completed:faites.length===etapes.length,capabilities:capacites()},'*')}catch(e){}
+}
+var PAR_ID={levres:0,gorge:1,tenir:2};
+window.CourseSimulation={
+  getState:etat, getCapabilities:capacites,
+  dispatch:function(o){
+    if(!o)return;
+    if(o.action==='reset')recommencer();
+    else if(o.action==='finish')fini();
+    else if(o.action==='place'){
+      var i=PAR_ID[String(o.elementId||'')];
+      if(i===2){remplissage.style.width='100%';txt3.textContent='Tu as tenu le son mmmm !'}
+      if(i!==undefined)valider(i,o.quiet===true);
+    }
+    else if(o.action==='demo'){
+      [0,1,2].forEach(function(i){setTimeout(function(){
+        if(i===2){remplissage.style.width='100%';txt3.textContent='Tu as tenu le son mmmm !'}
+        valider(i,false);
+      },i*1200)});
+    }
+  }
+};
+window.addEventListener('message',function(e){var m=e.data||{};if(m.type==='cc-sim')window.CourseSimulation.dispatch(m)});
+
+document.getElementById('rejouer').onclick=function(){recommencer();parle('word','On recommence !')};
+document.getElementById('rejouerFin').onclick=function(){document.getElementById('rejouer').onclick()};
+recommencer();
+</script>
+</body>
+</html>

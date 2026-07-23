@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="cc-reponses" content="">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>J'écris les trois M</title>
+<style>
+/* ===================================================================================
+   J'ÉCRIS LES TROIS M — 1re année du primaire
+   L'enfant SUIT le chemin de la lettre avec son doigt. Les points de passage doivent être
+   atteints DANS L'ORDRE : c'est donc le SENS du tracé (le ductus) qui est validé, pas
+   seulement la forme. Un ductus faux installé au CP est très difficile à corriger ensuite
+   et bride la vitesse d'écriture — c'est exactement ce qu'il faut surveiller ici.
+   Aucune sanction : sortir du chemin ne fait que ramener au point vert.
+   Les trois écritures sont DESSINÉES (chemins SVG), jamais le caractère Unicode 𝓂.
+   Contrat respecté : pas de défilement, fond transparent, muette, pilotable.
+   =================================================================================== */
+:root{
+  --or:#F9A825; --rouge:#D7263D; --bleu:#1B6CA8; --vert:#2E9E5B;
+  --violet:#7C3AED; --encre:#12315A;
+  font-family:'Trebuchet MS',Verdana,Arial,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden;background:transparent;touch-action:manipulation}
+body{display:flex;align-items:center;justify-content:center}
+
+.scene{position:relative;width:100%;height:100%;max-width:calc(100vh * 16 / 9);
+  max-height:calc(100vw * 9 / 16);aspect-ratio:16/9;margin:auto;overflow:hidden;
+  border-radius:14px;user-select:none;touch-action:none;
+  background:linear-gradient(160deg,#DBEAFE 0%,#FEF3C7 55%,#DCFCE7 100%)}
+
+.consigne{position:absolute;left:2%;right:2%;top:3%;z-index:6;pointer-events:none;
+  background:#FFFFFFF0;border:.55vmin solid var(--or);border-radius:2.4vmin;
+  padding:1.1vmin 2vmin;color:var(--encre);font-weight:900;text-align:center;
+  font-size:clamp(13px,3vmin,30px);box-shadow:0 .6vmin 0 #E6A21766}
+.consigne .v{color:var(--vert)}
+
+/* ---- les trois écritures, à gauche : celle en cours est mise en avant ---- */
+.formes{position:absolute;left:3%;top:18%;width:22%;height:64%;z-index:3;
+  display:flex;flex-direction:column;gap:3%}
+.forme{flex:1;background:#FFFFFFE8;border:.6vmin solid #C7D2DE;border-radius:2.6vmin;
+  display:flex;align-items:center;gap:4%;padding:0 1.6vmin;transition:.2s;
+  color:#64748B;font-weight:900;font-size:clamp(9px,2.1vmin,20px)}
+.forme svg{width:34%;height:74%;flex:0 0 auto}
+.forme.encours{border-color:var(--or);background:#FFFBEB;transform:scale(1.04);color:var(--encre);
+  box-shadow:0 1vmin 0 #E6A21744}
+.forme.faite{border-color:var(--vert);background:#ECFDF5;color:#166534}
+
+/* ---- la zone de tracé ---- */
+.piste{position:absolute;left:27.5%;right:3%;top:16%;height:70%;z-index:3;
+  background:#FFFFFFF2;border:.7vmin solid var(--bleu);border-radius:3vmin;
+  box-shadow:0 1.1vmin 0 #1B6CA844,0 1.6vmin 3vmin #0003;overflow:hidden}
+.piste svg{width:100%;height:100%;display:block;touch-action:none;cursor:pointer}
+.reglure{stroke:#BFDBFE;stroke-width:.5}
+.ligneBase{stroke:#FCA5A5;stroke-width:1.1}
+.guide{fill:none;stroke:#D6DEE8;stroke-width:9;stroke-linecap:round;stroke-linejoin:round;
+  stroke-dasharray:3 6}
+.trace{fill:none;stroke:var(--bleu);stroke-width:9;stroke-linecap:round;stroke-linejoin:round;
+  transition:stroke-dashoffset .12s linear}
+.depart{fill:var(--vert);stroke:#fff;stroke-width:1.6}
+.departHalo{fill:none;stroke:var(--vert);stroke-width:1.4;opacity:.55}
+.fleche{fill:var(--or)}
+
+.jauge{position:absolute;right:3%;bottom:3.5%;z-index:6;display:flex;gap:1vmin;
+  background:#FFFFFFF0;border:.5vmin solid var(--vert);border-radius:2.4vmin;padding:1vmin 1.6vmin}
+.pastille{width:3.2vmin;height:3.2vmin;border-radius:50%;background:#D8E3EE;border:.45vmin solid #A9BED2;transition:.25s}
+.pastille.on{background:var(--vert);border-color:#1B7A43;transform:scale(1.12)}
+
+.rejouer{position:absolute;left:3%;bottom:3.5%;z-index:6;border:0;cursor:pointer;
+  background:var(--violet);color:#fff;font-weight:900;font-family:inherit;
+  font-size:clamp(11px,2.5vmin,24px);border-radius:2.4vmin;padding:1.2vmin 2.2vmin;
+  box-shadow:0 .8vmin 0 #4C1D95}
+.rejouer:active{transform:translateY(.4vmin);box-shadow:0 .4vmin 0 #4C1D95}
+
+.bravo{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:2.6vmin;
+  background:#0b1f3699;z-index:12}
+.bravo.on{display:flex;animation:pop .4s}
+/* ---- bouton rejouer, montré une fois la simulation terminée (dans l'écran Bravo) ---- */
+.rejouer-fin{border:0;cursor:pointer;background:var(--violet);color:#fff;font-weight:900;
+  font-family:inherit;font-size:clamp(15px,3.6vmin,32px);border-radius:2.8vmin;
+  padding:1.6vmin 3.4vmin;box-shadow:0 1vmin 0 #4C1D95}
+.rejouer-fin:active{transform:translateY(.5vmin);box-shadow:0 .5vmin 0 #4C1D95}
+.bravo b{background:#fff;border:1vmin solid var(--or);border-radius:4vmin;padding:3vmin 5vmin;
+  color:var(--vert);font-size:clamp(20px,6.5vmin,60px);text-align:center;box-shadow:0 2vmin 4vmin #0007}
+@keyframes pop{from{transform:scale(.7);opacity:0}to{transform:none;opacity:1}}
+</style>
+</head>
+<body>
+<div class="scene" id="scene" aria-label="Suis le chemin avec ton doigt pour écrire les trois M">
+  <div class="consigne">Pars du <span class="v">point vert</span> et suis le chemin avec ton doigt</div>
+  <div class="formes" id="formes"></div>
+  <div class="piste">
+    <svg id="piste" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+  <div class="jauge" id="jauge"></div>
+  <button class="rejouer" id="rejouer" type="button">↻ Encore</button>
+  <div class="bravo" id="bravo"><b>🎉 Bravo !<br>Tu sais écrire les trois M.</b><button class="rejouer-fin" id="rejouerFin" type="button">↻ Rejouer</button></div>
+</div>
+
+<script>
+'use strict';
+var NS='http://www.w3.org/2000/svg';
+
+/* Les trois écritures, en traits continus. Chaque lettre est une SUITE de traits : c'est
+   ainsi qu'on les écrit vraiment (le m d'imprimerie demande trois levers de crayon). */
+var LETTRES=[
+  {id:'M-maj', nom:'M majuscule', dit:'M majuscule',
+   traits:['M 22,80 L 22,22 L 50,58 L 78,22 L 78,80']},
+  {id:'m-min', nom:'m minuscule', dit:'m minuscule',
+   traits:['M 26,44 L 26,80',
+           'M 26,54 C 26,42 46,42 46,54 L 46,80',
+           'M 46,54 C 46,42 66,42 66,54 L 66,80']},
+  {id:'m-cur', nom:'m attaché', dit:'m attaché',
+   traits:['M 16,78 C 16,50 30,50 30,78 C 30,50 44,50 44,78 C 44,50 58,50 58,78 C 58,86 70,84 80,74']}
+];
+var TOLERANCE=13;        // large : un doigt d'enfant n'est pas précis
+var PERDU=26;            // pour DÉMARRER : on accepte un départ approximatif près du point vert
+var SORTIE=16;           // distance au CHEMIN au-delà de laquelle on a vraiment quitté le tracé
+
+var piste=document.getElementById('piste'), formes=document.getElementById('formes'),
+    jauge=document.getElementById('jauge'), bravo=document.getElementById('bravo');
+var iLettre=0, iTrait=0, jalons=[], iJalon=0, elTrace=null, longueur=0, enCours=false;
+var dernierPoint=null;   // dernière position du pointeur, pour reconstituer le geste
+var chemin=[];           // échantillonnage dense du trait, pour mesurer l'écart au chemin
+
+var EMBEDDED=(function(){try{return !!(window.parent&&window.parent!==window)}catch(e){return true}})();
+function parle(kind,texte,extra){
+  texte=String(texte||'').trim(); if(!texte)return;
+  if(EMBEDDED){var m={type:'cc-sim-voice',kind:kind,text:texte};
+    if(extra)for(var k in extra)m[k]=extra[k];
+    try{parent.postMessage(m,'*')}catch(e){} return;}
+  if(!('speechSynthesis' in window))return;
+  try{speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(texte);u.lang='fr-FR';u.rate=.85;speechSynthesis.speak(u)}catch(e){}
+}
+function mk(nom,attrs){var e=document.createElementNS(NS,nom);for(var k in attrs)e.setAttribute(k,attrs[k]);return e}
+
+/* ---- vignettes des trois écritures ---- */
+function dessinerFormes(){
+  formes.innerHTML='';
+  LETTRES.forEach(function(l,i){
+    var d=document.createElement('div');
+    d.className='forme'+(i<iLettre?' faite':(i===iLettre?' encours':''));
+    var svg='<svg viewBox="0 0 100 100">'+l.traits.map(function(t){
+      return '<path d="'+t+'" fill="none" stroke="'+(i<iLettre?'#2E9E5B':'#12315A')+
+             '" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>';
+    }).join('')+'</svg>';
+    d.innerHTML=svg+'<span>'+l.nom+'</span>';
+    formes.appendChild(d);
+  });
+  jauge.innerHTML='';
+  for(var i=0;i<LETTRES.length;i++){
+    var p=document.createElement('i'); p.className='pastille'+(i<iLettre?' on':''); jauge.appendChild(p);
+  }
+}
+
+/* ---- prépare le trait courant : guide, trace masquée, jalons ordonnés ---- */
+function preparerTrait(){
+  piste.innerHTML='';
+  enCours=false; dernierPoint=null;
+  // réglure d'écriture, pour situer la lettre
+  for(var y=22;y<=80;y+=19) piste.appendChild(mk('line',{x1:4,y1:y,x2:96,y2:y,'class':'reglure'}));
+  piste.appendChild(mk('line',{x1:4,y1:80,x2:96,y2:80,'class':'ligneBase'}));
+
+  var lettre=LETTRES[iLettre];
+  // les traits déjà écrits restent visibles, en vert
+  for(var t=0;t<iTrait;t++)
+    piste.appendChild(mk('path',{d:lettre.traits[t],fill:'none',stroke:'#2E9E5B','stroke-width':9,
+      'stroke-linecap':'round','stroke-linejoin':'round'}));
+
+  var d=lettre.traits[iTrait];
+  piste.appendChild(mk('path',{d:d,'class':'guide'}));
+  elTrace=mk('path',{d:d,'class':'trace'});
+  piste.appendChild(elTrace);
+
+  longueur=elTrace.getTotalLength();
+  elTrace.style.strokeDasharray=longueur;
+  elTrace.style.strokeDashoffset=longueur;      // rien de tracé au départ
+
+  // Jalons régulièrement espacés, à atteindre DANS L'ORDRE.
+  // L'espacement doit rester PLUS GRAND que la tolérance : sinon une même position du doigt
+  // tombe dans la tolérance de plusieurs jalons d'affilée, et un tracé fait à l'envers
+  // finirait par tous les valider. C'est le défaut qu'on évite ici.
+  // Échantillonnage dense du trait : sert à savoir si le doigt est encore SUR le chemin.
+  chemin=[]; for(var s2=0;s2<=longueur;s2+=2) chemin.push(elTrace.getPointAtLength(s2));
+
+  jalons=[]; iJalon=0;
+  var pas=Math.max(TOLERANCE+3,longueur/12);
+  for(var s=0;s<=longueur;s+=pas) jalons.push({p:elTrace.getPointAtLength(s),l:s});
+  var fin=elTrace.getPointAtLength(longueur);
+  if(jalons[jalons.length-1].l<longueur-1) jalons.push({p:fin,l:longueur});
+
+  // point de départ bien visible + flèche du sens
+  var p0=jalons[0].p;
+  piste.appendChild(mk('circle',{cx:p0.x,cy:p0.y,r:6.5,'class':'departHalo'}));
+  piste.appendChild(mk('circle',{cx:p0.x,cy:p0.y,r:4,'class':'depart'}));
+  var p1=jalons[Math.min(2,jalons.length-1)].p;
+  var ang=Math.atan2(p1.y-p0.y,p1.x-p0.x)*180/Math.PI;
+  var fl=mk('polygon',{points:'0,-3 7,0 0,3','class':'fleche',
+    transform:'translate('+(p0.x)+','+(p0.y)+') rotate('+ang+') translate(7,0)'});
+  piste.appendChild(fl);
+}
+
+/* ---- pointeur -> coordonnées du dessin : matrice réelle du SVG, exacte quel que soit
+   le format du cadre (une simple règle de trois se décalerait dès que la piste n'est
+   pas au format du viewBox). ---- */
+function enSvg(ev){
+  var m=piste.getScreenCTM();
+  if(!m) return null;
+  var p=piste.createSVGPoint(); p.x=ev.clientX; p.y=ev.clientY;
+  return p.matrixTransform(m.inverse());
+}
+function distance(a,b){var dx=a.x-b.x,dy=a.y-b.y;return Math.sqrt(dx*dx+dy*dy)}
+/* Écart au CHEMIN lui-même, et non au jalon suivant : dans un angle du M, on est légitimement
+   loin du jalon d'après tout en restant parfaitement sur le tracé. */
+function ecartAuChemin(p){
+  var min=1e9;
+  for(var i=0;i<chemin.length;i++){var d=distance(p,chemin[i]); if(d<min)min=d}
+  return min;
+}
+
+piste.addEventListener('pointerdown',function(ev){
+  if(iLettre>=LETTRES.length) return;
+  var p=enSvg(ev); if(!p) return;
+  ev.preventDefault();
+  try{piste.setPointerCapture(ev.pointerId)}catch(e){}
+  if(distance(p,jalons[iJalon].p)<=PERDU){ enCours=true; dernierPoint=p; avancer(p); }
+  else parle('retry','Pars du point vert.');
+});
+piste.addEventListener('pointermove',function(ev){
+  if(!enCours) return;
+  var p=enSvg(ev); if(p) avancer(p);
+});
+function relacher(){ if(!enCours) return; enCours=false; dernierPoint=null;
+  if(iJalon<jalons.length) reprendre('Continue jusqu\'au bout du chemin, sans lever le doigt.'); }
+piste.addEventListener('pointerup',relacher);
+piste.addEventListener('pointercancel',relacher);
+piste.addEventListener('pointerleave',relacher);
+
+function avancer(p){
+  // On rejoue le SEGMENT parcouru depuis la position précédente, pas seulement le point
+  // d'arrivée : à la souris un seul pointermove peut franchir plusieurs jalons d'un coup,
+  // et ne valider que le premier faisait aussitôt sortir du chemin (tracé impossible).
+  var prev=dernierPoint||p, d=distance(prev,p), n=Math.max(1,Math.ceil(d/4)), q;
+  for(var i=1;i<=n && iJalon<jalons.length;i++){
+    q={x:prev.x+(p.x-prev.x)*i/n, y:prev.y+(p.y-prev.y)*i/n};
+    // UN SEUL jalon validé par échantillon, et toujours le suivant dans l'ordre : on ne peut
+    // ni sauter des étapes, ni valider le chemin à l'envers. Le sens du geste reste contrôlé.
+    if(distance(q,jalons[iJalon].p)<=TOLERANCE){
+      elTrace.style.strokeDashoffset=Math.max(0,longueur-jalons[iJalon].l);
+      iJalon++;
+    }
+  }
+  dernierPoint=p;
+  if(iJalon>=jalons.length){ enCours=false; traitFini(); return; }
+  if(ecartAuChemin(p)>SORTIE){ enCours=false; dernierPoint=null; reprendre('Reste sur le chemin. On repart du point vert.'); }
+}
+function reprendre(message){
+  iJalon=0; dernierPoint=null;
+  if(elTrace) elTrace.style.strokeDashoffset=longueur;
+  parle('retry',message);
+}
+function traitFini(){
+  var lettre=LETTRES[iLettre];
+  iTrait++;
+  if(iTrait<lettre.traits.length){
+    parle('progress','Bien ! Maintenant le trait suivant.');
+    setTimeout(preparerTrait,420);
+    return;
+  }
+  // lettre terminée
+  iLettre++; iTrait=0;
+  dessinerFormes(); publierEtat();
+  if(iLettre>=LETTRES.length){ setTimeout(fini,500); return; }
+  parle('progress','Bravo ! Tu as écrit le '+lettre.dit+'.');
+  setTimeout(preparerTrait,650);
+}
+function fini(){
+  piste.innerHTML='';
+  bravo.className='bravo on';
+  parle('success','Bravo ! Tu sais écrire le M majuscule, le m minuscule et le m attaché.');
+  try{parent.postMessage({type:'cc-sim-complete',mode:'trace',state:etat()},'*')}catch(e){}
+}
+function recommencer(){
+  iLettre=0; iTrait=0; iJalon=0; enCours=false;
+  bravo.className='bravo';
+  dessinerFormes(); preparerTrait(); publierEtat();
+}
+
+/* ---- pilotage par l'avatar ---- */
+function etat(){return {lettre:iLettre<LETTRES.length?LETTRES[iLettre].id:'',
+  trait:iTrait, ecrites:LETTRES.slice(0,iLettre).map(function(l){return l.id}),
+  termine:iLettre>=LETTRES.length}}
+function capacites(){
+  return {actions:['demo','reset','place','finish'],
+    elements:LETTRES.map(function(l){return {id:l.id,label:l.nom}}), zones:[]};
+}
+function publierEtat(){
+  try{parent.postMessage({type:'cc-sim-state',mode:'trace',state:etat(),
+    completed:iLettre>=LETTRES.length,capabilities:capacites()},'*')}catch(e){}
+}
+/* L'avatar peut tracer lui-même pour MONTRER le geste : il parcourt les jalons dans l'ordre. */
+function montrerTrait(apres){
+  if(iLettre>=LETTRES.length){if(apres)apres();return}
+  var k=0;
+  var pas=function(){
+    if(k>=jalons.length){ traitFini(); if(apres) setTimeout(apres,500); return; }
+    elTrace.style.strokeDashoffset=Math.max(0,longueur-jalons[k].l);
+    iJalon=k+1; k++;
+    setTimeout(pas,90);
+  };
+  pas();
+}
+window.CourseSimulation={
+  getState:etat, getCapabilities:capacites,
+  dispatch:function(o){
+    if(!o)return;
+    if(o.action==='reset')recommencer();
+    else if(o.action==='finish')fini();
+    else if(o.action==='place'||o.action==='demo'){
+      var suite=function(){ if(iLettre<LETTRES.length) montrerTrait(suite); };
+      montrerTrait(o.action==='demo'?suite:null);
+    }
+  }
+};
+window.addEventListener('message',function(e){var m=e.data||{};if(m.type==='cc-sim')window.CourseSimulation.dispatch(m)});
+
+document.getElementById('rejouer').onclick=function(){recommencer();parle('word','On recommence !')};
+document.getElementById('rejouerFin').onclick=function(){document.getElementById('rejouer').onclick()};
+recommencer();
+</script>
+</body>
+</html>

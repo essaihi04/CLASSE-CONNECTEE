@@ -238,6 +238,17 @@
         <label class="field"><span>Durée</span><div class="minutes-input"><input id="editBlockDuration" type="number" min="1" max="120"><span>minutes</span></div></label>
         <label class="field"><span>Contenu / consigne</span><textarea id="editBlockContent" rows="9"></textarea></label>
         <label class="field"><span>Ressource associée</span><select id="editBlockResource"></select></label>
+        <section id="promptSlots" class="prompt-slots" hidden>
+          <div class="prompt-slots-head">
+            <div>
+              <p class="eyebrow accent">Visuels décrits par l’IA</p>
+              <h3>Emplacements à remplir</h3>
+              <p class="prompt-slots-copy">Aucune image n’est générée. L’IA décrit ce qu’il faut voir : importez votre ressource dédiée à chaque emplacement.</p>
+            </div>
+            <button id="assembleSimulationBtn" class="outline-button" type="button" hidden>⟳ Assembler la simulation</button>
+          </div>
+          <div id="promptSlotsList" class="prompt-slot-list"></div>
+        </section>
         <label class="field"><span>Note du professeur <em>privée</em></span><textarea id="editTeacherNote" rows="3" placeholder="Point à corriger, adaptation à prévoir…"></textarea></label>
       </div>
       <div class="drawer-actions"><button id="deleteBlock" class="danger-button" type="button">Supprimer</button><button id="saveBlock" class="primary-button" type="button">Enregistrer les modifications</button></div>

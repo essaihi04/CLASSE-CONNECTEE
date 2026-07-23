@@ -1063,7 +1063,14 @@ REGLES PEDAGOGIQUES STRICTES
     - interactionType="variable" pour expérimenter une relation cause→effet : 1 à 3 variables, règles d'observation et éléments dont bindVariable recopie exactement le nom d'une variable ;
     - interactionType="drag_drop" pour trier, associer, ordonner ou placer : variables et rules vides, 2 à 6 objets tous draggable=true, au moins une zone de dépôt, et zones.accepts contenant les id exacts des objets corrects. Ce n'est jamais une image statique : l'élève doit saisir chaque objet avec la souris ou le doigt et le déposer ;
     - interactionType="free_move" pour construire librement un schéma ou explorer l'espace : objets draggable=true, zones facultatives.
-    Pour chaque objet concret nécessaire (animal, vêtement, aliment, organe, nombre, forme, outil, etc.) et chaque cible concrète (panier, boîte, partie d'un schéma, axe, ensemble, etc.), crée toi-même une petite illustration dans "svg". Le champ contient un <svg viewBox="0 0 100 100"> composé uniquement de g/path/rect/circle/ellipse/line/polyline/polygon, sans texte, HTML, JavaScript, style, image, lien, filtre ni événement. Pour une lettre, un chiffre ou un symbole à reconnaître, DESSINE sa forme en grand avec des path/line épais (stroke-width 8 à 12) : c'est l'objet lui-même, pas une décoration. Le moteur ajoute les libellés et exécute le geste. Coordonnées de la scène : x 0–100, y 0–70 ; objets grands, séparés, saisissables au doigt et zones non superposées.
+    Pour chaque objet concret nécessaire (animal, vêtement, aliment, organe, nombre, forme, outil, etc.) et chaque cible concrète (panier, boîte, partie d'un schéma, axe, ensemble, etc.), crée toi-même une petite illustration dans "svg". Le champ contient un <svg viewBox="0 0 100 100"> composé uniquement de g/path/rect/circle/ellipse/line/polyline/polygon, sans texte, HTML, JavaScript, style, image, lien, filtre ni événement. Pour une lettre, un chiffre ou un symbole à reconnaître, DESSINE sa forme en grand avec des path/line épais (stroke-width 8 à 12) : c'est l'objet lui-même, pas une décoration. Le moteur ajoute les libellés et exécute le geste. GÉOMÉTRIE EXACTE DE LA SCÈNE (repère commun à tous les objets et zones) :
+    - La scène est une grille FIXE de 100 unités de large sur 70 de haut, affichée en 10:7 quelle que soit la taille de l'écran. x=0 est le bord gauche, x=100 le bord droit, y=0 le HAUT, y=70 le BAS.
+    - x, y donnent le coin HAUT-GAUCHE de l'objet ; il occupe donc x → x+width et y → y+height. Respecte toujours x+width ≤ 100 et y+height ≤ 65.
+    - RÉSERVE DE 5 UNITÉS EN BAS : le libellé de chaque objet est écrit SOUS lui. Aucun objet ni zone ne doit descendre au-delà de y+height = 65, sinon son nom sort de l'écran.
+    - AUCUN CHEVAUCHEMENT : deux objets, ou un objet et une zone, doivent être séparés d'au moins 2 unités sur x ou sur y. Vérifie chaque paire avant de répondre.
+    - NI TROP ÉLOIGNÉS : n'utilise pas les coins extrêmes pour « aérer ». Occupe la scène de façon régulière.
+    - DISPOSITION RECOMMANDÉE POUR UN TRI : les objets à déplacer sur une rangée haute (y ≈ 4, height ≈ 20), les contenants/zones sur une rangée basse (y ≈ 38, height ≈ 22). Pour n objets sur une rangée, centre chacun dans sa colonne de largeur 100/n : x = colonne × (100/n) + (100/n − width)/2.
+    - Tailles lisibles au doigt : objets width et height entre 14 et 24 ; zones entre 20 et 30.
     CARTES-IMAGES RÉELLES : chaque objet et chaque zone possèdent un champ "imagePrompt". S'il est rempli, une VRAIE illustration est générée par IA et affichée en grande carte-image à la place du SVG (le SVG reste le repli obligatoire). Décris précisément UN sujet concret, sans texte : imagePrompt="un mouton blanc laineux debout dans l'herbe, dessin plat enfantin". AU PRIMAIRE ET AU PRÉSCOLAIRE, remplis imagePrompt pour CHAQUE objet concret et chaque contenant : la simulation doit être un jeu d'images avant tout, comme un imagier tactile — 2 à 6 grandes cartes (largeur 18 à 28), le texte se limitant à la consigne d'une phrase et à un libellé d'un mot par carte. Aux niveaux collège/lycée, remplis imagePrompt seulement quand une photo/illustration réaliste apporte plus qu'un schéma (objets réels, êtres vivants) ; laisse "" pour les formes abstraites, lettres, chiffres et symboles (le SVG suffit).
     AUDIO DE LA MANIPULATION : chaque objet possède un champ "word" = ce que la voix prononce à voix haute quand l'élève touche l'objet. En langue et en phonologie, c'est OBLIGATOIRE : l'élève doit ENTENDRE le mot qu'il classe (word="mouton", word="ballon"…). Ailleurs, word porte le nom exact de l'objet si l'entendre aide (primaire), sinon une chaîne vide.
     Fournis successMessage et retryMessage courts, bienveillants et PRÉCIS (ils sont aussi lus à voix haute aux non-lecteurs) : reprends la différenciation de la source pour retryMessage (ex. « Redis le mot lentement : mmm-outon. Entends-tu mmm ? »). Aucun HTML ni JavaScript. "imageUseful" vaut true seulement si une image de fond apporte un contexte irremplaçable. Une simulation est interdite si la manipulation n'apporte rien de plus qu'une activité simple, une image ou du texte.
@@ -1311,6 +1318,24 @@ Réponds uniquement par un objet JSON valide :
   });
 }
 
+// ============ CONTRAT D'AFFICHAGE DES SIMULATIONS ============
+// Une page est reconnue comme simulation si elle dialogue avec le tableau (protocole cc-sim)
+// ou si son nom suit la convention sim-*.html. On reste volontairement strict : on ne veut
+// pas transformer une page ordinaire du prototype.
+const CONTRAT_SIMULATION_URL = '/cc-sim-contract.js';
+function estPageDeSimulation(html, filePath) {
+  if (/cc-sim-complete|cc-sim-voice|CourseSimulation|type:\s*['"]cc-sim['"]/.test(html)) return true;
+  return /(^|[\\/])sim-[^\\/]*\.html$/i.test(String(filePath || ''));
+}
+function appliquerContratSimulation(html) {
+  const balise = '<script src="' + CONTRAT_SIMULATION_URL + '"></script>';
+  // Le contrat doit s'installer AVANT le script du jeu : il intercepte la synthèse vocale.
+  const premierScript = html.search(/<script\b/i);
+  if (premierScript >= 0) return html.slice(0, premierScript) + balise + html.slice(premierScript);
+  if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, balise + '</body>');
+  return html + balise;
+}
+
 // ============ GÉNÉRATION DE SIMULATIONS INTERACTIVES ============
 // L'IA ne fournit qu'une SPEC (énoncé, variables, règles d'observation, schéma) : la page
 // HTML est ensuite assemblée par le gabarit déterministe simulation-builder.js. Aucun code
@@ -1324,21 +1349,37 @@ function handleGenerateSimulation(req,res){
     const answer=(code,payload)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(payload));};
     try{
       await verifyCourseImportUser(req);
-      if(!hasOpenAIKey()) return answer(503,{error:"Génération d'images indisponible : OpenAI est désactivé (OPENAI_ENABLED=on pour le réactiver)."});
       const data=JSON.parse(body||'{}');
+      // MODE SANS GÉNÉRATION IA (import studio) : le professeur importe lui-même les images
+      // dédiées à chaque objet/zone. On assemble alors uniquement la page HTML de la
+      // simulation à partir des images fournies (importedImages : id → data URL) et des SVG
+      // de repli, sans jamais appeler la génération d'images ni exiger la clé OpenAI.
+      const noAiImages=data.noAiImages===true;
+      if(!noAiImages && !hasOpenAIKey()) return answer(503,{error:"Génération d'images indisponible : OpenAI est désactivé (OPENAI_ENABLED=on pour le réactiver)."});
+      const importedImages=data.importedImages&&typeof data.importedImages==='object'?data.importedImages:{};
       const spec=sanitizeSimulationSpec(data.simulation);
       const target=data.targetContext&&typeof data.targetContext==='object'?data.targetContext:{};
       const warnings=[];
       let imageDataUrl='';
-      if(spec.imageUseful&&spec.imagePrompt){
+      if(noAiImages){
+        // Fond éventuel importé par le professeur pour la scène (facultatif).
+        if(typeof importedImages.__background==='string'&&/^data:image\//i.test(importedImages.__background))imageDataUrl=importedImages.__background;
+      }else if(spec.imageUseful&&spec.imagePrompt){
         try{const generated=await callOpenAIImage(spec.imagePrompt,target,spec.imageAlt);imageDataUrl='data:'+generated.mimeType+';base64,'+generated.data;}
         catch(error){warnings.push('Illustration de simulation non générée : '+String(error.message||error).slice(0,220));}
       }
       // CARTES-IMAGES : chaque objet/zone dont l'IA a décrit l'image (imagePrompt) reçoit
-      // une vraie illustration générée, intégrée en data URL. Le SVG dessiné par l'IA reste
-      // le repli si la génération échoue. Deux images avancent en parallèle, plafonnées
-      // par simulation (OPENAI_MAX_SIM_CARD_IMAGES) pour maîtriser coût et durée.
+      // une vraie illustration. En mode studio (noAiImages), on prend l'image IMPORTÉE par
+      // le professeur ; sinon on la génère par IA. Le SVG dessiné par l'IA reste le repli si
+      // aucune image n'est fournie. Deux images avancent en parallèle, plafonnées par
+      // simulation (OPENAI_MAX_SIM_CARD_IMAGES) pour maîtriser coût et durée.
       const cardImages={};
+      if(noAiImages){
+        [...spec.elements,...spec.zones].forEach(item=>{
+          const src=importedImages[item.id];
+          if(typeof src==='string'&&/^data:image\//i.test(src))cardImages[item.id]=src;
+        });
+      }else{
       const cardBudget=Math.max(0,Number(process.env.OPENAI_MAX_SIM_CARD_IMAGES)||8);
       const cardTargets=[...spec.elements,...spec.zones].filter(item=>item.imagePrompt).slice(0,cardBudget);
       if(cardTargets.length){
@@ -1353,6 +1394,7 @@ function handleGenerateSimulation(req,res){
           }
         };
         await Promise.all([worker(),worker()]);
+      }
       }
       const targetLabel=[cleanText(target.subjectName,160),cleanText(target.gradeLevelName,160),cleanText(target.streamName,120)].filter(x=>x&&x!=='Sans filière').join(' · ');
       const html=buildSimulationHtml({title:cleanText(data.title,220)||'Simulation',targetLabel,spec,imageDataUrl,cardImages});
@@ -1417,6 +1459,44 @@ function handleGenerateCourseImage(req,res){
       answer(200,{...generated,fileName:'illustration-'+slug+'-'+Date.now()+'.png'});
     }catch(error){answer(error.status||502,{error:String(error.message||error)});}
   });
+}
+
+// ============ VOIX MISTRAL (Voxtral TTS) — moteur principal depuis 2026-07-22 ============
+// Demandée par le prof : voix FÉMININE FRANÇAISE, plus humaine que Charon pour des GS/CP.
+// Le catalogue (GET /v1/audio/voices?limit=100 — attention, le paramètre de pagination est
+// `limit`, `page_size` est ignoré) ne contient qu'une famille française : « Marie », en six
+// nuances (neutral, happy, excited, curious, sad, angry). `fr_marie_happy` = chaleureuse et
+// rayonnante, c'est le ton d'une maîtresse qui encourage.
+// L'API ne renvoie PAS l'audio brut mais un JSON { audio_data: <base64> } — un MP3 (entête ID3).
+function getMistralKey(){
+  if (process.env.MISTRAL_API_KEY) return process.env.MISTRAL_API_KEY.trim();
+  return fs.readFileSync(path.join(__dirname, 'mistral.key'), 'utf8').trim();
+}
+function hasMistralKey(){ try{ return !!getMistralKey(); }catch(e){ return false; } }
+const MISTRAL_TTS_MODEL = (process.env.MISTRAL_TTS_MODEL || 'voxtral-mini-tts-latest').trim();
+const MISTRAL_TTS_VOICE = (process.env.MISTRAL_TTS_VOICE || 'fr_marie_happy').trim();
+const USE_MISTRAL_TTS   = /^(1|on|true|yes)$/i.test(process.env.MISTRAL_TTS || 'on');
+async function callMistralTTS(text){
+  const body = JSON.stringify({ model: MISTRAL_TTS_MODEL, input: text, voice: MISTRAL_TTS_VOICE });
+  const sleep = ms => new Promise(r=>setTimeout(r, ms));
+  const BACKOFF = [800, 2000, 4000];          // 429 de débit / 5xx passagers
+  let r, lastTxt='';
+  for (let attempt=0; attempt<=BACKOFF.length; attempt++){
+    r = await fetch('https://api.mistral.ai/v1/audio/speech', {
+      method:'POST',
+      headers:{ Authorization:'Bearer '+getMistralKey(), 'Content-Type':'application/json' },
+      body, signal: AbortSignal.timeout(90000)
+    });
+    if (r.ok) break;
+    lastTxt = (await r.text()).slice(0,300);
+    if ((r.status===429 || r.status>=500) && attempt<BACKOFF.length){ await sleep(BACKOFF[attempt]); continue; }
+    throw new Error('Mistral TTS HTTP '+r.status+' : '+lastTxt.slice(0,200));
+  }
+  const data = await r.json();
+  if(!data.audio_data) throw new Error('Mistral TTS : audio absent de la réponse');
+  const buf = Buffer.from(data.audio_data, 'base64');
+  if(!buf.length) throw new Error('Mistral TTS : audio vide');
+  return buf;
 }
 
 // ---- Clé ElevenLabs (voix primaire) : variable d'env OU fichier elevenlabs.key ----
@@ -1671,6 +1751,9 @@ function stableCourseAudioHash(text){
 // Quand la voix change (bascule OpenAI → Gemini, ou choix fait sur /voix.html), le marqueur
 // ne correspond plus : le lecteur ignore l'ancienne carte et le serveur en repart une neuve.
 function currentVoiceTag(){
+  // L'ORDRE DOIT SUIVRE EXACTEMENT celui de la chaîne dans handleTTS : sinon une piste serait
+  // rangée sous le nom d'un moteur qui ne l'a pas produite, et resservie comme si de rien n'était.
+  if(USE_MISTRAL_TTS && hasMistralKey()) return 'mistral:'+MISTRAL_TTS_VOICE;
   if(hasOpenAIKey()) return 'openai:'+OPENAI_TTS_VOICE;
   if(USE_ELEVEN_TTS && hasElevenKey()) return 'eleven:'+ELEVEN_VOICE_ID;
   if(USE_GEMINI_TTS) return 'gemini:'+currentGeminiVoice();
@@ -1907,6 +1990,10 @@ function handleTTS(req, res){
     // voix masculine sur tout le cours : mélanger les moteurs = changer de timbre d'une
     // étape à l'autre. Réactivation : OPENAI_ENABLED=on / ELEVENLABS_TTS=on / CLOUD_TTS=on.
     const errs=[];
+    if(USE_MISTRAL_TTS && hasMistralKey()){
+      try{return reply(await callMistralTTS(clean),'audio/mpeg','synthese');}
+      catch(error){errs.push('Mistral → '+String(error.message||error));}
+    } else errs.push('Mistral → désactivé');
     if(hasOpenAIKey()){
       try{return reply(await callOpenAITTS(clean,targetContext),'audio/mpeg','synthese');}
       catch(error){errs.push('OpenAI → '+String(error.message||error));}
@@ -1923,8 +2010,14 @@ function handleTTS(req, res){
       try{const a=await callCloudTTS(clean);return reply(a.buf,a.mime,'synthese');}
       catch(error){errs.push('Cloud → '+String(error.message||error));}
     } else errs.push('Cloud → désactivé');
-    console.warn('[TTS] repli navigateur : '+errs.join('  |  ').slice(0,500));
-    res.writeHead(204, { 'Cache-Control':'no-store', 'X-TTS-Fallback':'browser' });
+    const detail=errs.join(' | ');
+    console.warn('[TTS] repli navigateur : '+detail.slice(0,500));
+    // Le corps est vide (204) : on met le MOTIF dans un en-tête, sinon un outil de
+    // pré-génération ne peut pas distinguer « quota épuisé » d'une panne réseau. Un en-tête
+    // n'accepte ni retour à la ligne ni caractère hors ASCII : on aplatit.
+    const motif=/quota|RESOURCE_EXHAUSTED|\b429\b/i.test(detail) ? 'quota epuise : '+detail : detail;
+    res.writeHead(204, { 'Cache-Control':'no-store', 'X-TTS-Fallback':'browser',
+      'X-TTS-Reason': motif.replace(/\s+/g,' ').replace(/[^\x20-\x7e]/g,'').slice(0,300) });
     res.end();
   });
 }
@@ -2598,6 +2691,23 @@ const server = http.createServer((req, res) => {
       const ext = path.extname(filePath).toLowerCase();
       const type = MIME[ext] || 'application/octet-stream';
       const range = req.headers.range;
+      // ---- CONTRAT DES SIMULATIONS APPLIQUÉ AUTOMATIQUEMENT (voir CONTRAT-SIMULATION.md) ----
+      // Toute page de simulation, d'où qu'elle vienne (écrite à la main, produite par une IA
+      // externe, déposée dans le dossier), reçoit ici le script du contrat : plus de
+      // défilement, fond transparent, voix déléguée à l'avatar, pilotage exposé. L'iframe du
+      // tableau est en sandbox sans allow-same-origin : le parent ne PEUT pas injecter après
+      // coup, c'est donc au service du fichier que la règle doit s'appliquer. Le script est
+      // défensif : il n'écrase jamais une simulation déjà conforme.
+      if (ext === '.html' && !range) {
+        let page = null;
+        try { page = fs.readFileSync(filePath, 'utf8'); } catch (e) { page = null; }
+        if (page && estPageDeSimulation(page, filePath) && !page.includes(CONTRAT_SIMULATION_URL)) {
+          const normalisee = appliquerContratSimulation(page);
+          const corps = Buffer.from(normalisee, 'utf8');
+          res.writeHead(200, { 'Content-Type': type, 'Content-Length': corps.length });
+          return res.end(corps);
+        }
+      }
       if (range) {
         const m = /bytes=(\d*)-(\d*)/.exec(range) || [];
         const start = parseInt(m[1], 10) || 0;
@@ -2618,10 +2728,11 @@ server.listen(PORT, () => {
   console.log(`  OpenAI (cours, images, tuteur, voix) : ${USE_OPENAI ? (hasOpenAIKey() ? 'clé chargée ✅' : 'OPENAI_API_KEY absente ❌') : 'DÉSACTIVÉ (OPENAI_ENABLED=on pour réactiver) ⏸️'}`);
   console.log(`  Voix : ${currentVoiceTag()} — repli navigateur (voix masculine FR)`);
   console.log(`  IA DeepSeek : ${ (()=>{ try{ getKey(); return 'clé chargée ✅'; }catch(e){ return 'clé absente ❌'; } })() }`);
-  console.log(`  Voix 1) ElevenLabs (${ELEVEN_VOICE_ID === 'JBFqnCBsd6RMkjVDRZzb' ? 'George' : ELEVEN_VOICE_ID}) : ${ !USE_ELEVEN_TTS ? 'DÉSACTIVÉ ⛔ (ELEVENLABS_TTS=on pour réactiver)' : (hasElevenKey() ? 'clé chargée ✅' : 'clé absente ❌ (elevenlabs.key ou ELEVENLABS_API_KEY)') }`);
-  console.log(`  Voix 2) Gemini TTS (${currentGeminiVoice()}) : ${ USE_GEMINI_TTS ? ((()=>{ try{ getGeminiKey(); return 'clé chargée ✅ ← EN SERVICE'; }catch(e){ return 'clé absente ❌'; } })()) : 'DÉSACTIVÉ ⛔ (GEMINI_TTS=on pour réactiver)' }`);
-  console.log(`  Voix 3) Google Cloud TTS (${CLOUD_TTS_VOICE}) : ${ !USE_CLOUD_TTS ? 'DÉSACTIVÉ ⛔ (CLOUD_TTS=on pour réactiver)' : (fs.existsSync(OAUTH_TOKEN_FILE) ? 'autorisé ✅' : 'à autoriser → http://localhost:'+PORT+'/oauth2/start') }`);
-  console.log('  Voix 4) Navigateur (Web Speech) : repli automatique côté client');
+  console.log(`  Voix 1) Mistral Voxtral (${MISTRAL_TTS_VOICE}) : ${ !USE_MISTRAL_TTS ? 'DÉSACTIVÉ ⛔ (MISTRAL_TTS=on pour réactiver)' : (hasMistralKey() ? 'clé chargée ✅ ← EN SERVICE' : 'clé absente ❌ (mistral.key ou MISTRAL_API_KEY)') }`);
+  console.log(`  Voix 2) ElevenLabs (${ELEVEN_VOICE_ID === 'JBFqnCBsd6RMkjVDRZzb' ? 'George' : ELEVEN_VOICE_ID}) : ${ !USE_ELEVEN_TTS ? 'DÉSACTIVÉ ⛔ (ELEVENLABS_TTS=on pour réactiver)' : (hasElevenKey() ? 'clé chargée ✅' : 'clé absente ❌ (elevenlabs.key ou ELEVENLABS_API_KEY)') }`);
+  console.log(`  Voix 3) Gemini TTS (${currentGeminiVoice()}) : ${ USE_GEMINI_TTS ? ((()=>{ try{ getGeminiKey(); return 'clé chargée ✅'; }catch(e){ return 'clé absente ❌'; } })()) : 'DÉSACTIVÉ ⛔ (GEMINI_TTS=on pour réactiver)' }`);
+  console.log(`  Voix 4) Google Cloud TTS (${CLOUD_TTS_VOICE}) : ${ !USE_CLOUD_TTS ? 'DÉSACTIVÉ ⛔ (CLOUD_TTS=on pour réactiver)' : (fs.existsSync(OAUTH_TOKEN_FILE) ? 'autorisé ✅' : 'à autoriser → http://localhost:'+PORT+'/oauth2/start') }`);
+  console.log('  Voix 5) Navigateur (Web Speech) : repli automatique côté client');
   console.log(`  Cache voix disque : ${(()=>{ try{ return fs.readdirSync(ttsCacheDirFor(currentVoiceTag())).length+' piste(s)'; }catch(e){ return 'vide (se remplit à la lecture)'; } })()} — max ${TTS_CACHE_MAX_FILES}`);
   console.log(`  Cache voix Supabase (persistant, toutes leçons) : ${ !USE_SHARED_TTS ? 'DÉSACTIVÉ ⛔ (TTS_SHARED_CACHE=on)' : (sharedTTSContext() ? 'actif ✅ course-media/'+sharedTTSPrefix(currentVoiceTag())+' — max '+SHARED_TTS_MAX : 'inactif ❌ (clé de service Supabase absente)') }`);
   console.log('  (Ctrl+C pour arreter)\n');

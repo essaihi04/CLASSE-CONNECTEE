@@ -1,0 +1,312 @@
+[
+ {
+  "piste": "001",
+  "texte": "Bonjour les détectives ! Aujourd'hui, nous allons découvrir le secret de la lettre M. Nous allons écouter un son, le chercher dans des mots, reconnaître ses écritures et apprendre le geste pour le produire.",
+  "hachage": "hyw8jo1-206"
+ },
+ {
+  "piste": "002",
+  "texte": "Voici la règle de prononciation. M représente le son [m]. C'est une consonne faite avec les deux lèvres : elles se ferment, l'air passe par le nez et la gorge vibre. Le son peut durer : mmmm. On ne dit pas émé pour lire M. On écoute [m] au début de MOTO, au milieu de PYJAMA et à la fin de PLUME.",
+  "hachage": "h1k6sifj-296"
+ },
+ {
+  "piste": "003",
+  "texte": "Regarde l'enfant. Il ferme les lèvres, pose une main sur la gorge et l'autre sur le ventre. Fais comme lui et prolonge le son : mmmm. La lettre M ne se prononce pas émé ici : elle fait un son continu.",
+  "hachage": "hrdszxl-200"
+ },
+ {
+  "piste": "004",
+  "texte": "Écoute bien chaque mot, puis décide tout seul. Si tu entends mmm dans le mot, mets l'image dans le grand panier. Sinon, laisse-la en haut. À toi de chercher !",
+  "hachage": "h11y1gan-158"
+ },
+ {
+  "piste": "005",
+  "texte": "Écoute chaque mot lentement. Le son mmm se cache soit au début, soit au milieu, soit à la fin. À toi de trouver sa place pour chaque image.",
+  "hachage": "hio8kb0-139"
+ },
+ {
+  "piste": "006",
+  "texte": "Le monstre a très faim, mais il ne mange que la lettre M. Attention, certaines lettres lui ressemblent beaucoup ! À toi de choisir celles qu'il peut avaler.",
+  "hachage": "h12l86r7-156"
+ },
+ {
+  "piste": "007",
+  "texte": "À ton tour de fabriquer le son. Ferme les lèvres, touche doucement ta gorge et ton ventre, puis fais mmmm pendant quelques secondes.",
+  "hachage": "h5gmc3o-132"
+ },
+ {
+  "piste": "008",
+  "texte": "Pour finir, observe les trois écritures et trace la lettre M. Commence en haut, descends, remonte et redescends. Tu peux écrire M, m puis m cursif.",
+  "hachage": "hg9z861-147"
+ },
+ {
+  "piste": "009",
+  "texte": "Bravo ! Tu sais maintenant produire le son [m], repérer sa présence, localiser sa place et reconnaître M, m et m cursif. M fait mmmm.",
+  "hachage": "htcnpb2-133"
+ },
+ {
+  "piste": "010",
+  "texte": "On recommence !",
+  "hachage": "hc5rbfl-15"
+ },
+ {
+  "piste": "011",
+  "texte": "mouton",
+  "hachage": "h3y6pqf-6"
+ },
+ {
+  "piste": "012",
+  "texte": "Bravo ! On entend mmm dans mouton.",
+  "hachage": "h19247bs-34"
+ },
+ {
+  "piste": "013",
+  "texte": "moto",
+  "hachage": "hykn04k-4"
+ },
+ {
+  "piste": "014",
+  "texte": "Bravo ! On entend mmm dans moto.",
+  "hachage": "h1e4uo45-32"
+ },
+ {
+  "piste": "015",
+  "texte": "ballon",
+  "hachage": "h1vkwwv1-6"
+ },
+ {
+  "piste": "016",
+  "texte": "Écoute encore : ballon. On n'entend pas mmm.",
+  "hachage": "h1wnjfir-44"
+ },
+ {
+  "piste": "017",
+  "texte": "pyjama",
+  "hachage": "h62wehz-6"
+ },
+ {
+  "piste": "018",
+  "texte": "Bravo ! On entend mmm dans pyjama.",
+  "hachage": "h18cjum0-34"
+ },
+ {
+  "piste": "019",
+  "texte": "table",
+  "hachage": "h4jwyod-5"
+ },
+ {
+  "piste": "020",
+  "texte": "Écoute encore : table. On n'entend pas mmm.",
+  "hachage": "hbxhhnn-43"
+ },
+ {
+  "piste": "021",
+  "texte": "singe",
+  "hachage": "h4jdzej-5"
+ },
+ {
+  "piste": "022",
+  "texte": "Écoute encore : singe. On n'entend pas mmm.",
+  "hachage": "h15y6knl-43"
+ },
+ {
+  "piste": "023",
+  "texte": "Bravo ! Tu as trouvé les trois mots avec le son mmm.",
+  "hachage": "hwum72r-52"
+ },
+ {
+  "piste": "024",
+  "texte": "mmm",
+  "hachage": "h377d3g-3"
+ },
+ {
+  "piste": "025",
+  "texte": "Écoute encore : moto. Où entends-tu mmm ?",
+  "hachage": "hbwa0cm-41"
+ },
+ {
+  "piste": "026",
+  "texte": "Oui ! Dans moto, on entend mmm au début.",
+  "hachage": "h16g2f0i-40"
+ },
+ {
+  "piste": "027",
+  "texte": "plume",
+  "hachage": "h4hc7fs-5"
+ },
+ {
+  "piste": "028",
+  "texte": "Écoute encore : plume. Où entends-tu mmm ?",
+  "hachage": "h1v1f8x6-42"
+ },
+ {
+  "piste": "029",
+  "texte": "Oui ! Dans plume, on entend mmm à la fin.",
+  "hachage": "hq7dhlu-41"
+ },
+ {
+  "piste": "030",
+  "texte": "Écoute encore : pyjama. Où entends-tu mmm ?",
+  "hachage": "h12vrfmx-43"
+ },
+ {
+  "piste": "031",
+  "texte": "Oui ! Dans pyjama, on entend mmm au milieu.",
+  "hachage": "h1qcxuxe-43"
+ },
+ {
+  "piste": "032",
+  "texte": "Bravo ! Tu as trouvé la place du son mmm dans les trois mots.",
+  "hachage": "h2cc9p0-61"
+ },
+ {
+  "piste": "033",
+  "texte": "M majuscule",
+  "hachage": "h18ihvln-11"
+ },
+ {
+  "piste": "034",
+  "texte": "n",
+  "hachage": "h3t3n-1"
+ },
+ {
+  "piste": "035",
+  "texte": "m minuscule",
+  "hachage": "h1qpbb6v-11"
+ },
+ {
+  "piste": "036",
+  "texte": "W",
+  "hachage": "h3t30-1"
+ },
+ {
+  "piste": "037",
+  "texte": "m en attaché",
+  "hachage": "hkygmkj-12"
+ },
+ {
+  "piste": "038",
+  "texte": "N",
+  "hachage": "h3t2r-1"
+ },
+ {
+  "piste": "039",
+  "texte": "u",
+  "hachage": "h3t3u-1"
+ },
+ {
+  "piste": "040",
+  "texte": "Miam ! C'est bien un m.",
+  "hachage": "h8qsv6k-23"
+ },
+ {
+  "piste": "041",
+  "texte": "Beurk ! Ce n'est pas un m. Regarde bien ses jambes.",
+  "hachage": "hkm61nx-51"
+ },
+ {
+  "piste": "042",
+  "texte": "Bravo ! Tu as trouvé les trois écritures de la lettre m.",
+  "hachage": "hdbfrli-56"
+ },
+ {
+  "piste": "043",
+  "texte": "Bien ! Tes lèvres sont fermées, l'air ne passe plus par la bouche.",
+  "hachage": "h1g7npkl-66"
+ },
+ {
+  "piste": "044",
+  "texte": "Oui ! La voix fait vibrer ta gorge.",
+  "hachage": "h3xqcgb-35"
+ },
+ {
+  "piste": "045",
+  "texte": "Bravo, tu as tenu le son mmm !",
+  "hachage": "h1el5ibx-30"
+ },
+ {
+  "piste": "046",
+  "texte": "Le son s'est arrêté. Garde le doigt posé et fais mmmm plus longtemps.",
+  "hachage": "h1026uhz-69"
+ },
+ {
+  "piste": "047",
+  "texte": "Bravo ! Lèvres fermées, gorge qui vibre, et un son que tu sais tenir : c'est le son mmm.",
+  "hachage": "h1b8ydqi-88"
+ },
+ {
+  "piste": "048",
+  "texte": "Pars du point vert.",
+  "hachage": "h7i5t3h-19"
+ },
+ {
+  "piste": "049",
+  "texte": "Continue jusqu'au bout du chemin, sans lever le doigt.",
+  "hachage": "hqfgkfv-54"
+ },
+ {
+  "piste": "050",
+  "texte": "Reste sur le chemin. On repart du point vert.",
+  "hachage": "h1rccifm-45"
+ },
+ {
+  "piste": "051",
+  "texte": "Bien ! Maintenant le trait suivant.",
+  "hachage": "h1cz51c-35"
+ },
+ {
+  "piste": "052",
+  "texte": "Bravo ! Tu sais écrire le M majuscule, le m minuscule et le m attaché.",
+  "hachage": "h27anmo-70"
+ },
+ {
+  "piste": "053",
+  "texte": "Bravo ! Tu as écrit le M majuscule.",
+  "hachage": "h1ph3z71-35"
+ },
+ {
+  "piste": "054",
+  "texte": "Bravo ! Tu as écrit le m minuscule.",
+  "hachage": "hmg2rvd-35"
+ },
+ {
+  "piste": "055",
+  "texte": "Bravo ! Tu as écrit le m attaché.",
+  "hachage": "h6k0j0i-33"
+ },
+ {
+  "piste": "056",
+  "texte": "Est-ce que c'est clair pour toi jusqu'ici ?",
+  "hachage": "hpje7mf-43"
+ },
+ {
+  "piste": "057",
+  "texte": "Dis-moi, est-ce que tu as bien compris cette partie ?",
+  "hachage": "h1ernwdc-53"
+ },
+ {
+  "piste": "058",
+  "texte": "Alors, est-ce que tu me suis ? Réponds-moi oui ou non.",
+  "hachage": "h1wfe1sn-54"
+ },
+ {
+  "piste": "059",
+  "texte": "Prends ton temps… est-ce que tout est clair pour toi, ou tu préfères que je réexplique ?",
+  "hachage": "hd051in-88"
+ },
+ {
+  "piste": "060",
+  "texte": "On fait une petite pause : est-ce que cette étape est bien claire dans ta tête ?",
+  "hachage": "h19cbn4-80"
+ },
+ {
+  "piste": "061",
+  "texte": "Est-ce que tu as compris ? Si oui, on avance ensemble ; sinon je te réexplique autrement, en prenant le temps qu'il faut.",
+  "hachage": "h1p16ap9-121"
+ },
+ {
+  "piste": "062",
+  "texte": "Réfléchis un instant : est-ce que tu te sens à l'aise avec ce qu'on vient de voir ?",
+  "hachage": "h1mllkjf-83"
+ }
+]

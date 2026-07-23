@@ -93,7 +93,9 @@ test('délègue la voix à l’avatar : mot au toucher et retours envoyés au pa
   // Intégrée au cours, la simulation est muette : elle poste cc-sim-voice au parent.
   assert.match(html, /cc-sim-voice/);
   assert.match(html, /"word":"mouton"/);
-  assert.match(html, /voice\('word',el\.word/);
+  assert.match(html, /voice\('word',frSeul\(el\.word\)/);
+  // Un caractère isolé serait lu en anglais par le TTS : il est annoncé en français.
+  assert.match(html, /'la lettre '\+t/);
   // Le retour d'erreur transporte de quoi corriger : tentative et zone correcte.
   assert.match(html, /'retry',\{elementId/);
   assert.match(html, /correctZoneId/);
@@ -179,3 +181,69 @@ test('filtre strictement les SVG proposés par l’IA', () => {
 test('refuse un glisser-déposer sans objet mobile ni zone cible', () => {
   assert.throws(() => buildSimulationHtml({spec:{interactionType:'drag_drop',variables:[],elements:[],zones:[]}}), /objets mobiles et des zones-cibles/);
 });
+
+// STUDIO SANS GÉNÉRATION : le professeur importe lui-même l'image de chaque carte. Les ids
+// de la spec doivent rester stables (le client indexe importedImages par id) et une carte
+// sans image importée doit retomber proprement sur son SVG, sans casser la page.
+test('les images importées par le professeur sont intégrées, les cartes vides retombent sur le SVG',()=>{
+  const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const spec=sanitizeSimulationSpec({
+    interactionType:'drag_drop',enonce:'Mets les mots avec [m] dans le panier',goal:'trier',
+    variables:[],rules:[],
+    elements:[{id:'mouton',label:'mouton',word:'mouton',imagePrompt:'un mouton blanc',draggable:true},
+              {id:'ballon',label:'ballon',word:'ballon',imagePrompt:'un ballon',draggable:true}],
+    zones:[{id:'panier',label:'panier',imagePrompt:'un panier en osier',accepts:['mouton']}]
+  });
+  assert.deepEqual(spec.elements.map(item=>item.id),['mouton','ballon']);
+  assert.deepEqual(spec.zones.map(item=>item.id),['panier']);
+  const html=buildSimulationHtml({title:'Le panier',targetLabel:'CP',spec,imageDataUrl:'',cardImages:{mouton:png,panier:png}});
+  assert.equal((html.match(/iVBORw0KGgo/g)||[]).length,2);
+  assert.match(html,/ballon/);
+});
+
+// GEOMETRIE : la scene est une grille fixe 100x70 et le libelle est ecrit SOUS l'objet.
+// Quelles que soient les coordonnees produites par l'IA, rien ne doit sortir du cadre ni se
+// chevaucher — mais un placement deja correct doit etre respecte tel quel.
+test('la scene garantit le cadrage et le non-chevauchement des objets',()=>{
+  const overlap=(a,b)=>!(a.x+a.width<=b.x||b.x+b.width<=a.x||a.y+a.height<=b.y||b.y+b.height<=a.y);
+  const audit=spec=>{
+    const boxes=[...spec.zones,...spec.elements];
+    boxes.forEach(item=>{
+      assert.ok(item.x>=0&&item.x+item.width<=100,`${item.id} sort horizontalement`);
+      assert.ok(item.y>=0&&item.y+item.height<=65,`${item.id} sort verticalement (place du libelle)`);
+    });
+    for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++)
+      assert.ok(!overlap(boxes[i],boxes[j]),`${boxes[i].id} chevauche ${boxes[j].id}`);
+  };
+  // L'IA empile tout au meme endroit
+  audit(sanitizeSimulationSpec({interactionType:'drag_drop',enonce:'e',goal:'g',variables:[],rules:[],
+    elements:[{id:'mouton',x:10,y:10,width:20,height:20,draggable:true},
+              {id:'moto',x:12,y:11,width:20,height:20,draggable:true},
+              {id:'ballon',x:14,y:12,width:20,height:20,draggable:true}],
+    zones:[{id:'panier',x:15,y:12,width:25,height:25,accepts:['mouton']}]}));
+  // L'IA deborde du cadre
+  audit(sanitizeSimulationSpec({interactionType:'drag_drop',enonce:'e',goal:'g',variables:[],rules:[],
+    elements:[{id:'a',x:95,y:65,width:30,height:30,draggable:true},
+              {id:'b',x:-10,y:-5,width:20,height:20,draggable:true}],
+    zones:[{id:'z',x:80,y:60,width:30,height:30,accepts:['a']}]}));
+  // Un placement deja correct n'est pas touche
+  const propre=sanitizeSimulationSpec({interactionType:'drag_drop',enonce:'e',goal:'g',variables:[],rules:[],
+    elements:[{id:'a',x:5,y:5,width:18,height:18,draggable:true},
+              {id:'b',x:30,y:5,width:18,height:18,draggable:true}],
+    zones:[{id:'z',x:5,y:40,width:22,height:20,accepts:['a']}]});
+  audit(propre);
+  assert.deepEqual(propre.elements.map(e=>[e.x,e.y]),[[5,5],[30,5]]);
+  assert.deepEqual(propre.zones.map(z=>[z.x,z.y]),[[5,40]]);
+});
+
+// Le pointeur doit etre converti par la matrice reelle du SVG : avec un simple rapport de
+// largeur, la scene 100x70 centree dans un cadre plus large decalait le doigt de ~24 unites.
+test('le pointeur est converti par la matrice SVG, pas par un rapport de largeur',()=>{
+  const spec=sanitizeSimulationSpec({interactionType:'drag_drop',enonce:'e',goal:'g',variables:[],rules:[],
+    elements:[{id:'a',x:5,y:5,width:18,height:18,draggable:true}],
+    zones:[{id:'z',x:5,y:40,width:22,height:20,accepts:['a']}]});
+  const html=buildSimulationHtml({title:'T',targetLabel:'CP',spec,imageDataUrl:'',cardImages:{}});
+  assert.match(html,/getScreenCTM/);
+  assert.match(html,/matrixTransform/);
+});
+
