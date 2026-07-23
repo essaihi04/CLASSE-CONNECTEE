@@ -66,6 +66,42 @@ function phrasesDuChapitre(chapitre) {
   return textes;
 }
 
+/* RAPPELS DU PRIMAIRE (GS/CP) : sur un cours « kids », APRÈS chaque explication le lecteur
+   fait RÉPÉTER la phrase d'ancrage trois fois, avec des préfixes fixes (speakKidsAnchor dans
+   index.html). Ces trois phrases sont fabriquées à l'exécution — jamais écrites dans lecons.js —
+   donc sans cette reconstruction elles partent en synthèse à froid sur Render (sans clé Mistral :
+   Gemini/navigateur), d'où « la voix change à la fin, en répétition ». On réplique EXACTEMENT
+   isKidsLesson(), kidsAnchor() et les trois préfixes du lecteur : au moindre écart, le texte
+   demandé ne correspondrait plus au hachage pré-généré. */
+function estChapitrePrimaire(chapitre) {
+  if (!chapitre) return false;
+  if (chapitre.quizBigVisuals) return true;
+  const niveau = [chapitre.gradeLabel || '', (chapitre.targetContext && chapitre.targetContext.gradeLevelName) || ''].join(' ');
+  return /préscolaire|primaire|apep|grande\s+section|\bcp\b/i.test(niveau);
+}
+function texteBrutHtml(html) { return String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); }
+function ancrageEtape(etape, say) {
+  if (etape && etape.ancrage) return String(etape.ancrage).trim();
+  const lignes = (etape && etape.board && etape.board.lines) || [];
+  const def = lignes.find(l => l && /\bdef\b/.test(l.cls || '') && l.t);
+  const surTableau = def ? texteBrutHtml(def.t) : '';
+  if (surTableau && surTableau.length <= 90) return surTableau;
+  const phrases = String(say || '').split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
+  return phrases.find(p => p.length >= 12 && p.length <= 80) || '';
+}
+const RAPPELS_PRIMAIRE = ['Écoute bien. ', 'À toi ! Répète avec moi. ', 'Encore une fois, tous ensemble. '];
+function phrasesRappelsPrimaire(chapitre) {
+  if (!estChapitrePrimaire(chapitre)) return [];
+  const ov = reecrituresProf(chapitre.id), textes = [];
+  (chapitre.etapes || []).forEach((etape, n) => {
+    const o = ov[String(n)] || {};
+    const say = 'say' in o ? o.say : etape.say;
+    const anc = ancrageEtape(etape, say);
+    if (anc) RAPPELS_PRIMAIRE.forEach(prefixe => textes.push(prefixe + anc));
+  });
+  return textes;
+}
+
 /* ---------------------------------------------------------------------------------
    2. Les phrases des SIMULATIONS. Les simulations sont muettes : elles envoient leur
    texte à l'avatar, qui le prononce avec la voix du cours — ces phrases passent donc
@@ -435,8 +471,8 @@ async function synthetiserJusquAuSucces(texte, rang, total) {
 /* --------------------------------------------------------------------------------- */
 (async function main() {
   const chapitre = chargerChapitre(CHAPITRE);
-  const brut = [].concat(phrasesDuChapitre(chapitre), phrasesDesSimulations(),
-    phrasesDeComprehension(), phrasesDeLEvaluation(chapitre));
+  const brut = [].concat(phrasesDuChapitre(chapitre), phrasesRappelsPrimaire(chapitre),
+    phrasesDesSimulations(), phrasesDeComprehension(), phrasesDeLEvaluation(chapitre));
   // Le cache est indexé sur le texte exact : on dédoublonne comme le fait le serveur,
   // sinon « mmm » ou « On recommence ! » seraient demandés dix fois.
   const phrases = [...new Set(brut.map(p => String(p == null ? '' : p).trim().slice(0, 2000)).filter(Boolean))];
