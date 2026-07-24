@@ -3426,6 +3426,26 @@ document.addEventListener('fullscreenchange',()=>{ if(!document.fullscreenElemen
 /* ============ ÉVALUATION FORMATIVE (QCM / Vrai-Faux / Libre) ============ */
 let quiz=null, qi=0, qScore=0, qMax=0;
 function stripHtml(s){ const d=document.createElement('div'); d.innerHTML=s||''; return d.textContent||''; }
+/* Texte VOCAL d'une question d'évaluation : la notation phonétique « [m] » ne doit jamais
+   partir telle quelle au moteur de voix, qui la lit « mème » (m + ème) au lieu du son continu.
+   Toute la leçon écrit ce son « mmmm » ; on convertit donc « [m] » → « mmmm » à l'oral (l'écran,
+   lui, garde [m]). On ne touche pas à « la lettre M », lue correctement « ème ». */
+// Seule tournure qui fait TENIR le [m] (mesuré : 0,65 s, spectre sans voyelle) — celle de
+// l'écran 2. Une phrase qui ne PARLE PAS de durée fait sortir le son « coupé » (0,30 s).
+const PHRASE_SON_TENU='Le son peut durer : mmmm.';
+// VOIX DES ÉVALUATIONS : le son écrit dans la question/le retour (mmmm, [m]) sort coupé quand la
+// synthèse le prononce en plein milieu de phrase. On l'ôte donc du texte PARLÉ — la graphie
+// reste au tableau — et, si la phrase mentionnait le son, on CLÔT par la phrase-repère qui, elle,
+// fait vraiment tenir le [m]. (cf. mémoire son-continu-graphie-mmmm)
+function voixPhonetique(s){
+  let t=stripHtml(s).trim();
+  if(!/\[\s*m\s*\]|mmmm+/i.test(t)) return t;                              // pas de son : phrase inchangée
+  t=t.replace(/\b(le|la|du|de|au|ce|cette)\s+son\b\s*(?:\[\s*m\s*\]|«\s*mmmm+\s*»|mmmm+)/gi,'$1 son') // « le son mmmm » → « le son »
+     .replace(/«\s*mmmm+\s*»|\[\s*m\s*\]|mmmm+/gi,'ce son')                // occurrences isolées → « ce son » (sans manger l'espace)
+     .replace(/\s{2,}/g,' ').replace(/\s+([.?!,;:])/g,'$1').trim();
+  if(t && !/[.?!…]$/.test(t)) t+='.';
+  return (t?t+' ':'')+PHRASE_SON_TENU;                                     // … puis le son TENU, une fois, propre
+}
 function mkOpt(label, cls){ const b=document.createElement('button');
   b.className='quiz-opt'+(cls?' '+cls:''); b.innerHTML=label; return b; }
 /* Vignette d'une option / d'un élément à relier : SVG inline (…Svgs) ou fichier image (…Imgs). */
@@ -3565,7 +3585,7 @@ function renderQ(){
   avatarExpress((item.svg||item.img) ? 'point' : 'think','curious');
   scheduleAvatarSide(60);
   clearTimeout(window._focusT); window._focusT=setTimeout(updateAvatarSide, 900);
-  speak(stripHtml(item.q));
+  speak(voixPhonetique(item.q));
 }
 function lockChoice(opts, item, chosen){
   [...opts.querySelectorAll('.quiz-opt')].forEach((b,idx)=>{
@@ -3614,7 +3634,7 @@ function giveFeedback(ok, fb){
   const f=document.createElement('div'); f.className='quiz-fb '+(ok?'ok':'no');
   f.innerHTML=(ok?'✅ Bravo ! ':'❌ Pas tout à fait. ')+(fb||''); board.appendChild(f);
   avatarExpress(ok?'clap':'explain', ok?'happy':'neutral');   // bonne réponse → il APPLAUDIT
-  speak((ok?'Bravo ! ':'Pas tout à fait. ')+(fb||''));
+  speak((ok?'Bravo ! ':'Pas tout à fait. ')+voixPhonetique(fb||''));
   // la question est répondue → le bouton "Suivant ▶" du haut peut maintenant avancer aussi
   quizAnswered=true;
   pendingQuizNext=()=>{ qi++; (qi<qMax)?renderQ():endQuiz(); };
