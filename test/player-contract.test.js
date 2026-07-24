@@ -36,3 +36,12 @@ test('le cadrage corps entier protège les mains et garde l’avatar au premier 
   assert.match(source,/Math\.max\(FULL_AVATAR_FOREGROUND_Z,requestedZ\)/);
   assert.match(avatarSource,/FULL_BODY_HALF_WIDTH=0\.72, FULL_BODY_MARGIN=1\.10/);
 });
+
+test('le micro des questions écoute uniquement après une demande explicite',()=>{
+  assert.match(source,/rec\.continuous=false/);
+  assert.match(source,/micBtn\.onclick=.*startRec\(\)/s);
+  assert.match(source,/rec\.onend=\(\)=>setListening\(false\)/);
+  assert.match(source,/mic-label">Parler/);
+  assert.match(source,/body\.presenting \.askbar\{display:block!important/);
+  assert.doesNotMatch(source,/\b(?:handsFree|armHF|ccArmHandsFree|voiceFab)\b/);
+});

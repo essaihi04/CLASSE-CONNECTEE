@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="cc-reponses" content="moto début,plume fin,pyjama milieu">
+<meta name="cc-reponses" content="moto début,plume fin,camion milieu">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Où se cache le son [m] ?</title>
 <style>
@@ -46,7 +46,7 @@ body{display:flex;align-items:center;justify-content:center}
 .mot .lettres b{font-size:clamp(14px,4.6vmin,46px);color:var(--encre);transition:.3s}
 .mot .lettres b.pale{color:#C7D2DE}
 .mot .lettres b.trouve{color:var(--rouge);transform:scale(1.18)}
-/* PYJAMA : le mot écrit en attaché (manuscrit), comme dans le cahier */
+/* Variante disponible pour les mots écrits en attaché (manuscrit). */
 .mot .lettres.cursive{gap:.2vmin}
 .mot .lettres.cursive b{font-family:'Segoe Script','Comic Sans MS','Bradley Hand',cursive;font-style:italic}
 
@@ -79,7 +79,7 @@ body{display:flex;align-items:center;justify-content:center}
   color:#fff;font-weight:900;font-size:clamp(20px,6vmin,58px);line-height:1;
   display:flex;align-items:center;justify-content:center;cursor:grab;touch-action:none;
   border:.7vmin solid #fff;box-shadow:0 1.2vmin 0 #9F1239,0 1.6vmin 3vmin #0004;transition:box-shadow .18s}
-/* le jeton de PYJAMA : lettre attachée (cursive), comme dans le cahier */
+/* Variante disponible pour une lettre attachée (cursive), comme dans le cahier. */
 .jeton.cursive{font-family:'Segoe Script','Comic Sans MS','Bradley Hand',cursive;font-style:italic}
 .jeton:active{cursor:grabbing}
 .jeton.prise{box-shadow:0 1.8vmin 3.4vmin #0006;transform:scale(1.1)}
@@ -164,13 +164,13 @@ body{display:flex;align-items:center;justify-content:center}
 'use strict';
 /* La place réelle du son [m] : connue du programme, JAMAIS annoncée avant l'essai. */
 /* jeton : la lettre M du mot, dans l'écriture demandée — M majuscule (MOTO),
-   m manuscrit/cursive (PYJAMA), m minuscule (PLUME) ; cursive=true → police attachée. */
-/* graphie : le mot tel qu'il est ÉCRIT sous l'image — MOTO en majuscules, plume en
-   minuscules, pyjama en attaché (cursive, via la classe .cursive sur les lettres). */
+   m minuscule (PLUME et CAMION) ; cursive=true → police attachée. */
+/* graphie : le mot tel qu'il est ÉCRIT sous l'image — MOTO en majuscules,
+   plume et camion en minuscules. */
 var MOTS=[
   {id:'moto',   mot:'MOTO',   graphie:'MOTO',   dit:'moto',   img:'images/moto.webp',   place:'début', indice:0, jeton:'M'},
   {id:'plume',  mot:'PLUME',  graphie:'plume',  dit:'plume',  img:'images/plume.webp',  place:'fin',   indice:3, jeton:'m'},
-  {id:'pyjama', mot:'PYJAMA', graphie:'pyjama', dit:'pyjama', img:'images/pyjama.webp', place:'milieu',indice:4, jeton:'m', cursive:true}
+  {id:'camion', mot:'CAMION', graphie:'camion', dit:'camion', img:'images/camion.webp', place:'milieu',indice:2, jeton:'m'}
 ];
 var scene=document.getElementById('scene'), motBox=document.getElementById('mot'),
     jeton=document.getElementById('jeton'), jauge=document.getElementById('jauge'),
@@ -211,7 +211,7 @@ function afficherMot(silencieux){
   var lettres=(m.graphie||m.mot).split('').map(function(c){return '<b>'+c+'</b>'}).join('');
   motBox.innerHTML='<img src="'+m.img+'" alt="'+m.mot+'"><div class="lettres'+(m.cursive?' cursive':'')+'">'+lettres+'</div>';
   jeton.textContent=m.jeton;                       // la lettre du mot courant
-  jeton.classList.toggle('cursive', m.cursive===true);  // PYJAMA : écriture attachée
+  jeton.classList.toggle('cursive', m.cursive===true);
   ramenerJeton();
   if(silencieux!==true) parle('word',m.dit,{elementId:m.id});
 }

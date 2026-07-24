@@ -528,9 +528,14 @@ window.classesReaderAccessReady=(async function(){
   .askbar{display:flex;gap:10px;margin-top:10px;flex:0 0 auto}
   .askbar input{flex:1;background:#0b1220;border:1px solid #334155;color:#e2e8f0;padding:13px 16px;border-radius:12px;font-size:15px}
   .askbar input:focus{outline:none;border-color:var(--accent)}
-  #micBtn{background:#334155;border:none;color:#e2e8f0;font-size:18px;width:48px;border-radius:12px;cursor:pointer;transition:.15s}
-  #micBtn:hover{background:#475569}
-  #micBtn.listening{background:#ef4444;color:#fff;animation:micPulse 1s infinite}
+  #micBtn{height:48px;min-width:122px;padding:0 16px;background:#0e7490;border:2px solid #22d3ee;
+    color:#ecfeff;font-size:15px;font-weight:800;border-radius:12px;cursor:pointer;transition:.15s;
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+  #micBtn .mic-icon{font-size:20px;line-height:1}
+  #micBtn:hover:not(:disabled){background:#0891b2;border-color:#67e8f9;transform:translateY(-1px)}
+  #micBtn:focus-visible{outline:3px solid #fde68a;outline-offset:2px}
+  #micBtn:disabled{cursor:not-allowed;opacity:.48;background:#334155;border-color:#475569;transform:none}
+  #micBtn.listening{background:#b91c1c;border-color:#fca5a5;color:#fff;animation:micPulse 1s infinite}
   @keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.6)}50%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
   /* barre du haut du tableau : questions (gauche) + Suivant (droite), collée en haut */
   .boardtop{position:sticky;top:0;z-index:12;display:flex;align-items:flex-start;gap:10px;pointer-events:none;
@@ -774,19 +779,9 @@ window.classesReaderAccessReady=(async function(){
   .schema.is-sim .sim-tag{position:absolute;top:-11px;left:14px;font-size:10px;font-weight:800;
     letter-spacing:.5px;color:#082f49;background:var(--accent);padding:2px 9px;border-radius:20px}
 
-  /* ====== BOUTON FLOTTANT MAINS-LIBRES (visible même en plein écran) ====== */
-  #voiceFab{position:fixed;left:14px;bottom:14px;z-index:70;width:54px;height:54px;border-radius:50%;
-    border:2px solid #334155;background:rgba(2,6,23,.82);color:#e2e8f0;font-size:23px;cursor:pointer;
-    opacity:.55;transition:.2s;display:grid;place-items:center}
-  #voiceFab:hover{opacity:.85}
-  #voiceFab.on{opacity:1;border-color:#ef4444;background:#7f1d1d;animation:micPulse 1.6s infinite}
-  #voiceFab .lbl{position:absolute;left:60px;white-space:nowrap;background:rgba(2,6,23,.85);
-    color:#a5f3fc;font-size:11px;padding:4px 9px;border-radius:8px;pointer-events:none;
-    opacity:0;transition:.2s}
-  #voiceFab:hover .lbl{opacity:1}
 
   /* ====== PAVÉ D'ÉCRITURE MANUSCRITE (bouton flottant + panneau, visible en plein écran) ====== */
-  #writeFab{position:fixed;left:14px;bottom:78px;z-index:70;width:54px;height:54px;border-radius:50%;
+  #writeFab{position:fixed;left:14px;bottom:14px;z-index:70;width:54px;height:54px;border-radius:50%;
     border:2px solid #334155;background:rgba(2,6,23,.82);color:#e2e8f0;font-size:23px;cursor:pointer;
     opacity:.55;transition:.2s;display:grid;place-items:center}
   #writeFab:hover{opacity:.85}
@@ -856,6 +851,11 @@ window.classesReaderAccessReady=(async function(){
   body.presenting footer,
   body.presenting .drawToggle,
   body.presenting .drawTools{ display:none !important; }
+  /* En plein écran, seul le micro à la demande reste visible ; aucun écouteur automatique. */
+  body.presenting .askbar{display:block!important;position:fixed;left:80px;bottom:14px;z-index:70;margin:0}
+  body.presenting .askbar input,
+  body.presenting .askbar #send{display:none!important}
+  body.presenting #micBtn{box-shadow:0 8px 24px rgba(0,0,0,.38)}
   body.presenting .stage{ margin:0; padding:0; max-width:none; }
   body.presenting .board{ border-radius:0; border-width:6px; cursor:pointer; overflow:hidden; padding:16px 24px; }
   body.presenting .boardtop{position:absolute;top:8px;right:10px;margin:0;padding:0}
@@ -997,8 +997,10 @@ window.classesReaderAccessReady=(async function(){
 
   <!-- Q&R (saisie de question en pied de tableau) -->
   <div class="askbar">
-    <button id="micBtn" title="Parler au prof (dis ta réponse ou ta question)">🎤</button>
-    <input id="qinput" placeholder="💬 Pose ta question au prof… ou clique 🎤 pour parler">
+    <button id="micBtn" type="button" aria-pressed="false" title="Activer le micro pour poser une question">
+      <span class="mic-icon" aria-hidden="true">🎤</span><span class="mic-label">Parler</span>
+    </button>
+    <input id="qinput" placeholder="💬 Pose ta question au prof… ou clique sur Parler">
     <button class="primary" id="send">Envoyer</button>
   </div>
 </div>
@@ -1640,10 +1642,13 @@ function introGestureFor(sentence){
      || /\b(pret|prets|prete|pretes|c est parti|allons y|en route)\b/.test(s))     return {g:'motivate', e:'surprised'};
   if(/\b(commence|commencons|on y va|c est parti)\b/.test(s))                       return {g:'motivate', e:'happy'};
   if(/\b(nous allons|on va|tu vas|vous allez|d abord|ensuite|puis|enfin|ecout|cherch|ecri|trouv|jouer|compt)/.test(s))
-                                                                                    return {g:'count',    e:'happy'};
+                                                                                    return {g:'welcome',  e:'happy'};   // bras ouverts (pose tenue) — remplace « count » qui pliait/agitait le coude
   if(/(decouvr|apprend|aujourd hui|voici|regard|observ|nouveau|nouvelle|presente|montr)/.test(s))
                                                                                     return {g:'present',  e:'happy'};
-  return {g:'explain', e:'happy'};
+  // Diapo 0 : on n'autorise QUE les 4 gestes de présentation (saluer → présenter →
+  // énumérer → encourager). Toute phrase non reconnue retombe sur « présenter », jamais
+  // sur un geste hors de ces quatre.
+  return {g:'present', e:'happy'};
 }
 function scheduleIntroGestures(text, audio, my){
   if(introChoreoText!==text) return;                 // l'étape courante n'est pas une intro chorégraphiée
@@ -3257,9 +3262,7 @@ function topNext(){
   if(inQuiz){ if(quizAnswered && pendingQuizNext) pendingQuizNext(); return; }
   go(i+1);
 }
-document.getElementById('start').onclick=()=>{ enterPresentation(); go(0);
-  if(window.ccArmHandsFree) try{ window.ccArmHandsFree(); }catch(e){}   // écoute vocale mains-libres
-};
+document.getElementById('start').onclick=()=>{ enterPresentation(); go(0); };
 document.getElementById('next').onclick=topNext;
 document.getElementById('nextTop').onclick=topNext;       // bouton Suivant en haut du tableau (à droite des questions)
 document.getElementById('prev').onclick=()=>go(i-1);
@@ -4163,8 +4166,14 @@ qinput.addEventListener('keydown',e=>{ if(e.key==='Enter') ask(qinput.value); })
 (function(){
   const micBtn=document.getElementById('micBtn');
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SR){ micBtn.title="Reconnaissance vocale non disponible sur ce navigateur (essaie Chrome)"; micBtn.style.opacity=.5; return; }
-  const rec=new SR(); rec.lang='fr-FR'; rec.interimResults=false; rec.maxAlternatives=1;
+  if(!SR){
+    micBtn.title="Reconnaissance vocale non disponible sur ce navigateur (essaie Chrome)";
+    micBtn.disabled=true;
+    micBtn.innerHTML='<span class="mic-icon" aria-hidden="true">🚫</span><span class="mic-label">Indisponible</span>';
+    return;
+  }
+  const rec=new SR();
+  rec.lang='fr-FR'; rec.interimResults=false; rec.maxAlternatives=1; rec.continuous=false;
   let listening=false;
   // Horodatage du DÉBUT de la session d'écoute courante. Sert à l'anti-écho : la
   // reconnaissance ne livre son texte (onresult) qu'à la FIN de l'énoncé, souvent APRÈS
@@ -4182,52 +4191,33 @@ qinput.addEventListener('keydown',e=>{ if(e.key==='Enter') ask(qinput.value); })
   // demande de répéter (→ même traitement que « non » : on réexplique)
   const REPETE=/\b(r[ée]p[èé]te|r[ée]p[ée]ter|encore|redis)\b/i;
 
-  function setListening(on){ listening=on; micBtn.classList.toggle('listening',on); micBtn.textContent=on?'🔴':'🎤'; }
-  micBtn.onclick=()=>{ if(listening){ try{rec.stop();}catch(e){} return; }
-    if(startRec()) speech.textContent='🎤 Je t\'écoute…'; };
-  // ===== MODE MAINS-LIBRES : l'écoute se relance toute seule =====
-  // L'élève n'a plus besoin de cliquer : il peut parler à tout moment pour dire
-  // « oui / j'ai compris », « je n'ai pas compris », ou poser une question.
-  let handsFree=false;
-  const fab=document.createElement('button'); fab.id='voiceFab';
-  fab.innerHTML="🎙️<span class='lbl'>Mains-libres : parle au prof</span>";
-  document.body.appendChild(fab);
-  function setFab(){ fab.classList.toggle('on',handsFree);
-    fab.title = handsFree ? "Écoute mains-libres ACTIVE (clique pour couper le micro)"
-                          : "Activer l'écoute mains-libres (parle au prof)"; }
-  // Anti-écho : quand l'avatar parle, le micro RESTE ouvert mais on ignore tout ce qui est
-  // perçu… SAUF les commandes courtes « pause / arrête / stop » (et « reprends » en pause) :
-  // l'élève peut interrompre l'avatar au milieu de sa phrase (voir handleBargeIn).
-  let micSuppressed=false;
-  window.ccOnAvatarSpeak=(on)=>{
-    if(on){ micSuppressed=true; armHF(); }                             // micro maintenu ouvert
-    else  { setTimeout(()=>{ micSuppressed=false; armHF(); }, 700); }  // fin de parole : écoute complète
-  };
-  function armHF(){ if(handsFree && !listening){ startRec(); } }
-  // INTERRUPTION pendant la parole : seules des commandes COURTES et sans ambiguïté passent
-  // l'anti-écho ; une phrase longue est presque sûrement la voix de l'avatar captée par le micro.
-  function handleBargeIn(said){
-    const t=(said||'').toLowerCase().trim();
-    if(!t || t.split(/\s+/).length>5) return false;                   // trop long = écho probable
-    if(/(arr[êe]te|stoppe|\bstop\b).{0,14}(cours|le[çc]on|tout)/.test(t)){
-      speech.textContent='⏹ D\'accord, on s\'arrête là.'; stopCourse(); return true; }
-    if(paused && /\b(reprends?|continue|repars|vas[- ]?y|play)\b/.test(t)){
-      togglePause(); speech.textContent='▶ C\'est reparti !'; return true; }
-    if(!paused && /\b(pause|attends|arr[êe]te(-toi)?|stoppe|stop|chut|silence|tais[- ]?toi)\b/.test(t)){
-      cancelAutoNext(); togglePause();
-      speech.textContent='⏸ Je me tais et je t\'écoute : pose ta question, ou dis « reprends », « réexplique », « reviens au diapo précédent »…'; return true; }
-    return false;
+  function setListening(on){
+    listening=on;
+    micBtn.classList.toggle('listening',on);
+    micBtn.setAttribute('aria-pressed',String(on));
+    micBtn.innerHTML=on
+      ? '<span class="mic-icon" aria-hidden="true">⏹</span><span class="mic-label">Arrêter</span>'
+      : '<span class="mic-icon" aria-hidden="true">🎤</span><span class="mic-label">Parler</span>';
+    micBtn.title=on ? "Arrêter l'écoute" : "Activer le micro pour poser une question";
   }
-  fab.onclick=()=>{ handsFree=!handsFree; setFab();
-    if(handsFree){ speech.textContent="🎙️ Micro activé : parle quand tu veux."; armHF(); }
-    else { try{ rec.stop(); }catch(e){} } };
-  setFab();
-  // relance automatique de l'écoute tant que le mode mains-libres est actif
-  rec.onend=()=>{ setListening(false); if(handsFree) setTimeout(()=>{ if(handsFree) armHF(); }, 400); };
-  rec.onerror=(e)=>{ setListening(false);
-    if(e && (e.error==='not-allowed'||e.error==='service-not-allowed')){ handsFree=false; setFab(); } };
-  // permet au bouton « Démarrer » d'activer directement les mains-libres
-  window.ccArmHandsFree=()=>{ if(!handsFree){ handsFree=true; setFab(); } armHF(); };
+  micBtn.onclick=()=>{
+    if(listening){ try{rec.stop();}catch(e){} setListening(false); return; }
+    if(startRec()) speech.textContent="🎤 Je t'écoute. Parle maintenant.";
+  };
+  // Le micro est strictement à la demande. Si l'avatar recommence à parler,
+  // une éventuelle écoute manuelle est interrompue et ne se relance jamais seule.
+  window.ccOnAvatarSpeak=(on)=>{
+    micBtn.disabled=!!on;
+    if(on && listening){ try{rec.abort();}catch(e){} setListening(false); }
+  };
+  rec.onend=()=>setListening(false);
+  rec.onerror=(e)=>{
+    setListening(false);
+    if(e && (e.error==='not-allowed'||e.error==='service-not-allowed')){
+      micBtn.title="Autorisation du microphone refusée";
+      speech.textContent="Le microphone n'est pas autorisé. Tu peux écrire ta question.";
+    }
+  };
 
   rec.onresult=(ev)=>{
     setListening(false);
@@ -4254,12 +4244,12 @@ qinput.addEventListener('keydown',e=>{ if(e.key==='Enter') ask(qinput.value); })
     // instant où il s'est tu ; s'il est postérieur au début de l'écoute (à ~300 ms près),
     // c'est que sa voix a été captée par ce micro → écho, même si tout est calme maintenant.
     const spokeThisSession = avatarSpeakEndAt >= (recStartAt - 300);
-    const speaking=avatarSpeaking || micSuppressed
+    const speaking=avatarSpeaking
       || (currentAudio && !currentAudio.paused)
       || (window.speechSynthesis && speechSynthesis.speaking)
       || (Date.now()-avatarSpeakEndAt < 900)
       || spokeThisSession;
-    if(speaking){ handleBargeIn(said); return; }          // avatar en train de parler : seuls pause/arrêt passent
+    if(speaking) return;                                  // sécurité anti-écho : aucune écoute automatique
 
     if(handleVideoCommand(said)) return;                  // "rejoue / mets pause la vidéo" → contrôle direct
     if(handleVoiceCommand(said)) return;                  // commandes avancées : vidéo d'un autre diapo, évaluation, navigation…

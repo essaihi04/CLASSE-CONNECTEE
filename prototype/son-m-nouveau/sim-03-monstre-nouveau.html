@@ -118,13 +118,16 @@ var M_CURSIF='<svg viewBox="0 0 100 100" aria-hidden="true">'+
    IMPORTANT (voix) : `dit` ne doit JAMAIS être une lettre seule. Le texte part vers l'avatar
    et le moteur TTS devine la langue d'après le texte reçu ; un caractère isolé (« n », « W »)
    n'a aucun indice de français et se fait lire en ANGLAIS (« double-you », « yoo »).
-   On enveloppe donc chaque lettre dans une phrase française complète. */
+   On enveloppe donc chaque lettre dans une phrase française complète.
+   PIÈGE « m » : le moteur français lit « m » suivi d'un espace comme l'abréviation M. =
+   « Monsieur » (« m minuscule » → « monsieur minuscule »). Pour la lettre m on épelle donc
+   son nom phonétique « emme ». */
 var LETTRES=[
-  {id:'M-maj', aff:'M',        dit:'M majuscule',          bon:true,  x:4,  y:16},
+  {id:'M-maj', aff:'M',        dit:'la lettre emme majuscule', bon:true,  x:4,  y:16},
   {id:'n-min', aff:'n',        dit:'la lettre n minuscule', bon:false, x:17, y:16},
-  {id:'m-min', aff:'m',        dit:'m minuscule',          bon:true,  x:30, y:16},
+  {id:'m-min', aff:'m',        dit:'la lettre emme minuscule', bon:true,  x:30, y:16},
   {id:'W-maj', aff:'W',        dit:'la lettre W majuscule', bon:false, x:56, y:16},
-  {id:'m-cur', aff:M_CURSIF,   dit:'m attaché',            bon:true,  x:69, y:16},
+  {id:'m-cur', aff:M_CURSIF,   dit:'la lettre emme attachée', bon:true,  x:69, y:16},
   {id:'N-maj', aff:'N',        dit:'la lettre N majuscule', bon:false, x:82, y:16},
   {id:'u-min', aff:'u',        dit:'la lettre u minuscule', bon:false, x:82, y:62}
 ];
@@ -225,7 +228,7 @@ function donner(id,silencieux){
 }
 function fini(){
   bravo.className='bravo on';
-  parle('success','Bravo ! Tu as trouvé les trois écritures : M majuscule, m minuscule et m attaché. Le son peut durer : mmmm.');
+  parle('success','Bravo ! Tu as trouvé les trois écritures : la lettre emme majuscule, la lettre emme minuscule et la lettre emme attachée. Le son peut durer : mmmm.');
   try{parent.postMessage({type:'cc-sim-complete',mode:'drag_drop',state:etat()},'*')}catch(e){}
 }
 
