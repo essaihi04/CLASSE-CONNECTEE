@@ -863,7 +863,19 @@ window.classesReaderAccessReady=(async function(){
   body.presenting .content{height:100%;overflow:hidden;padding-bottom:0}
   /* Le tableau en plein écran coupe ce qui dépasse : l'évaluation garde donc son propre
      ascenseur en dernier recours, pour qu'aucune proposition ne reste hors de l'écran. */
-  body.presenting .quiz-layout-block{max-height:100%;overflow-y:auto;overscroll-behavior:contain}
+  /* Le bloc du quiz est plafonné à la hauteur VISIBLE au-dessus du micro « Parler » (fixé en bas,
+     ~62px) : ainsi le retour et le bouton Suivant restent toujours à l'écran et au-dessus de
+     l'icône, au lieu d'être coupés/rejetés dessous. Il défile en son sein en tout dernier recours. */
+  body.presenting .quiz-layout-block{max-height:calc(100vh - 140px);overflow-y:auto;overscroll-behavior:contain}
+  /* Une question d'association empile 3 lignes à image : on les compacte en plein écran pour que
+     tout (images + « Bonnes associations » + retour + Suivant) tienne sans défiler. */
+  body.presenting .assoc-row,
+  body.presenting .quiz-xl .assoc-row{margin:2px 0}
+  body.presenting .assoc-l .qo-svg,
+  body.presenting .quiz-xl .assoc-l .qo-svg{width:56px;height:46px}
+  body.presenting .assoc-sel,
+  body.presenting .quiz-xl .assoc-sel{padding:7px 12px}
+  body.presenting .quiz-fb{margin-top:8px}
   /* Une simulation est une activité à manipuler : elle prend toute la largeur et toute la hauteur
      restante du tableau, sans être réduite par la colonne de l'avatar. */
   body.presenting .content:has(.simulation-embedded){display:flex;flex-direction:column;height:100%;overflow:hidden;padding:0}
@@ -3611,7 +3623,7 @@ function answerLibre(inp, opts){
   const ok=item.attendus.some(k=>low.includes(k.toLowerCase()));
   inp.disabled=true; [...opts.querySelectorAll('.quiz-opt')].forEach(b=>b.disabled=true);
   const exp=document.createElement('div'); exp.className='line def';
-  exp.innerHTML="Réponse attendue : <span class='key'>"+item.reponse+"</span>"; board.appendChild(exp);
+  exp.innerHTML="Réponse attendue : <span class='key'>"+item.reponse+"</span>"; quizScroll().appendChild(exp);
   giveFeedback(ok, item.fb);
 }
 function shuffle(a){ a=a.slice(); for(let k=a.length-1;k>0;k--){ const j=Math.floor(Math.random()*(k+1)); [a[k],a[j]]=[a[j],a[k]]; } return a; }
@@ -3626,13 +3638,17 @@ function answerAssoc(opts){
   [...opts.querySelectorAll('.quiz-opt')].forEach(b=>b.disabled=true);
   const exp=document.createElement('div'); exp.className='line def';
   exp.innerHTML='Bonnes associations : '+item.pairs.map(p=>"<span class='key'>"+p.l+' → '+p.r+'</span>').join(' &nbsp; ');
-  board.appendChild(exp);
+  quizScroll().appendChild(exp);
   giveFeedback(allOk, item.fb);
 }
+// le retour et le bouton « Suivant » vivent DANS le bloc défilant du quiz (pas dans le board) :
+// ainsi ils restent au-dessus du micro « Parler » fixé en bas-gauche du plein écran, et défilent
+// avec la question quand elle est haute (au lieu de finir sur l'icône ou hors de l'écran).
+function quizScroll(){ return board.querySelector('.quiz-layout-block')||board; }
 function giveFeedback(ok, fb){
   if(ok) qScore++;
   const f=document.createElement('div'); f.className='quiz-fb '+(ok?'ok':'no');
-  f.innerHTML=(ok?'✅ Bravo ! ':'❌ Pas tout à fait. ')+(fb||''); board.appendChild(f);
+  f.innerHTML=(ok?'✅ Bravo ! ':'❌ Pas tout à fait. ')+(fb||''); quizScroll().appendChild(f);
   avatarExpress(ok?'clap':'explain', ok?'happy':'neutral');   // bonne réponse → il APPLAUDIT
   speak((ok?'Bravo ! ':'Pas tout à fait. ')+voixPhonetique(fb||''));
   // la question est répondue → le bouton "Suivant ▶" du haut peut maintenant avancer aussi
@@ -3641,7 +3657,7 @@ function giveFeedback(ok, fb){
   const next=mkOpt(qi+1<qMax ? 'Question suivante ▶' : 'Voir mon score 🎯','primary');
   next.style.marginTop='14px'; next.style.background='var(--accent)'; next.style.color='#082f49';
   next.onclick=()=>pendingQuizNext();
-  board.appendChild(next);
+  quizScroll().appendChild(next);
 }
 function endQuiz(){
   inQuiz=false; quizAnswered=false; pendingQuizNext=null;   // fin de l'évaluation
